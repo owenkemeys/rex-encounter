@@ -68,6 +68,10 @@ export const TYRANNOSAURUS = {
   // vertebrae); the skull turns on the atlas a further `skullSame` the same way as the neck's curve, but against it only
   // `skullOpp`. A head aim past that is the trunk's and the feet's to give. `latTau`: the curve's low-pass (s), so it cannot writhe.
   neck: { latJoint: 0.11, latTotal: 0.6, skullSame: 0.36, skullOpp: 0.1, latTau: 0.07, latRate: 1.6 },
+  // running into things (sim/rex.js _crash). A head-on knock closing faster than `reelFrom` m/s makes it reel (head thrown back,
+  // a drop on bent legs), fully from `reelFull`: it then backs off at `reelBack` m/s (least, most) and, from a reel of `shakeFrom`
+  // (0..1), shakes its head. `stumble` scales the lurch of a glancing or corner hit at a run.
+  crash: { reelFrom: 2.5, reelFull: 6.5, reelBack: [0.4, 0.9], shakeFrom: 0.35, stumble: 1 },
   // relative masses for balance (the centre of mass is kept over the feet)
   mass: { head: 0.5, neck: 0.35, torso: 4.6, tail: 1.4, torsoF: 1.15 },
   // senses

@@ -46,7 +46,7 @@ It is one app, not yet packages. The seams are already clean enough to split lat
 
 ## Before you ship a change
 
-1. Run the Node tests that cover what you touched. Body: `test/review.mjs`, `test/corner.mjs`, `test/striketime.mjs`, `test/strikepass.mjs`. Mind: `test/mind.mjs all <seed>`, `test/commit.mjs`, `test/platform.mjs`, `test/saltline.mjs`.
+1. Run the Node tests that cover what you touched. Body: `test/review.mjs`, `test/corner.mjs`, `test/striketime.mjs`, `test/strikepass.mjs`, `test/crashread.mjs` (each crash test twice: knock, speed lost, how far it comes back off the thing). Crash sounds: `python3 test/crash_audio.py` (renders each, prints level, share above 300 Hz, tonality). Mind: `test/mind.mjs all <seed>`, `test/commit.mjs`, `test/platform.mjs`, `test/saltline.mjs`.
 2. Build and run `tools/load_check.py`; console must be clean.
 3. A body change that helps the arena can stall the animal in Saltline. Check both.
 4. Say plainly what was verified by test and what nobody has seen or heard. The owner playtests by eye and ear; most things here have only ever been checked by numbers.
@@ -60,7 +60,7 @@ It is one app, not yet packages. The seams are already clean enough to split lat
 
 ## Open work (newest first; details in `notes/QUEUE.md`)
 
-1. **Crashes do not read.** Head-on: no flinch or reaction, the head just butts. Glancing and corner hits: nothing visible. Sound, dust and camera jolt were added on 2026-11-15 but are unheard. Needs visible body reaction scaled to force. Owner after hearing it (2026-11-15): concrete hit good; metal improved but some hits still sound like a xylophone (the old light-contact metal partials in `audio.contact`, and probably the new resonances too: wants weight, not pitch); timber barn hit inaudible; camera shake and dust okay but a little weak.
+1. **Crashes: reworked 2026-11-15, awaiting the owner's eye and ear** (`notes/skel/CRASHREAD.md`). Later crashes in a session were being ignored (cooldown bug), which was most of "nothing happened". Head-on now reels (head thrown back, backs off, shakes); glancing and corner hits are a jolt; container and barn sounds rebuilt as struck noise that a phone can carry; kick and dust stronger. Checked by `test/crashread.mjs`, `test/crash_audio.py` and still frames only. Left: a sprint head-on sits very low; it reels off bamboo.
 2. **Bamboo and squeezing.** Thin stems should give way with effort; a determined animal should force a nearly-wide-enough gap (volumes compress, narrow side first, spine a little past limits, slow, scraping) and refuse plainly impossible ones. Phone slows when it is in the bamboo: measure sim cost first. Owner watched the bamboo test: it got stuck, then unstuck, and the skeleton's poses were tortured on the way.
 3. Strike misses a man under its chin. Tail has no contact or slap. Gaze more than 60 degrees off target 5.3% of the time.
 4. Three long stalls remain in Saltline over 8 seeds.

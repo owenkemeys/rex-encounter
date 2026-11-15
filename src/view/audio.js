@@ -798,7 +798,7 @@ export class Audio {
    *  What it sounds like comes from what the thing is made of (the structure there: timber/hay a hollow knock, steel/container a
    *  short dull clang, concrete/block/rock a hard click), how hard from the closing speed: a feel along a wall is a soft scrape. */
   contact(e = {}, dist) {
-    if (!this._ok()) return; if (e.type === 'contact') { if (this.ctx.currentTime - (this._contactT ?? -9) < 0.15) return; this._contactT = this.ctx.currentTime; }
+    if (!this._ok()) return; if (e.type === 'contact') { const big = e.part === 'torso' || e.part === 'hips' || (e.force ?? 0) > 2.5; if (this.ctx.currentTime - (this._contactT ?? -9) < 0.15 && !(big && !this._contactBig)) return; this._contactT = this.ctx.currentTime; this._contactBig = big; }
     const h = this.sim && this.sim.head ? this.sim.head.pos : null, x = e.x ?? (h ? h.x : 0), y = e.y ?? (h ? h.y : 0), z = e.z ?? (h ? h.z : 0);
     const L = this._L(), d = dist ?? Math.hypot(x - L.x, y - L.y, z - L.z), T = this.terrain;
     let mat = e.mat || null; if (!mat && T) { let bd = 1e9; for (const S of T.structures || []) { const dd = Math.hypot(S.cx - x, S.cz - z) - Math.max(S.hw, S.hd); if (dd < bd && dd < 3) { bd = dd; mat = S.mat; } } }
@@ -815,16 +815,25 @@ export class Audio {
       this._burst(dest, at, 0.42, 'lowpass', 78 * side, 0.8, 1.9 * G, 0.008);                 // the mass arriving
       this._burst(dest, at + 0.004, 0.16, 'lowpass', 210 * side, 0.7, 1.3 * G, 0.004);        // flesh and bone on it
       this._burst(dest, at + 0.01, 0.09, 'bandpass', 620 * side, 0.9, 0.5 * G, 0.003);
+      // (owner 2026-11-15, on a phone: "still some xylophone sounding ones ... the timber one inaudible". Measured, test/crash_audio.py:
+      //  the container was six ringing oscillators with nothing above 300 Hz but their thin upper partials, the barn all below
+      //  300 Hz and 15 dB down. Now every material is struck noise, never a held pitch, with its weight in 300-1000 Hz where a
+      //  small speaker can carry it.)
+      if (kind === 'metal' || kind === 'wood') this._burst(dest, at + 0.002, 0.2, 'bandpass', 340 * side, 0.7, 1.5 * G, 0.004);        // the weight, where a phone can say it (concrete is left as it was: "the concrete one is good")
+      const J = () => 0.88 + 0.24 * R();
       if (kind === 'metal') {
-        for (const [fq, k2, tau] of [[54, 1, 0.42], [87, 0.85, 0.36], [133, 0.6, 0.3], [207, 0.42, 0.24], [318, 0.26, 0.18], [503, 0.14, 0.12]]) {
-          const o = c.createOscillator(), og = c.createGain(); o.type = 'triangle'; o.frequency.value = fq * side * this._jit(0.04);
-          og.gain.setValueAtTime(0.0001, at); og.gain.linearRampToValueAtTime(0.5 * k2 * G, at + 0.012); og.gain.setTargetAtTime(0.0001, at + 0.02, tau);
-          o.connect(og); og.connect(dest); o.start(at); o.stop(at + 2.2); o.onended = () => { try { o.disconnect(); og.disconnect(); } catch {} };
-        }
-        this._burst(dest, at + 0.03, 0.5, 'bandpass', 1500 * side, 0.6, 0.22 * G, 0.02);      // the sheet rattling after
+        // a steel box: wide dead booms (struck noise through broad resonances: no pitch to pick out), the slap of the panel,
+        // then loose doors and lock rods chattering
+        for (const [fq, q, len, k2] of [[66, 2.2, 0.6, 1.5], [104, 2.4, 0.5, 1.2], [168, 2.2, 0.42, 1.2], [270, 2, 0.34, 1.5], [430, 1.8, 0.26, 1.5], [690, 1.6, 0.2, 1.1]]) this._burst(dest, at + 0.003, len, 'bandpass', fq * side * J(), q, k2 * G, 0.005);
+        this._burst(dest, at, 0.07, 'bandpass', 1150 * side, 0.5, 1.0 * G, 0.002);
+        for (let i = 0; i < 5; i++) this._burst(dest, at + 0.05 + 0.09 * i * (0.7 + 0.6 * R()), 0.05 + 0.04 * R(), 'bandpass', (1300 + 2200 * R()) * side, 1, 0.42 * G * (1 - i / 6), 0.002);
       } else if (kind === 'wood') {
-        this._burst(dest, at, 0.12, 'bandpass', (150 + R() * 50) * side, 4, 1.5 * G, 0.003);
-        for (let i = 0; i < 3; i++) this._burst(dest, at + 0.02 + R() * 0.12, 0.03, 'bandpass', (1400 + R() * 1600) * side, 1.5, 0.35 * G, 0.001);      // boards cracking
+        // a timber wall: the hollow boom of the building, the whack and crack of boards taking it, splinters, a creak as it settles
+        this._burst(dest, at, 0.26, 'bandpass', (140 + R() * 40) * side, 2, 2.4 * G, 0.004);
+        this._burst(dest, at, 0.11, 'bandpass', 470 * side * J(), 1.1, 3.2 * G, 0.002);
+        this._burst(dest, at + 0.004, 0.07, 'bandpass', 950 * side * J(), 0.9, 2.4 * G, 0.002);
+        for (let i = 0; i < 6; i++) this._burst(dest, at + 0.012 + R() * 0.22, 0.03 + 0.03 * R(), 'bandpass', (1300 + R() * 1900) * side, 1.4, 1.3 * G * (1 - i / 9), 0.001);      // boards cracking
+        this._burst(dest, at + 0.14, 0.3, 'bandpass', 620 * side * J(), 2.5, 0.5 * G, 0.06);
       } else {
         this._burst(dest, at, 0.05, 'bandpass', 1900 * side, 1.1, 0.4 * G, 0.002);
         this._burst(dest, at + 0.05, 0.3, 'bandpass', 900 * side, 0.5, 0.18 * G, 0.03);       // grit and rubble settling
@@ -836,14 +845,14 @@ export class Audio {
     this._burst(dest, at, 0.08, 'lowpass', (kind === 'wood' ? 450 : 300) * side, 0.7, 0.9 * g, 0.003);
     if (kind === 'wood') this._burst(dest, at + 0.002, 0.07, 'bandpass', (170 + R() * 60) * side, 5, 1.6 * g, 0.002);      // hollow boards
     if (kind === 'hard') this._burst(dest, at, 0.025, 'bandpass', 2400 * side, 1.2, 0.5 * g, 0.001);
-    if (kind === 'metal') for (const [fq, k] of [[420, 1], [1130, 0.5], [2050, 0.3]]) { const o = c.createOscillator(), og = c.createGain(); o.frequency.value = fq * side * this._jit(0.03); og.gain.setValueAtTime(0.0001, at); og.gain.linearRampToValueAtTime(0.18 * k * g, at + 0.003); og.gain.setTargetAtTime(0.0001, at + 0.003, 0.09); o.connect(og); og.connect(dest); o.start(at); o.stop(at + 0.6); o.onended = () => { try { o.disconnect(); og.disconnect(); } catch {} }; }
+    if (kind === 'metal') { this._burst(dest, at, 0.12, 'bandpass', 430 * side * (0.85 + 0.3 * R()), 2.2, 1.3 * g, 0.003); this._burst(dest, at + 0.002, 0.07, 'bandpass', 1200 * side * (0.85 + 0.3 * R()), 1.8, 0.6 * g, 0.002); }      // a dull clank (it was three sine partials: a chime)
   }
   _frame() {
     if (!this.ctx || !this.st) return;
     const c = this.ctx, t = c.currentTime, S = this.st, dt = clamp(t - S.t, 0, 0.25); S.t = t;
     // a new touch of its head on something solid (rex.js resets headTouch.kn at each contact event): heard even where nothing routes
     // the event here; one routed through contact(e) in the same moment is not doubled
-    { const C = this.sim && this.sim.headTouch; if (C && typeof C.kn === 'number') { if (C.kn < (this._ckn ?? 99) - 0.02 && t - (this._contactT ?? -9) > 0.2) { this._contactT = t; this.contact({ force: clamp((this.sim.headPress || 0) * 0.5, 0.2, 2), part: C.part }); } this._ckn = C.kn; } }
+    { const C = this.sim && this.sim.headTouch; if (C && typeof C.kn === 'number') { if (C.kn < (this._ckn ?? 99) - 0.02 && t - (this._contactT ?? -9) > 0.2) { this._contactT = t; this._contactBig = false; this.contact({ force: clamp((this.sim.headPress || 0) * 0.5, 0.2, 2), part: C.part }); } this._ckn = C.kn; } }
     if (this._bedsDirty) this._beds();
     else if (!this._allBuf) { this._allBuf = true; conv: for (const k in this.bank) for (const v of this.bank[k]) if (!v.buf) { v.buf = this._toBuf(v); v.ch = null; this._allBuf = false; break conv; } }
     S.frameT += dt; if (S.frameT < (this.low ? 1 / 20 : 1 / 40)) return; const fdt = S.frameT; S.frameT = 0;
@@ -867,6 +876,7 @@ export class Audio {
         else if (act.kind === 'rumble') this._voice('rumble', d, 0.45 * this._db(2), this._jit(0.06), 0, 2);
         else if (act.kind === 'sniffAir') this._voice('sniff', d, 0.7, this._jit(0.05), 0, 1);
         else if (act.kind === 'gulp') this._voice('gulp', d, 0.6, this._jit(0.06), 0, 1);
+        else if (act.kind === 'startle' && act.crash) { /* reeling off what it ran into: contact() has already knocked the breath out of it */ }
         else if (act.kind === 'startle') this._voice('snort', d, 0.8, this._jit(0.06), 0, 1);
         else if (act.kind === 'shake') this._voice('whoosh', d, 0.7, this._jit(0.1) * 0.8, 0, 1);
       }

@@ -83,6 +83,14 @@ export class Effects {
     }
   }
   /** A jolt that is not a footfall (a roar, a thunderclap). */
+  /** What comes off a thing the animal ran into: dust and grit thrown out from the surface (n) and rolling down it, sized to the knock (k 0..1). */
+  burst(x, y, z, nx, nz, k) {
+    const R = this.rand, n = Math.round(6 + 12 * k);
+    for (let i = 0; i < n; i++) { const d = this.dust[this.di++ % this.dust.length], a = R() * 6.283, sp = (0.5 + 1.6 * R()) * (0.6 + k);
+      d.s.position.set(x + (R() - 0.5) * 1.6, Math.max(0.1, y * (i % 3 ? R() : 0.1)), z + (R() - 0.5) * 1.6);
+      d.vx = nx * sp * 1.3 + Math.sin(a) * 0.5; d.vz = nz * sp * 1.3 + Math.cos(a) * 0.5; d.vy = 0.3 + R() * 0.9;
+      d.life = d.max = (0.9 + R() * 0.9) * (this.wet ? 0.6 : 1); d.size = (0.5 + R() * 0.7) * (0.6 + 0.8 * k) * (this.wet ? 0.6 : 1); d.inw = 0; d.s.visible = true; }
+  }
   kick(k) { this.trauma = Math.min(1, this.trauma + k); }
 
   footfall(e, camPos, audio) {

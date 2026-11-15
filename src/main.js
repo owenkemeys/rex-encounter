@@ -820,7 +820,7 @@ async function boot() {
         if (e.type === 'footfall') { fx.footfall(e, camera.position, audio); world.trample(e.x, e.z, 1.3, 1); S.stepTimes.push(sim.t); if (S.stepTimes.length > 5) S.stepTimes.shift(); }
         else if (e.type === 'roar') { audio.roar(dist); fx.kick(Math.min(0.7, 14 / (4 + dist))); birds(sim.x, sim.z, 1); }
         else if (e.type === 'huff') { audio.huff(dist); if (dist < 6) fx.kick(0.05); }
-        else if (e.type === 'contact') { if (audio.contact) audio.contact(e, dist); { const tr = e.part === 'torso' || e.part === 'hips', hf = (e.force || 0) + (tr ? 2.5 : 0); if (hf > 1.2 && dist < 28) fx.kick(Math.min(0.4, 0.045 * hf) * (1 - dist / 28)); if (hf > 2.5 && fx.puff) for (let i = 0; i < (tr ? 5 : 3); i++) fx.puff(e.x + (Math.random() - 0.5) * 1.2, (e.y || 0) * (i % 2 ? 0.15 : 1), e.z + (Math.random() - 0.5) * 1.2); } }
+        else if (e.type === 'contact') { if (audio.contact) audio.contact(e, dist); { const tr = e.part === 'torso' || e.part === 'hips', hf = (e.force || 0) + (tr ? 2.5 : 0); if (hf > 1.2 && dist < 36) fx.kick(Math.min(0.65, 0.075 * hf) * (1 - dist / 36)); if (hf > 2.5 && fx.burst) fx.burst(e.x, e.y || 0, e.z, e.nx || 0, e.nz || 0, clamp((hf - 2.5) / 6, 0.15, 1)); }      /* (owner 2026-11-15: shake and dust "okay but perhaps a little weak": kick 0.045 -> 0.075 per m/s, felt to 36 m; a burst thrown off the surface in place of footfall puffs) */ }
         else if (e.type === 'growl') { audio.growl(dist); fx.rumble && fx.rumble(Math.min(0.5, 6 / (3 + dist)), 2.2); }
         else if (e.type === 'clack') { audio.clack(dist); fx.kick(Math.min(0.8, 5 / (1 + dist))); }
         else if (e.type === 'worry') { audio.growl(dist); fx.rumble && fx.rumble(Math.min(0.6, 8 / (2 + dist)), 1.8); }
