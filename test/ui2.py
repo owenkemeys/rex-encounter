@@ -1,0 +1,6 @@
+pg.set_viewport_size({'width':1280,'height':720})
+pg.evaluate("__dino.advance(20)")
+pg.screenshot(path=f'{out}/ui_obs.png')
+pg.evaluate("__dino.setMode('foot');document.getElementById('ovSense').click();__dino.advance(25)")
+print(pg.evaluate("JSON.stringify({b:__dino.mind.label,t:__dino.mind.thought,seen:__dino.mind.know.seen})"))
+pg.screenshot(path=f'{out}/ui_foot.png')

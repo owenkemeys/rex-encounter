@@ -1,0 +1,24 @@
+{
+ "name": "rex-encounter",
+ "version": "1.0.0",
+ "description": "",
+ "main": "index.js",
+ "directories": {
+  "test": "test"
+ },
+ "scripts": {
+  "build": "esbuild src/main.js --bundle --format=esm --minify --outfile=dist/app.js",
+  "serve": "python3 -m http.server -d dist 8080",
+  "start": "npm run build && npm run serve",
+  "build:saltline": "sh variants/saltline/tools/build.sh"
+ },
+ "keywords": [],
+ "author": "",
+ "license": "ISC",
+ "dependencies": {
+  "esbuild": "^0.28.2",
+  "three": "^0.187.0"
+ },
+ "type": "module",
+ "private": true
+}

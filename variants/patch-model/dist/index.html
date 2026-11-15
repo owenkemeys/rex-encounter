@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rex Sandbox</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* instruments laid over an overcast paddock: bone ink, ember accent, nothing else */
+  --ink: #f1eee4; --ink-dim: rgba(241,238,228,0.72); --ink-faint: rgba(241,238,228,0.5); --panel: rgba(18,20,17,0.78); --line: rgba(241,238,228,0.16);
+  --accent: #f05a3c; --good: #4fd18b; --warn: #f2a33a; --bone: #efe6cf; --soot: #17120e;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif; --body: "IBM Plex Sans", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+  /* the parts of the frame that may be hidden: browser bars, notches, the host's toolbar (portrait phones: see below) */
+  --st: max(10px, env(safe-area-inset-top)); --sb: max(12px, env(safe-area-inset-bottom)); --sl: max(12px, env(safe-area-inset-left)); --sr: max(12px, env(safe-area-inset-right));
+}
+@media (orientation: portrait) { body[data-dev="touch"] { --sb: max(80px, env(safe-area-inset-bottom)); } }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; background: #b9b7a6; color: var(--ink); font: 13px/1.4 var(--body); overflow: hidden; }
+#stage { position: fixed; inset: 0; touch-action: none; cursor: crosshair; }
+#view { width: 100%; height: 100%; display: block; }
+body[data-mode="observe"] #stage { cursor: default; }
+#boot { position: fixed; inset: 0; display: grid; place-items: center; background: #23251f; font: 500 20px var(--display); letter-spacing: 0.06em; text-transform: uppercase; padding: 24px; text-align: center; z-index: 20; }
+#vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 46%, transparent 52%, rgba(6,8,10,0.5) 100%); }
+
+/* ---- the mind readout: no box, just type over a soft scrim */
+#mindcard { position: fixed; top: 0; left: 0; padding: 22px 28px 40px 22px; width: min(400px, 100vw); pointer-events: none; background: radial-gradient(ellipse 120% 100% at 0% 0%, rgba(8,9,8,0.55), transparent 70%); text-shadow: 0 1px 2px rgba(0,0,0,0.55), 0 0 14px rgba(0,0,0,0.35); }
+#mindcard .k { display: block; font: 400 11px/1 var(--body); letter-spacing: 0.02em; text-transform: lowercase; color: var(--ink-faint); margin-bottom: 4px; }
+#vThink { margin: 0 0 14px; font: 400 18px/1.25 var(--body); text-transform: lowercase; letter-spacing: 0; text-wrap: balance; min-height: 1.1em; padding-left: 12px; border-left: 2px solid var(--accent); }
+#vThink.swap { animation: swap .35s ease-out; }
+@keyframes swap { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+.vgrid { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; padding-left: 14px; align-items: baseline; }
+.vgrid .k { margin: 0; }
+.vgrid b { font: 400 13px/1.25 var(--body); text-transform: lowercase; color: var(--ink); }
+.vgrid > [hidden] { display: none; }
+#tele { display: none; margin-top: 16px; padding-left: 14px; pointer-events: auto; max-height: 52vh; overflow-y: auto; }
+body.tele #tele { display: block; }
+#mPhase, #mTemper { color: var(--ink-dim); font: 400 11px var(--mono); }
+#mSees { display: inline-block; font: 400 11px var(--body); letter-spacing: 0.02em; text-transform: lowercase; padding: 2px 7px; border-radius: 3px; background: rgba(241,238,228,0.1); margin: 6px 0; }
+#mSees[data-state="seen"] { background: var(--accent); color: #1b1410; text-shadow: none; }
+#mSees[data-state="near"] { background: rgba(242,163,58,0.4); }
+.bars { display: grid; grid-template-columns: 70px 1fr; gap: 4px 10px; align-items: center; font: 500 10px var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); width: 220px; }
+.bars i { display: block; height: 4px; background: rgba(241,238,228,0.14); border-radius: 2px; overflow: hidden; }
+.bars b { display: block; height: 100%; width: 0; background: var(--ink); transition: width 0.3s; }
+#why { display: flex; flex-direction: column; gap: 3px; margin-top: 10px; }
+#why ol { margin: 0; padding-left: 0; list-style: none; font: 11px/1.45 var(--mono); font-variant-numeric: tabular-nums; }
+#mUtil li { display: grid; grid-template-columns: 170px 1fr 34px; gap: 6px; align-items: center; }
+#mUtil li > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mUtil li i { display: block; height: 4px; background: rgba(241,238,228,0.18); border-radius: 2px; }
+#mUtil li.pick { color: var(--warn); } #mUtil li.pick i { background: var(--warn); }
+#mLog li { color: var(--ink-dim); } #mLog li:first-child { color: var(--ink); }
+.mono { font: 11px/1.4 var(--mono); color: var(--ink); }
+.lab { font: 500 11px var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-dim); }
+#fps { display: none; position: fixed; left: 22px; bottom: 14px; font: 400 11px var(--mono); color: var(--ink-dim); text-shadow: 0 1px 2px rgba(0,0,0,0.6); pointer-events: none; }
+body.tele #fps { display: block; }
+
+/* ---- achievements: a plain black pill like the thoughts, a quiet list in the drawer */
+#dpanel { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+#dpanel li { display: grid; gap: 1px; text-transform: lowercase; }
+#dpanel b { font: 500 14px/1.25 var(--body); letter-spacing: 0; color: var(--ink); }
+#dpanel small { color: var(--ink-dim); font-size: 12px; line-height: 1.3; }
+#dpanel li.lock { padding-left: 11px; position: relative; }
+#dpanel li.lock::before { content: ""; position: absolute; left: 0; top: 0.55em; width: 5px; height: 1px; background: var(--ink-faint); }
+#dpanel li.lock small { color: var(--ink-faint); font-style: italic; }
+#dpanel li.done { padding-left: 11px; position: relative; }
+#dpanel li.done::before { content: ""; position: absolute; left: 0; top: 0.5em; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+#toast { position: fixed; left: 50%; z-index: 4; pointer-events: none; opacity: 0; width: max-content; max-width: min(84vw, 340px); text-align: center; text-transform: lowercase; background: rgba(0,0,0,0.7); color: var(--ink); border-radius: 16px; transition: opacity .5s, transform .6s cubic-bezier(.2,.8,.2,1); top: 7%; transform: translate(-50%, -8px); padding: 9px 18px 10px; display: flex; flex-direction: column; gap: 2px; }
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+#toast i { font: 400 11px/1 var(--body); font-style: normal; color: var(--ink-faint); letter-spacing: 0.02em; margin-bottom: 3px; }
+#toast b { font: 500 16px/1.25 var(--body); letter-spacing: 0; }
+#toast span { font: 400 13px/1.3 var(--body); color: var(--ink-dim); text-wrap: balance; }
+#hint { position: fixed; bottom: calc(var(--sb) + 15vh); left: 50%; z-index: 4; transform: translateX(-50%); opacity: 0; pointer-events: none; font: 500 15px var(--display); letter-spacing: 0.14em; text-transform: uppercase; text-shadow: 0 1px 8px rgba(0,0,0,0.7); transition: opacity .4s; white-space: nowrap; }
+#hint.on { opacity: 0.92; }
+
+/* ---- the thought stream: plain black pills, newest at the bottom, older ones smaller and dimmer */
+#bubble { position: fixed; left: 0; top: 0; z-index: 3; pointer-events: none; display: none; width: max-content; max-width: min(78vw, 280px); }
+body.bb #bubble.on { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+#bubble.dock-left.on { align-items: flex-start; } #bubble.dock-right.on { align-items: flex-end; }
+#bubble .pill { background: rgba(0,0,0,0.7); color: var(--ink); font: 500 calc(15px * var(--bs, 1))/1.3 var(--body); letter-spacing: 0.01em; text-transform: lowercase; text-align: center; text-wrap: balance; padding: 6px 13px; border-radius: 15px; opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; overflow: hidden; transform: translateY(6px); transform-origin: 50% 100%; transition: opacity .45s ease, transform .45s ease, max-height .35s ease, padding .35s ease; }
+#bubble .pill.in { opacity: 1; max-height: 5.5em; padding-top: 6px; padding-bottom: 6px; transform: none; }
+#bubble .pill.in[data-rank="1"] { opacity: 0.55; transform: scale(0.88); }
+#bubble .pill.in[data-rank="2"] { opacity: 0.3; transform: scale(0.78); }
+#bubble .pill.gone { opacity: 0 !important; transition-duration: .6s; }
+
+
+/* ---- controls drawer: closed by default */
+#menuBtn { position: fixed; top: calc(var(--st) + 54px); right: var(--sr); z-index: 6; width: 44px; height: 44px; padding: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(18,20,17,0.45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0.55; transition: opacity .2s; }
+#menuBtn:hover, #menuBtn[aria-expanded="true"] { opacity: 1; }
+#menuBtn svg { width: 16px; height: 16px; stroke: var(--ink); stroke-width: 1.8; fill: none; stroke-linecap: round; }
+#panel { position: fixed; top: 0; right: 0; bottom: 0; width: 292px; z-index: 5; background: var(--panel); border-left: 1px solid var(--line); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: calc(var(--st) + 112px) 16px 24px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; transform: translateX(104%); transition: transform .28s cubic-bezier(.2,.8,.2,1); visibility: hidden; }
+body.menu #panel { transform: none; visibility: visible; }
+#panel h1 { position: absolute; top: 20px; left: 16px; margin: 0; font: 600 18px/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
+#panel h1 span { color: var(--accent); }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+button { font: 500 14px var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); background: rgba(241,238,228,0.08); border: 1px solid var(--line); border-radius: 4px; padding: 7px 6px; cursor: pointer; }
+button:hover { background: rgba(241,238,228,0.16); }
+button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #1b1410; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--warn); outline-offset: 2px; }
+.row { min-height: 24px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.row label { font: 500 12px var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 2px 0 0; }
+input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
+select { font: 12px var(--mono); background: #2a2c25; color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 3px 4px; }
+.val { font: 12px var(--mono); color: var(--ink); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.three button, .two button { font-size: 13px; padding: 6px 4px; }
+.keys { margin: 0; color: var(--ink-dim); font-size: 12px; line-height: 1.7; }
+.keys b { font: 500 11px var(--mono); color: var(--ink); background: rgba(241,238,228,0.1); border-radius: 3px; padding: 0 4px; }
+body[data-mind="on"] .mind-off, body[data-mind="off"] .mind-on { display: none; }
+body:not([data-mode="foot"]) .foot-only, body[data-mode="observe"] .not-obs { display: none; }
+details { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 9px; }
+details > summary { font: 600 13px var(--display); letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; list-style: none; color: var(--ink); }
+details > summary::before { content: "+ "; color: var(--accent); } details[open] > summary::before { content: "\2212  "; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; }
+.chips label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.drive { display: grid; grid-template-columns: 16px 70px 1fr; align-items: center; gap: 6px; font: 500 12px var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); }
+.vol { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: 6px; font: 500 12px var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); }
+body:not(.pad) .pad-help { display: none; }
+#crosshair { display: none; position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(241,238,228,0.7); box-shadow: 0 0 0 1px rgba(0,0,0,0.4); pointer-events: none; }
+body.pad[data-mode="foot"] #crosshair, body.pad[data-mode="fly"] #crosshair { display: block; }
+
+/* ---- touch controls: a stick bottom-left, one cluster of verbs bottom-right, all clear of the browser's bars */
+#touch { display: none; }
+body.touch[data-mode="foot"] #touch, body.touch[data-mode="observe"] #touch { display: block; }
+body[data-mode="observe"] #tbtns, body[data-mode="observe"] #tAct { display: none; }
+#stick { position: fixed; left: var(--sl); bottom: var(--sb); width: 124px; height: 124px; border-radius: 50%; border: 1px solid var(--line); background: rgba(22,24,20,0.3); touch-action: none; }
+#nub { position: absolute; left: 37px; top: 37px; width: 50px; height: 50px; border-radius: 50%; background: rgba(241,238,228,0.35); }
+#tbtns { position: fixed; right: var(--sr); bottom: var(--sb); display: grid; grid-template-columns: repeat(3, 60px); grid-auto-rows: 50px; gap: 8px; }
+#tbtns button { padding: 0 2px; min-height: 44px; background: rgba(22,24,20,0.55); border-radius: 14px; font-size: 14px; text-transform: lowercase; letter-spacing: 0.04em; }
+#tbtns button[aria-pressed="true"] { background: var(--accent); color: #1b1410; }
+#tItem { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: rgba(241,238,228,0.16) !important; }
+#tItem .pips { font-size: 9px; letter-spacing: 3px; line-height: 1; color: var(--accent); }
+#tbtns button.spent { opacity: 0.4; }
+#tAct { position: fixed; right: var(--sr); bottom: calc(var(--sb) + 116px); width: 196px; min-height: 48px; padding: 10px 4px; background: rgba(241,238,228,0.9); color: #1b1410; border-radius: 16px; text-transform: lowercase; font-size: 16px; }
+body:not([data-mode="foot"]) #tAct { display: none; }
+/* the one contextual action, only while it is available */
+#prompt { position: fixed; left: 50%; top: 62%; transform: translateX(-50%); z-index: 4; opacity: 0; pointer-events: none; font: 400 14px/1 var(--body); text-transform: lowercase; color: var(--ink); text-shadow: 0 1px 6px rgba(0,0,0,0.8); transition: opacity .25s; white-space: nowrap; }
+#prompt.on { opacity: 0.95; }
+#prompt b, .kc { font: 500 12px var(--mono); text-transform: none; border: 1px solid var(--ink-dim); border-radius: 4px; padding: 1px 6px; margin-right: 6px; background: rgba(0,0,0,0.45); }
+body.touch #prompt { display: none; }
+/* what you carry, always in one place: the torch and the flares left (keyboard and pad; on touch the buttons carry it) */
+#kitHud { position: fixed; left: var(--sl); bottom: var(--sb); z-index: 4; pointer-events: none; display: flex; flex-direction: column; gap: 6px; font: 500 14px var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-dim); text-shadow: 0 1px 6px rgba(0,0,0,0.8); transition: opacity .3s; }
+#kitHud > span { display: flex; align-items: center; gap: 8px; }
+#kitHud .on { color: var(--ink); } #kitHud .on i.lamp { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+#kitHud i.lamp { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: rgba(241,238,228,0.25); }
+#kitHud .pips { font-style: normal; letter-spacing: 3px; color: var(--accent); font-size: 11px; }
+#kitHud .none { color: var(--ink-faint); }
+#kitHud.flash { color: var(--ink); }
+.kc { font: 500 11px/1.3 var(--mono); letter-spacing: 0; text-transform: none; color: var(--ink); border: 1px solid var(--ink-dim); border-radius: 4px; padding: 0 5px; background: rgba(0,0,0,0.45); }
+.kc:empty { display: none; }
+body.touch #kitHud, body:not(.started) #kitHud, body[data-mode="observe"] #kitHud { display: none; }
+/* the corner: controls (?) and pause, on every device; labelled with their keys on keyboard and pad */
+#corner { position: fixed; top: var(--st); right: var(--sr); z-index: 6; display: flex; gap: 8px; }
+#corner button { min-width: 44px; height: 44px; padding: 0 10px; border-radius: 22px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; background: rgba(18,20,17,0.5); border-color: rgba(241,238,228,0.22); opacity: 0.75; font: 600 16px var(--body); }
+#corner button:hover, #corner button:focus-visible { opacity: 1; }
+#corner svg { width: 13px; height: 13px; fill: var(--ink); }
+#corner .kc { border: 0; background: none; padding: 0; color: var(--ink-dim); }
+body.locked #corner button { pointer-events: none; }
+/* notes for the developer (src/telemetry.js): the corner button, the listening line, the typed line, the pause card field */
+#corner #noteBtn.held { opacity: 1; background: rgba(240,90,60,0.35); }
+body:not([data-dev="kb"]) #noteKey { display: none; }
+#noteShield { position: fixed; inset: 0; z-index: 9; background: transparent; cursor: default; touch-action: none; }
+#noteBox { position: fixed; left: 50%; bottom: calc(var(--sb) + 64px); transform: translateX(-50%); z-index: 10; width: min(460px, calc(100vw - 24px)); display: flex; align-items: flex-end; gap: 8px; padding: 6px; background: rgba(18,20,17,0.82); border: 1px solid var(--line); border-radius: 12px; }
+#noteTa { flex: 1; min-height: 34px; max-height: 120px; resize: none; padding: 6px 8px; font: 16px/1.3 var(--body); color: var(--ink); background: transparent; border: 0; outline: none; }
+#noteSend { flex: none; min-width: 64px; height: 34px; padding: 0 12px; font: 600 14px var(--body); border-radius: 8px; }
+body.touch #noteTa, body.touch #noteSend { min-height: 44px; height: auto; }
+#pNote { width: 100%; margin-top: 14px; min-height: 36px; padding: 6px 10px; font: 16px var(--body); color: var(--ink); background: rgba(0,0,0,0.3); border: 1px solid var(--line); border-radius: 6px; }
+body.touch #pNote { min-height: 44px; }
+#pNotes { margin: 4px 0 0; font-size: 12px; color: var(--ink-faint); min-height: 1em; }
+#pNotes:empty { display: none; }
+#pCopy { width: 100%; margin-top: 6px; }
+body:not(.started) #corner, body.paused #corner, body.dead #corner, body.bare #corner { display: none; }
+/* the controls: one short table, on the pause card and while Tab (View) is held */
+.ctl { display: grid; grid-template-columns: max-content 1fr; gap: 5px 14px; margin: 14px 0 4px; font-size: 13px; text-transform: lowercase; align-items: baseline; }
+.ctl b { font: 500 12px var(--mono); text-transform: none; color: var(--ink); background: rgba(241,238,228,0.1); border-radius: 3px; padding: 1px 6px; justify-self: end; white-space: nowrap; }
+.ctl span { color: var(--ink-dim); } .ctl i { font-style: normal; color: var(--ink-faint); }
+#peek { position: fixed; inset: 0; z-index: 11; display: none; place-items: center; pointer-events: none; }
+body.peek:not(.paused):not(.dead) #peek { display: grid; }
+#peek .card { width: min(330px, 100%); background: rgba(14,15,13,0.78); padding: 10px 20px 14px; }
+#pause .two { grid-template-columns: 1fr 1fr; }
+/* the camcorder's own lettering for its thoughts (drawn into #osd while the VHS look is on) */
+#osd { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; display: none; }
+body.vhs.bb #osd { display: block; }
+body.vhs #bubble .pill { visibility: hidden; }
+body.paused #osd, body.dead #osd, body.bare #osd, body.paused #prompt, body.dead #prompt, body.bare #prompt, body.paused #kitHud, body.dead #kitHud { visibility: hidden; }
+body.bare #kitHud, body.bare #mindcard, body.bare #bubble, body.bare #fps, body.bare #touch, body.bare #panel, body.bare #toast, body.bare #hint, body.bare #crosshair { display: none !important; }
+body.bare #menuBtn { opacity: 0; pointer-events: none; }
+body.bare.debug #menuBtn { opacity: 0.3; pointer-events: auto; }
+body:not(.debug) #menuBtn, body:not(.debug) .dbg-only { display: none !important; }
+@media (max-width: 760px), (max-height: 520px) {
+  #mindcard { padding: 12px 14px 22px 12px; width: min(300px, 62vw); }
+  #vThink { font-size: 15px; margin-bottom: 8px; padding-left: 9px; }
+  .vgrid { gap: 3px 10px; padding-left: 11px; } .vgrid b { font-size: 12px; }
+  #tele { max-height: 36vh; }
+  #panel { width: min(300px, 86vw); }
+  #toast { top: var(--st); padding: 7px 14px 8px; max-width: min(64vw, 300px); } #toast b { font-size: 14px; } #toast span { font-size: 12px; }
+  #bubble .pill { font-size: calc(13px * var(--bs, 1)); }
+  .card { padding: 16px 18px 14px; } .card h1, .card h2 { font-size: 22px; } .prow { margin: 10px 0 6px; }
+}
+
+/* ---- input capture: nothing on the game surface is selectable, draggable or long-pressable */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+input, select, textarea { -webkit-user-select: auto; user-select: auto; }
+body.locked #stage, body.hover:not(.paused):not(.menu)[data-mode="foot"] #stage, body.hover:not(.paused):not(.menu)[data-mode="fly"] #stage { cursor: none; }
+body.locked[data-mode="foot"] #crosshair, body.hover[data-mode="foot"] #crosshair { display: block; }
+.prow input[type=range] { width: 100%; }
+
+/* ---- cards: start, pause, the end */
+.cardwrap { position: fixed; inset: 0; z-index: 12; display: none; place-items: center; padding: var(--st) var(--sr) var(--sb) var(--sl); }
+.card { width: min(440px, 100%); max-height: calc(100vh - var(--st) - var(--sb)); max-height: calc(100dvh - var(--st) - var(--sb)); overflow-y: auto; background: rgba(14,15,13,0.86); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px 20px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
+.card { touch-action: manipulation; }
+.card h1, .card h2 { margin: 0 0 6px; font: 600 26px/1.05 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
+.card h3 { margin: 14px 0 6px; font: 600 13px var(--display); letter-spacing: 0.12em; text-transform: uppercase; display: flex; justify-content: space-between; }
+.card p { margin: 0 0 10px; color: var(--ink-dim); text-transform: lowercase; }
+.card .lede { font-size: 15px; color: var(--ink); text-wrap: balance; }
+.card .keys { text-transform: none; }
+.card .small { font-size: 12px; color: var(--ink-faint); margin: 10px 0 0; }
+.card button.big { width: 100%; font-size: 18px; padding: 12px; background: var(--accent); border-color: var(--accent); color: #1b1410; }
+.card button.big:hover { filter: brightness(1.08); }
+.chk { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--ink-dim); text-transform: lowercase; cursor: pointer; }
+#start { display: grid; background: radial-gradient(ellipse at 50% 55%, rgba(10,11,9,0.25), rgba(10,11,9,0.7)); cursor: pointer; }
+body.started #start { display: none; }
+#startGo span { display: none; } body:not([data-dev]) #startGo .kd, body[data-dev="kb"] #startGo .kd, body[data-dev="touch"] #startGo .tp, body[data-dev="pad"] #startGo .pd { display: inline; }
+#start .opts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 22px; margin-top: 12px; }
+#start .opts .prow { margin: 0; flex: 1 1 180px; }
+#start .opts .chk { margin: 0; }
+body:not(.started) #menuBtn, body:not(.started) #mindcard, body:not(.started) #touch, body:not(.started) #toast { display: none !important; }
+#pause { background: rgba(8,9,8,0.35); }
+body.paused #pause { display: grid; }
+body.paused #bubble, body.paused #invite, body.paused #touch, body.dead #bubble, body.dead #invite, body.dead #touch, body.dead #crosshair { visibility: hidden; }
+.prow { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; margin: 14px 0 8px; }
+.prow label { font: 500 13px var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); }
+.prow select { width: 100%; font: 13px var(--body); padding: 5px; }
+.meter { height: 5px; border-radius: 3px; background: rgba(241,238,228,0.14); overflow: hidden; margin-bottom: 10px; }
+.meter b { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
+.tries { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 8px; text-transform: lowercase; }
+.tries li { display: grid; gap: 1px; padding-left: 11px; position: relative; }
+.tries li::before { content: ""; position: absolute; left: 0; top: 0.55em; width: 5px; height: 1px; background: var(--accent); }
+.tries b { font: 500 13px/1.3 var(--body); color: var(--ink); }
+.tries span { font-size: 13px; line-height: 1.35; color: var(--ink); }
+.tries small { font-size: 12px; color: var(--ink-faint); }
+.tries li.done::before { width: 4px; height: 4px; border-radius: 50%; top: 0.5em; }
+.tries li.lock span { color: var(--ink-dim); }
+#pLogBox summary .val { margin-left: 6px; }
+/* the pause card: settings in groups */
+#pause details { margin-top: 6px; padding-top: 4px; gap: 4px; }
+@media (min-width: 700px) and (min-height: 500px) { #pause .card { width: min(600px, 100%); } #pKeys { grid-template-columns: max-content 1fr max-content 1fr; } }
+#pause details > summary { min-height: 36px; display: flex; align-items: center; }
+#pause details[open] { padding-bottom: 6px; }
+#pause .vol { grid-template-columns: 120px 1fr; min-height: 36px; }
+#pause .chk { min-height: 36px; margin-top: 2px; }
+#pause .prow { margin: 4px 0; }
+#pause #pAgain { width: 100%; margin-top: 14px; padding: 10px; font-size: 15px; }
+#pause .hd { display: flex; align-items: baseline; justify-content: space-between; }
+#pause .hd small { color: var(--ink-faint); font-size: 12px; text-transform: lowercase; }
+.card .ctl { margin: 6px 0 2px; }
+#sKeys { margin: 4px 0 16px; }
+/* keyboard and gamepad focus: always visible */
+body.pad .card :focus, body.pad .card :focus-visible { outline: 3px solid var(--warn); outline-offset: 2px; }
+.card button.big:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.chk:focus-within { color: var(--ink); }
+/* thumbs: every control at least 44 px on touch */
+body.touch .card button, body.touch .card select, body.touch #pause details > summary, body.touch .card .chk, body.touch #pause .vol, body.touch .card .prow { min-height: 44px; }
+body.touch .card input[type="checkbox"] { width: 22px; height: 22px; }
+body.touch .card input[type="range"] { height: 32px; }
+#dead { background: radial-gradient(ellipse at 50% 50%, rgba(30,6,4,0.35), rgba(8,4,3,0.82)); }
+body.dead #dead { display: grid; animation: fadein 1.2s ease; }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+#dead .k { color: var(--ink-faint); font-size: 12px; margin-bottom: 4px; }
+#xWords { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin: 12px 0 14px; }
+#xWords .pill { background: rgba(0,0,0,0.75); color: var(--ink); font: 500 14px/1.3 var(--body); text-transform: lowercase; padding: 5px 12px; border-radius: 14px; }
+#xWords .pill:last-child { font-size: 16px; }
+#xWords .lab { margin-bottom: 2px; }
+.stats { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0 0 10px; font-size: 13px; text-transform: lowercase; }
+.stats dt { color: var(--ink-faint); } .stats dd { margin: 0; color: var(--ink); }
+#dead .lasted { margin: 0 0 14px; }
+
+/* ---- injury: the edges of the view darken and warm as you are hurt; a brief flush when a blow lands */
+#hurt { position: fixed; inset: 0; pointer-events: none; z-index: 2; opacity: 0; transition: opacity .8s; background: radial-gradient(ellipse at 50% 50%, transparent 45%, rgba(70,8,4,0.55) 85%, rgba(30,2,1,0.85) 100%); }
+#hurt.flash { transition: opacity .08s; }
+
+/* ---- the opening invitation */
+#invite { position: fixed; left: 50%; bottom: calc(var(--sb) + 8vh); transform: translate(-50%, 6px); z-index: 4; opacity: 0; pointer-events: none; max-width: min(90vw, 560px); width: max-content; text-align: center; font: 400 14px/1.45 var(--body); color: var(--ink); background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 16px; text-transform: lowercase; transition: opacity .7s, transform .7s; }
+#invite.on { opacity: 0.92; transform: translate(-50%, 0); }
+#invite b { white-space: nowrap; font: 500 12px var(--mono); text-transform: none; border: 1px solid var(--ink-faint); border-radius: 4px; padding: 0 5px; }
+#invite small { display: block; color: var(--ink-dim); font-size: 12px; margin-top: 2px; }
+body.bare #invite { display: none; }
+body.touch #invite, body.touch #hint { bottom: var(--sb); max-width: calc(100vw - 2 * 212px); min-width: 0; }
+body.touch #hint { bottom: calc(var(--sb) + 64px); }
+@media (orientation: portrait) {
+  body.touch #invite { bottom: auto; top: calc(var(--st) + 56px); max-width: calc(100vw - 24px); }
+  body.touch #hint { bottom: auto; top: calc(var(--st) + 120px); max-width: calc(100vw - 24px); }
+  body.touch.toasting #invite { opacity: 0; }
+}
+
+/* ---- thoughts at range or off-screen: the direction and distance of the animal */
+#bcue { display: none; color: var(--ink); opacity: 0.6; line-height: 1; }
+#bubble.cue #bcue { display: inline-flex; }
+#bcue i { font-style: normal; display: inline-block; font-size: 13px; transition: transform .3s; }
+#bpills { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+#bubble.dock-left #bpills { align-items: flex-start; } #bubble.dock-right #bpills { align-items: flex-end; }
+#bubble.dock-left, #bubble.dock-left #bcue { align-self: flex-start; } 
+#bubble { transform-origin: 50% 100%; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="view"></canvas></div>
+<div id="vignette"></div>
+<div id="crosshair"></div>
+<div id="touch" aria-hidden="true">
+  <div id="stick"><div id="nub"></div></div>
+  <button id="tAct" hidden></button>
+  <div id="tbtns"><button id="tItem" aria-label="flare"><span class="nm">flare</span><span class="pips"></span></button><button id="tCall">call</button><button id="tTorch" data-torch aria-pressed="false">torch</button><button id="tCycle" hidden>item</button><button id="tCrouch" data-crouch aria-pressed="false">crouch</button><button id="tZoom" aria-pressed="false">zoom</button></div>
+</div>
+<div id="boot">Waking the animal</div>
+<div id="hurt"></div>
+<div id="start" class="cardwrap" role="dialog" aria-label="Start">
+  <div class="card">
+    <h1>Dino <span style="color:var(--accent)">Hunter</span></h1>
+    <p class="lede">one tyrannosaur, thinking for itself. what will it make of you?</p>
+    <div id="sKeys" class="ctl"></div>
+    <button id="startGo" class="big"><span class="kd">click to begin</span><span class="tp">tap to begin</span><span class="pd">press A to begin</span></button>
+    <div class="opts"><label class="chk"><input type="checkbox" id="sSound" checked> sound</label><label class="chk"><input type="checkbox" id="sVHS" checked> VHS mode</label></div>
+  </div>
+</div>
+<div id="invite" role="status"></div>
+<div id="prompt" role="status"></div>
+<div id="kitHud" aria-hidden="true"><span id="hTorch"><i class="lamp"></i>torch <b class="kc"></b></span><span id="hFlare">flares <i class="pips"></i> <b class="kc"></b></span></div>
+<div id="peek" aria-hidden="true"><div class="card"><div id="peekKeys" class="ctl"></div></div></div>
+<canvas id="osd" aria-hidden="true"></canvas>
+<section id="pause" class="cardwrap" role="dialog" aria-label="Paused">
+  <div class="card">
+    <h2 id="pTitle">Paused</h2>
+    <button id="pResume" class="big">resume</button>
+    <details id="gKeys" open><summary>controls</summary><div id="pKeys" class="ctl"></div></details>
+    <details id="gSound"><summary>sound</summary>
+      <label class="chk"><input type="checkbox" id="sound" checked> sound on</label>
+      <div class="vol"><label for="volMaster">all sound</label><input id="volMaster" type="range" min="0" max="1" step="0.05"></div>
+      <div class="vol"><label for="volAmb">weather</label><input id="volAmb" type="range" min="0" max="1" step="0.05"></div>
+      <div class="vol"><label for="volCre">the animal</label><input id="volCre" type="range" min="0" max="1.5" step="0.05"></div>
+      <div class="vol"><label for="volFx">effects</label><input id="volFx" type="range" min="0" max="1" step="0.05"></div>
+    </details>
+    <details id="gView"><summary>view</summary>
+      <div class="prow"><label for="pThoughts">its thoughts</label><select id="pThoughts" data-thoughts></select></div>
+      <label class="chk"><input type="checkbox" id="pVHS" checked> VHS mode</label>
+      <div class="vol"><label for="shake">ground shake</label><input id="shake" type="range" min="0" max="2" step="0.1" value="1"></div>
+      <button id="pFull" class="fs-only" style="width:100%;margin-top:4px">fullscreen</button>
+    </details>
+    <details id="gLook"><summary>look</summary>
+      <div class="prow"><label for="pSens">look speed</label><input id="pSens" type="range" min="-1.6" max="1.6" step="0.05" value="0"></div>
+      <label class="chk"><input type="checkbox" id="pInvert"> invert up and down</label>
+    </details>
+    <input id="pNote" type="text" maxlength="1000" placeholder="note for the developer" enterkeyhint="done" autocomplete="off" aria-label="Note for the developer">
+    <p id="pNotes"></p>
+    <button id="pCopy" hidden>copy session</button>
+    <button id="pAgain">start over</button>
+    <button id="pSandbox" class="dbg-only" style="width:100%;margin-top:6px">sandbox tools</button>
+    <details id="pLogBox"><summary>found<span id="pCount" class="val"></span></summary><ul id="pLog" class="tries"></ul></details>
+  </div>
+</section>
+<section id="dead" class="cardwrap" role="dialog" aria-label="You died">
+  <div class="card">
+    <p class="k">you did not make it</p>
+    <h2 id="xCause"></h2>
+    <div id="xWords"></div>
+    <p class="lasted">you lasted <span id="xTime"></span></p>
+    <button id="xAgain" class="big">go again <b class="kc" id="xKey"></b></button>
+  </div>
+</section>
+
+<section id="mindcard" aria-live="off">
+  <span class="k">It thinks</span>
+  <p id="vThink">&nbsp;</p>
+  <div class="vgrid">
+    <span class="k" id="kWant" hidden>Wants</span><b id="vWant" hidden></b>
+    <span class="k">Doing</span><b id="vDoing"></b>
+    <span class="k" id="kAt" hidden>Looking at</span><b id="vAt" hidden></b>
+  </div>
+  <div id="tele">
+    <span id="mSees" data-state="none">It has not placed you</span> <span id="mPhase"></span>
+    <div class="bars">
+      <span>Arousal</span><i><b id="bAr"></b></i>
+      <span>Interest</span><i><b id="bInt"></b></i>
+      <span>Irritation</span><i><b id="bIrr"></b></i>
+      <span>Hunger</span><i><b id="bHun"></b></i>
+      <span>Knows where</span><i><b id="bCert"></b></i>
+    </div>
+    <div id="mTemper"></div>
+    <div id="why">
+      <span class="lab">Options weighed</span><ol id="mUtil"></ol>
+      <span class="lab">Attending to</span><div id="mFocus" class="mono"></div>
+      <span class="lab">Recent decisions</span><ol id="mLog"></ol>
+    </div>
+  </div>
+</section>
+<div id="fps"></div>
+<div id="toast" role="status"><i id="tN"></i><b></b><span></span></div>
+<div id="hint" role="status"></div>
+<div id="noteShield" hidden></div>
+<div id="noteBox" hidden role="dialog" aria-label="Note for the developer"><textarea id="noteTa" rows="1" maxlength="2000" placeholder="note" enterkeyhint="send" autocomplete="off" autocapitalize="sentences" aria-label="Note for the developer"></textarea><button id="noteSend">send</button></div>
+<div id="bubble" aria-hidden="true"><div id="bpills"></div><div id="bcue"><i>&#8593;</i></div></div>
+
+<div id="corner"><button id="noteBtn" aria-label="Note for the developer"><svg viewBox="0 0 14 14"><path d="M2 2h10v7H6l-3 3V9H2z"/></svg><b class="kc" id="noteKey">T</b></button><button id="helpBtn" aria-label="Controls">?<b class="kc" id="helpKey"></b></button><button id="pauseBtn" aria-label="Pause"><svg viewBox="0 0 14 14"><rect x="2" y="1" width="3.5" height="12" rx="1"/><rect x="8.5" y="1" width="3.5" height="12" rx="1"/></svg><b class="kc" id="pauseKey"></b></button></div>
+<button id="menuBtn" aria-controls="panel" aria-expanded="false" aria-label="Sandbox tools"><svg viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h12"/></svg></button>
+
+<section id="panel" aria-label="Controls">
+  <h1>Rex <span>sandbox</span></h1>
+  <div class="seg" role="group" aria-label="Camera">
+    <button data-mode="observe" aria-pressed="true">Observe</button>
+    <button data-mode="foot" aria-pressed="false">On foot</button>
+    <button data-mode="fly" aria-pressed="false">Free cam</button>
+  </div>
+
+  <details open><summary>Show</summary>
+    <div class="row"><label for="uMind">mind readout (diagnostic)</label><input id="uMind" type="checkbox"></div>
+    <div class="row"><label for="uTele">Telemetry</label><input id="uTele" type="checkbox"></div>
+    <div class="row"><label for="uRexOurs">Generated rex body (reloads; else the downloaded model)</label><input id="uRexOurs" type="checkbox"></div>
+    <div class="two"><button id="bPhoto">Photo (K)</button><button id="bBare">Hide all (H)</button></div>
+  </details>
+
+  <details open><summary>Do</summary>
+    <div class="three"><button id="bStone" title="F, or click">Stone</button><button id="bFlare" title="Q">Flare</button><button id="bMeat" title="E">Meat</button>
+      <button id="bShout" title="G">Shout</button><button id="bWhistle" title="R">Whistle</button><button id="bTorch" data-torch aria-pressed="false" title="L">Torch</button><button id="bShove" class="not-obs" title="V">Shove</button>
+      <button id="bTake" class="foot-only" title="T">Take</button></div>
+    <div class="row"><label for="tp">Go to</label>
+      <select id="tp"><option value="">a structure</option><option value="barn">Barn</option><option value="loft">Hayloft</option><option value="warehouse">Warehouse</option><option value="containers">Containers</option><option value="ruins">Ruins</option><option value="gatehouse">Gatehouse</option><option value="tower">Feeding tower</option><option value="culvert">Culvert</option></select></div>
+  </details>
+
+  <details><summary>Achievements <span class="val" id="dCount"></span></summary>
+    <ul id="dpanel"></ul>
+    <button id="dReset">clear achievements</button>
+  </details>
+
+  <details class="mind-on"><summary>Mind probes</summary>
+    <span class="lab">It notices</span>
+    <div class="chips">
+      <label><input type="checkbox" id="nYou" checked> you</label><label><input type="checkbox" id="nSounds" checked> sounds</label><label><input type="checkbox" id="nFood" checked> food</label><label><input type="checkbox" id="nFlares" checked> flares</label><label><input type="checkbox" id="nPrey" checked> prey</label>
+    </div>
+    <div class="two"><button id="onlyYou">Only you</button><button id="ovReset">Reset all</button></div>
+    <span class="lab">Its senses</span>
+    <div class="chips">
+      <label><input type="checkbox" id="sSight" checked> sight</label><label><input type="checkbox" id="sHear" checked> hearing</label><label><input type="checkbox" id="sSmell" checked> smell</label><label><input type="checkbox" id="omni"> knows where you are</label>
+    </div>
+    <div class="row"><label for="force">Behaviour</label><select id="force"><option value="">its own choice</option></select></div>
+    <div class="row"><label for="freeze">Freeze decisions</label><input id="freeze" type="checkbox"></div>
+    <div class="row"><label for="temper">Temperament</label>
+      <select id="temper"><option value="">its own</option><option value="bold">bold</option><option value="timid">timid</option><option value="patient">patient</option><option value="hot">short-tempered</option><option value="curious">curious</option></select></div>
+    <div class="row"><label for="verdict">You are</label>
+      <select id="verdict"><option value="">its own judgement</option><option value="food">food</option><option value="notfood">not food</option><option value="threat">a threat</option><option value="rival">a rival</option></select></div>
+    <span class="lab">Hold a drive</span>
+    <div class="drive"><input type="checkbox" id="hHunC"><label for="hHun">Hunger</label><input id="hHun" type="range" min="0" max="1" step="0.05" value="0.5"></div>
+    <div class="drive"><input type="checkbox" id="hIrrC"><label for="hIrr">Irritation</label><input id="hIrr" type="range" min="0" max="1" step="0.05" value="0"></div>
+    <div class="drive"><input type="checkbox" id="hIntC"><label for="hInt">Interest</label><input id="hInt" type="range" min="0" max="1" step="0.05" value="0.5"></div>
+    <div class="drive"><input type="checkbox" id="hArC"><label for="hAr">Arousal</label><input id="hAr" type="range" min="0" max="1" step="0.05" value="0.3"></div>
+  </details>
+
+  <details><summary>World</summary>
+    <div class="row"><label for="mood">Weather</label>
+      <select id="mood"><option value="storm">Storm at dusk</option><option value="dusk">Last light</option><option value="day">Overcast day</option></select></div>
+    <div class="row"><label for="speed">Time</label>
+      <select id="speed"><option value="1">1×</option><option value="0.5">½×</option><option value="0.25">¼×</option><option value="0">Paused</option></select></div>
+    <div class="row"><label for="herdOn">Prey herd</label><input id="herdOn" type="checkbox" checked></div>
+    <button id="bHerd" style="width:100%">Move the herd near it</button>
+    <div class="not-obs"><span class="lab">Ground at the cursor</span>
+      <div class="three"><button id="bRaise">Mound</button><button id="bPit">Pit</button><button id="bWall">Ridge</button></div></div>
+  </details>
+
+  <details><summary>Body tests</summary>
+    <div class="row"><label for="mindSel">Animal</label>
+      <select id="mindSel"><option value="on">Its own mind</option><option value="off">Directed</option></select></div>
+    <button id="bRoar" style="width:100%">Make it roar (B)</button>
+    <div class="mind-off">
+      <div class="row"><label for="pace">Pace</label><span class="val" id="paceV">2.2 m/s</span></div>
+      <input id="pace" type="range" min="0.6" max="12" step="0.1" value="2.2">
+      <div class="two" style="margin-top:6px"><button id="call">Call it here</button><button id="stop">Stop</button></div>
+      <div class="row" style="margin-top:6px"><label for="stalk">Stalking gait</label><input id="stalk" type="checkbox"></div>
+      <div class="row"><label for="lure">Lure follows cursor</label><input id="lure" type="checkbox"></div>
+    </div>
+  </details>
+
+  <details><summary>Overlays</summary>
+    <div class="row"><label for="ovSense">What it senses</label><input id="ovSense" type="checkbox"></div>
+    <div class="row"><label for="ovGait">Gait and gaze</label><input id="ovGait" type="checkbox"></div>
+    <div class="row"><label for="ovSkel">Skeleton</label><input id="ovSkel" type="checkbox"></div>
+  </details>
+
+  <details><summary>Keys</summary>
+    <p class="keys">Play keys: hold <b>Tab</b> (pad: hold <b>View</b>) or the pause card. Sound and view settings are on the pause card.<br>Debug (on after the first <b>`</b>, or with the <b>#debug</b> hash on any device): <b>`</b> this panel <b>I</b> thoughts on/off <b>H</b> hide all <b>K</b> photo <b>M</b> mind <b>O</b> observe <b>V</b> shove <b>B</b> roar <b>X</b> clear goal<br>Pad d-pad (debug): up photo, left thoughts, right panel</p>
+  </details>
+</section>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
