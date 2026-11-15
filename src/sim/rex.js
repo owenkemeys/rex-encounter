@@ -586,6 +586,14 @@ export class Creature {
         if (C.t > t0 && C.t < t1) vT = Math.min(vT, -lerp(bk[0], bk[1], C.reel)); else if (C.t >= t1 && C.t < t1 + 0.9 && vT > 0) vT = 0;      // and stands a beat
         if (!C.shook && C.t > t1 - 0.15) { C.shook = true; if (this.gesture('shake', null, { over: true })) this.act.crash = true; } }
       if (C.bounce && C.t > C.bounce.t) { this.ux += C.nx * C.bounce.k; this.uz += C.nz * C.bounce.k; C.bounce = null; } } }      // glancing: thrown back off the surface as the lean comes out
+    { const C = this.crashS, B = C && C.blow; if (B) { const CB = (this.species.crash || {}).blow || {}, bt = this.t - C.at, g = B.gl, sg = B.sg;
+      // beat 2, the rebound (about 0.2 s): it comes off the surface and over-corrects: the roll swings past upright the other way, the
+      // head and neck whip back away from the wall, the tail goes the other way from the hips, and a quick catch step follows
+      if (!B.b2 && bt > (CB.t2 ?? 0.2)) { B.b2 = true; const W = this.wallLean; if (W) { W.T = clamp(W.T - sg * (CB.over ?? 0.3) * g, -0.45, 0.45); W.x -= sg * (CB.over ?? 0.3) * g; } this.pRoll.v -= sg * (CB.rollKick ?? 1.2) * g;
+        this.head.tilt.v -= sg * (CB.headBack ?? 6) * g; this.head.vel.x += C.nx * (CB.headAway ?? 1.6) * g; this.head.vel.z += C.nz * (CB.headAway ?? 1.6) * g;
+        this.twistYaw.v -= sg * (CB.tail ?? 0.9) * g; this.sway.v -= sg * (CB.swayBack ?? 0.9) * g; this.stagT = this.t + (CB.catchIn ?? 0.12); }
+      // beat 3, a hard one only (from about 0.6 s): it gathers itself: a snort, and a look back at what it hit (it keeps running throughout)
+      if (!B.b3 && g > (CB.gatherFrom ?? 0.5) && bt > (CB.t3 ?? 0.6)) { B.b3 = true; if (this.gesture('huff', B.P, { over: true, force: g })) this.act.crash = true; } } }
     if (this.stagT && this.t >= this.stagT) { this.lungeReq = this.t; this.stagT = 0; }
     if (this.yawKick) { const Y = this.yawKick; Y.t += dt; const w = Y.w * Math.sin(Math.PI * Math.min(1, Y.t / 0.5)); this.psi += w * dt * 2.4; this.psiV += w * dt * 2.4; if (Y.t > 0.5) this.yawKick = null; }
     if ((this.headJam || 0) > 0.35) { vT = Math.min(vT, -0.7); omT *= 0.3; }      // head wedged: it backs out rather than forcing it
@@ -742,7 +750,8 @@ export class Creature {
       { const v0 = this.v; this._crash(-vn, nx, nz, dt); if (this.v !== v0 && v0) { const r = this.v / v0; Vx *= r; Vz *= r; vn *= r; } }      // (the speed a knock took stays taken: the slide below had put it straight back, so a corner clipped at a run was a slow sag, not a jolt)
       // sliding along it: shoulder or hip held against the surface, and the rub sheds speed (BODY4)
       { const spd = Math.abs(this.v); if (spd > 1.2 && bl > 0.002 && this.crashS && this.crashS.t < this.crashS.dur) {      // (only in the moment after a knock: brushing a wall on an ordinary walk is no rub)
-        const tw = -(nx * fz - nz * fx) * -1, toward = -(nx * Math.cos(this.psi) - nz * Math.sin(this.psi)); { const W = this.wallLean || (this.wallLean = { x: 0, T: 0 }); const tl = clamp(toward, -1, 1) * 0.16 * Math.min(1, spd / 4); if (Math.abs(tl) > Math.abs(W.T)) W.T = tl; } this.v -= Math.sign(this.v) * Math.min(spd, 2.5 * dt); void tw; } }
+        const tw = -(nx * fz - nz * fx) * -1, toward = -(nx * Math.cos(this.psi) - nz * Math.sin(this.psi)); { const W = this.wallLean || (this.wallLean = { x: 0, T: 0 }); const tl = clamp(toward, -1, 1) * 0.16 * Math.min(1, spd / 4); const CB = this.crashS && this.crashS.blow; if (Math.abs(tl) > Math.abs(W.T) && !(CB && CB.b2 && this.t - this.crashS.at < 0.75)) W.T = tl; }      // (not while it is rebounding off the surface: the over-correction is not to be leaned back in)
+        this.v -= Math.sign(this.v) * Math.min(spd, 2.5 * dt); void tw; } }
       if (vn < 0) { Vx -= vn * nx; Vz -= vn * nz; const sp2 = Math.hypot(Vx, Vz); if (sp2 > 0.05 && this.v > 0) { this.psiV += clamp(wrap(bearing(Vx, Vz) - this.psiV), -0.04, 0.04); /* the slide turns in over a few ticks, so a swinging foot's target does not jump */ this.v = Math.max(sp2, Math.abs(this.v) - 30 * dt); } else this.v = Math.sign(this.v) * Math.max(0, Math.abs(this.v) - 30 * dt); this.bump = Math.max(this.bump || 0, -vn); }
     }
     if (turn) { const tr = clamp(turn, -0.6 * dt * 60 * dt * 60, 0.6 * dt * 60 * dt * 60); this.psi += clamp(turn, -0.005, 0.005); this.psiV += clamp(turn, -0.005, 0.005); this.om *= 0.97; void tr; }
@@ -791,7 +800,7 @@ export class Creature {
       // the head rocked toward the side it struck on
       const gl = (CR.stumble ?? 1) * sstep(1, 2.6, k) * sstep(3, 7, C.v0) * sstep(0.25, 0.6, C.tan);
       if (gl > 0.02) { const sg = Math.sign(toward) || 1, W = this.wallLean; W.T = clamp(W.T + sg * 0.2 * gl, -0.4, 0.4);
-        this.chestDip.v += 2.4 * gl; this.pPitch.v -= 1.1 * gl; this.py.v -= 1.6 * gl; this.sway.v += sg * 1.0 * gl; this.head.tilt.v += sg * 5 * gl; this.head.vel.y -= 2.0 * gl; C.bounce = { t: 0.22, k: 0.9 * gl }; } }
+        this.chestDip.v += 2.4 * gl; this.pPitch.v -= 1.1 * gl; this.py.v -= 1.6 * gl; this.sway.v += sg * 1.0 * gl; this.head.tilt.v += sg * 5 * gl; this.head.vel.y -= 2.0 * gl; C.bounce = { t: 0.22, k: 0.9 * gl }; C.blow = { gl, sg, P: { x: P.x, y: P.y, z: P.z }, b2: false, b3: false }; this.blink = Math.max(this.blink, 0.18 + 0.25 * gl); } else C.blow = null; }
     let kind = 'solid', best = 0; const T = this.terrain;
     if (T.near) for (const c of T.near(P.x, P.z, (this._hitR || 1) + 0.8)) { const g = c.seg; let qx = c.x, qz = c.z; if (g) { const ex = g.bx - g.ax, ez = g.bz - g.az, l2 = ex * ex + ez * ez, u = l2 > 0 ? clamp(((P.x - g.ax) * ex + (P.z - g.az) * ez) / l2, 0, 1) : 0; qx = g.ax + ex * u; qz = g.az + ez * u; } const d = (c.r || 0) + 2 - Math.hypot(P.x - qx, P.z - qz); if (d > best) { best = d; kind = c.kind || 'solid'; } }
     if (!partIn) this.events.push({ type: 'contact', part, surface: kind, force: +vin.toFixed(2), x: P.x, y: P.y, z: P.z, nx, ny: 0, nz });

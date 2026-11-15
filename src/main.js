@@ -6,6 +6,7 @@ import { RexBody, watchBody } from './view/body.js';
 import { buildWorld } from './view/world.js';
 import { Effects, Audio } from './view/effects.js';
 import { Overlays } from './view/overlays.js';
+import { Replay } from './view/replay.js';
 import { Director } from './director.js';
 import { Arena } from './sim/arena.js';
 import { Props } from './view/props.js';
@@ -103,6 +104,20 @@ async function boot() {
   const prev = { v: new Float32Array(sim.pose.v.length), s: new Float32Array(sim.pose.s.length) };
   const blend = { v: new Float32Array(sim.pose.v.length), s: new Float32Array(sim.pose.s.length) };
   prev.v.set(sim.pose.v); prev.s.set(sim.pose.s);
+  // death cam (src/view/replay.js): the tape runs while you are on foot; "watch it back" on the death card plays it from outside
+  const rec = new Replay(scene, terrain, sim.pose.v.length, sim.pose.s.length), tagEl = document.getElementById('replayTag');
+  function startReplay() {
+    if (!S.dead || S.replay || !rec.play()) return false;
+    S.replay = true; document.body.classList.add('replay'); tagEl.hidden = false; return true;
+  }
+  function endReplay() {
+    if (!S.replay) return;
+    S.replay = false; rec.stop(); document.body.classList.remove('replay'); tagEl.hidden = true;
+    try { document.getElementById('xAgain').focus({ preventScroll: true }); } catch {}
+  }
+  // any key, click or tap skips (before anything else sees it)
+  window.addEventListener('keydown', (e) => { if (S.replay) { e.stopImmediatePropagation(); e.preventDefault(); if (!e.repeat) endReplay(); } }, true);
+  window.addEventListener('pointerdown', (e) => { if (S.replay) { e.stopImmediatePropagation(); e.preventDefault(); endReplay(); } }, true);
 
   function resize() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -629,6 +644,7 @@ async function boot() {
     const any = bt.some(Boolean) || Math.hypot(pad.lx, pad.ly, pad.rx, pad.ry) > 0;
     if (any) { setDev('pad'); audio.resume(); }
     if (S.frozen) { pad.prev = bt; return; }      // the note box is open: the pad does nothing
+    if (S.replay) { if (bt.some((b, i) => b && !pad.prev[i])) endReplay(); pad.prev = bt; return; }      // death cam: any button skips
     if (!S.started) { if (down(9)) start(false); else padMenu($('start'), down); pad.prev = bt; return; }   // Start: begin; A: the focused control (start, unless moved)
     if (down(9) && !S.dead) setPaused(!S.paused);                                                      // Start/Menu: pause
     if (S.paused) { if (down(1)) setPaused(false); else padMenu($('pause'), down); pad.prev = bt; return; }   // B: resume; d-pad and A work the card
@@ -834,7 +850,17 @@ async function boot() {
     const a = S.acc / DT, pv = prev.v, cv = sim.pose.v, bv = blend.v;
     for (let i = 0; i < bv.length; i++) bv[i] = pv[i] + (cv[i] - pv[i]) * a;
     for (let i = 0; i < blend.s.length; i++) blend.s[i] = prev.s[i] + (sim.pose.s[i] - prev.s[i]) * a;
-    body.glareEye = mind.dazzle || null; body.update(blend); fx.breath(body.nostril, body.snout, blend.s[1], dtv); if (audio.breathCue) { fx.snort(body.nostril, body.snout, audio.breathCue); audio.breathCue = 0; }
+    // the tape: the pose as drawn, with the player's body and the head (while the death cam plays, the tape is shown instead)
+    if (S.replay && !S.dead) endReplay();
+    if (!S.replay) {
+      if (S.mode === 'foot' && S.started) {
+        const Y = S.you, V = arena.victim('you'), fr = V.free, hd = sim.head.pos;
+        rec.tick(dts, S.dead, blend, fr ? { x: Y.x, y: Y.up ? Y.up.base + Y.up.h : terrain.height(Y.x, Y.z), z: Y.z, yaw: Y.yaw, eye: Y.eye, lying: 0, hx: hd.x, hy: hd.y, hz: hd.z }
+          : { x: V.x, y: V.y, z: V.z, yaw: Y.yaw, eye: Y.eye, lying: 1, hx: hd.x, hy: hd.y, hz: hd.z });
+      } else if (!S.dead) rec.reset();
+    }
+    let shown = blend; if (S.replay) { if (rec.update(dtReal, camera)) shown = rec.pose; else endReplay(); }
+    body.glareEye = mind.dazzle || null; body.update(shown); fx.breath(body.nostril, body.snout, blend.s[1], dtv); if (audio.breathCue) { fx.snort(body.nostril, body.snout, audio.breathCue); audio.breathCue = 0; }
 
     if (S.mode === 'observe') {
       director.update(dtReal * run, sim, mind, camera); solidify(director.cam, 0.5); S.lens = director.cam.fov;
@@ -847,7 +873,7 @@ async function boot() {
         void w;
       }
     }
-    else if (!S.paused && !S.frozen) moveCamera(dtReal);
+    else if (!S.paused && !S.frozen && !S.replay) moveCamera(dtReal);
     lens(dtReal); if (!S.paused && !S.frozen) kitTick(dts);
     fx.update(dtv, camera);
     world.followLight(sim.x, sim.groundY, sim.z);
@@ -871,7 +897,7 @@ async function boot() {
   }
 
   const ui = createUI({ S, sim, mind, camera, canvas, arena, terrain, act, Q, audio, SEED, test: TEST, backend: () => backend, pad, post, props,
-    session: { start, setPaused, releasePointer, lockPointer, setMode, takeOver, fullscreen, fsOk, locked } });
+    session: { replay: startReplay, canReplay: () => rec.length > 1 && rec.death >= 0, start, setPaused, releasePointer, lockPointer, setMode, takeOver, fullscreen, fsOk, locked } });
   uiRef = ui;
   // the note box (src/telemetry.js): freeze time where it stands, without the pause card, and come back from it. Freezing lets the
   // pointer go (so the box can be clicked) without pausing; unfreezing asks for it again from the same key press or click that
@@ -911,7 +937,7 @@ async function boot() {
     if (!/start/.test(location.hash)) start(false);      // tests begin past the start card unless they ask to see it
     frame(1 / 30);
   } else {
-    window.__rex = { get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
+    window.__rex = { rec, setMode, get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
     let last = performance.now();
     // a rAF timestamp is when the frame began, which can be earlier than the performance.now() taken above (by seconds after a
     // long boot on a slow device): never hand the simulation a negative step (it ran the director's easing backwards, so its

@@ -270,6 +270,11 @@ body.touch .card input[type="checkbox"] { width: 22px; height: 22px; }
 body.touch .card input[type="range"] { height: 32px; }
 #dead { background: radial-gradient(ellipse at 50% 50%, rgba(30,6,4,0.35), rgba(8,4,3,0.82)); }
 body.dead #dead { display: grid; animation: fadein 1.2s ease; }
+body.replay #dead { display: none; }
+.card .btns { display: flex; gap: 10px; }
+.card .btns button { flex: 1; }
+#replayTag { position: fixed; top: calc(var(--sb) + 18px); left: 20px; z-index: 12; pointer-events: none; font: 500 15px var(--display); letter-spacing: 0.2em; text-shadow: 0 1px 8px rgba(0,0,0,0.7); }
+#replayTag small { display: block; font-size: 11px; letter-spacing: 0.14em; opacity: 0.7; margin-top: 3px; }
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 #dead .k { color: var(--ink-faint); font-size: 12px; margin-bottom: 4px; }
 #xWords { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin: 12px 0 14px; }
@@ -364,13 +369,14 @@ body.touch #hint { bottom: calc(var(--sb) + 64px); }
     <details id="pLogBox"><summary>found<span id="pCount" class="val"></span></summary><ul id="pLog" class="tries"></ul></details>
   </div>
 </section>
+<div id="replayTag" hidden>REPLAY<small>any key to skip</small></div>
 <section id="dead" class="cardwrap" role="dialog" aria-label="You died">
   <div class="card">
     <p class="k">you did not make it</p>
     <h2 id="xCause"></h2>
     <div id="xWords"></div>
     <p class="lasted">you lasted <span id="xTime"></span></p>
-    <button id="xAgain" class="big">go again <b class="kc" id="xKey"></b></button>
+    <div class="btns"><button id="xAgain" class="big">go again <b class="kc" id="xKey"></b></button><button id="xReplay" class="big">watch it back</button></div>
   </div>
 </section>
 

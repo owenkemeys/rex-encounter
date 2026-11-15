@@ -519,11 +519,11 @@ export function createUI(o) {
   function hurtFrame(dt) {
     const V = arena.victims && arena.victims.get('you');
     let hp = V && typeof V.health === 'number' ? V.health : null; if (hp !== null && hp > 1.0001) hp /= 100;
-    if (hp === null || S.mode !== 'foot') { HU.style.opacity = S.dead ? '0.8' : '0'; lastH = 1; return; }
+    if (hp === null || S.mode !== 'foot') { HU.style.opacity = S.dead && !S.replay ? '0.8' : '0'; lastH = 1; return; }
     hp = clamp(hp, 0, 1);
     if (hp < lastH - 0.03) flashT = 0.35;
     lastH = hp; flashT = Math.max(0, flashT - dt);
-    const base = S.dead ? 0.8 : clamp((1 - hp) * 0.8, 0, 0.7) * (hp < 0.35 ? 0.85 + 0.15 * Math.sin(inv.clock * 5) : 1);
+    const base = S.dead ? (S.replay ? 0 : 0.8) : clamp((1 - hp) * 0.8, 0, 0.7) * (hp < 0.35 ? 0.85 + 0.15 * Math.sin(inv.clock * 5) : 1);
     HU.classList.toggle('flash', flashT > 0); HU.style.opacity = Math.min(1, base + (flashT > 0 ? 0.35 : 0)).toFixed(3);
   }
 
@@ -536,7 +536,7 @@ export function createUI(o) {
   CC.style.cssText = 'width:100%;height:100%;image-rendering:pixelated;display:block'; CUT.appendChild(CC); document.body.appendChild(CUT);
   let snowData = null;
   function cutFrame() {
-    const on = S.dead && inv.clock - D.at > 0.18;
+    const on = S.dead && !S.replay && inv.clock - D.at > 0.18;
     CUT.style.display = on ? 'block' : 'none'; if (!on) return;
     const k = inv.clock - D.at - 0.18, snow = vhs() && k < 0.7;
     CC.style.visibility = snow ? 'visible' : 'hidden'; if (!snow) return;
@@ -562,6 +562,7 @@ export function createUI(o) {
     $('xWords').innerHTML = words.length ? '<span class="lab">what it was thinking</span>' + words.map((w) => `<div class="pill">${esc(w.toLowerCase())}</div>`).join('') : '';
     $('xTime').textContent = dur(D.lasted);
     document.body.classList.add('dead');
+    $('xReplay').hidden = !(session && session.canReplay && session.canReplay());
     try { $('xAgain').focus({ preventScroll: true }); } catch {}      // Enter, Space or A goes again
   }
   /** Go again: a new life (also "start over" on the pause card). */
@@ -576,6 +577,7 @@ export function createUI(o) {
     if (session) session.lockPointer();
   }
   $('xAgain').addEventListener('click', () => { audio.resume(); retry(false); });
+  $('xReplay').addEventListener('click', () => { audio.resume(); if (session && session.replay) session.replay(); });
   // ------------------------------------------------------------ photo: the frame, the bubble, a quiet wordmark
   function compose() {
     const W = canvas.width, H = canvas.height, c = document.createElement('canvas'); c.width = W; c.height = H;

@@ -1801,7 +1801,14 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
           const sw = there ? Math.sin((b.t - b.at) * 0.9) : 0, lx = -sp.d.z, lz = sp.d.x, ll = Math.hypot(lx, lz) || 1;
           I.sense = { H: { x: sp.H.x + lx / ll * 0.12 * sw, y: sp.H.y + 0.05 * Math.sin((b.t - b.at) * 1.3), z: sp.H.z + lz / ll * 0.12 * sw }, d: { x: sp.d.x + lx / ll * 0.18 * sw, y: sp.d.y, z: sp.d.z + lz / ll * 0.18 * sw }, eye: s, low: sp.low, back: sp.back, k: 1, key: sp.key };
           I.alert = 0.6;
-          if (!there) {
+          // the owner, at a big window he stood beside: "this peering behavior is odd, its low and its head is off to the side, why? i would be
+          // expecting it to get its head through this giant window im standing right next to and try to get me this way". The places
+          // are eye places (a head kept off a person), so a hungry one with you in the gap's line and in reach did not strike from one
+          // until its eye was on the place, which it seldom was, and a reach verdict gone stale shut the strike off; now the line
+          // through the gap to you, the head near the gap and you in reach are the test, and the strike goes at your head height
+          const jd = c.seen && a && !a.dead ? this._jawDrive(c) : { v: 0 };
+          const thru = jd.v > 0.2 && c.seen && a && c.dHead < 4.8 && off < 2.2 && (a.state || 'free') === 'free' && !!this.T.segClear && this.T.segClear(sp.E.x, sp.E.y, sp.E.z, a.x, Math.max(a.y - 0.65, sp.E.y - 0.3), a.z, 0.15);
+          if (!there && !thru && !(b.strikeAt !== undefined && b.t - b.strikeAt < 1.4)) {
             if (Math.abs(ef) < 0.6 && Math.abs(ey) < 0.3) b.fitT += dt; b.sub = 'shove';      // (the head's time counts once the body is (nearly) in place)
             this.thought = s ? 'Lowering its head and turning it, bringing one eye to the gap.' : 'Bringing its snout down to the gap.';
             // (the head held against the wall for over a second is a way that will not take it, wherever the body stands: it had
@@ -1816,18 +1823,19 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
             if (!b.thereT) { b.thereT = b.t; b.hold = lognormal(R, c.seen ? 6 : 4.5, 0.3); if (!s) gest('huff', { x: P.x, y: P.y, z: P.z }); }
             // its head is in to you: if it wants you (hungry for you, a grudge, a threat to be ended), the jaws go for you from
             // here (the contact decides, arena._contact); held, it pulls you out the way its head came in
-            const jd = c.seen && a && !a.dead ? this._jawDrive(c) : { v: 0 };
             if (b.strikeAt !== undefined && b.t - b.strikeAt < 1.4) {
               const st = a ? a.state || 'free' : 'free';
               if (st === 'held') { b.done = true; this.motiveNext = b.motive; this._start('seize', { ...c, state: 'held' }, 'through the gap'); return this._run(0, this.ctx || c, world); }
-              const torso = { x: a.x, y: st === 'free' ? a.y - 0.65 : this.T.height(a.x, a.z) + 0.3, z: a.z };
-              I.sense = null; I.probe = { ...torso, k: 1, standoff: 0.2 }; I.grip = true; I.mouth = 0.18; I.goal = { kind: 'drive', throttle: 0, steer: 0 };
+              const torso = { x: a.x, y: st === 'free' ? Math.max(a.y - 0.65, sp.E.y - 0.3) : this.T.height(a.x, a.z) + 0.3, z: a.z };
+              I.sense = null; I.probe = { ...torso, k: 1, standoff: 0.2 }; I.grip = true; I.mouth = 0.18;
+              // (the neck alone does not carry the head through a gap from the lining-up stance: the body steps up to the wall behind it while you are still out of the jaws' reach, its own collision stopping it there)
+              I.goal = { kind: 'drive', throttle: st === 'free' && c.dHead > 0.9 && !(sim.headBlocked > 0.3) ? clamp(0.3 * (c.dHead - 0.8), 0, 0.3) : 0, steer: st === 'free' ? clamp(1.6 * wrap(bearing(a.x - sim.x, a.z - sim.z) - sim.psi), -0.5, 0.5) : 0 };
               b.sub = 'strike'; this.attacking = true;
               this.thought = 'Its jaws go in after you.';
               break;
             }
-            if (jd.v > 0.2 && c.aff.reach && c.dHead < 4.8 && b.t - (b.strikeAt ?? -99) > 3.5 + 3 * R()) {
-              const st = a.state || 'free', torso = { x: a.x, y: st === 'free' ? a.y - 0.65 : this.T.height(a.x, a.z) + 0.3, z: a.z };
+            if (jd.v > 0.2 && (c.aff.reach || thru) && c.dHead < 4.8 && b.t - (b.strikeAt ?? -99) > 3.5 + 3 * R()) {
+              const st = a.state || 'free', torso = { x: a.x, y: st === 'free' ? Math.max(a.y - 0.65, sp.E.y - 0.3) : this.T.height(a.x, a.z) + 0.3, z: a.z };
               b.motive = jd.k; this.motive = jd.k; b.strikeAt = b.t; b.strikes = (b.strikes || 0) + 1; gest('seize', torso, { over: true }); break;
             }
             b.sub = c.seen && c.dHead < 4.8 && M.irritation > 0.3 && R() < dt * 0.3 ? 'snap' : s ? 'peer' : 'snort';

@@ -71,7 +71,9 @@ export const TYRANNOSAURUS = {
   // running into things (sim/rex.js _crash). A head-on knock closing faster than `reelFrom` m/s makes it reel (head thrown back,
   // a drop on bent legs), fully from `reelFull`: it then backs off at `reelBack` m/s (least, most) and, from a reel of `shakeFrom`
   // (0..1), shakes its head. `stumble` scales the lurch of a glancing or corner hit at a run.
-  crash: { reelFrom: 2.5, reelFull: 6.5, reelBack: [0.4, 0.9], shakeFrom: 0.35, stumble: 1 },
+  crash: { reelFrom: 2.5, reelFull: 6.5, reelBack: [0.4, 0.9], shakeFrom: 0.35, stumble: 1,
+    // body blow (glancing / corner), scaled by gl 0..1: t2 s = rebound after the blow (roll over-corrects by `over` rad, head tilt `headBack`, head thrown off the wall `headAway` m/s, tail `tail`, sway `swayBack`, catch step `catchIn` s on); a hard one (gl > gatherFrom) snorts from t3 s
+    blow: { t2: 0.2, over: 0.45, rollKick: 1.2, headBack: 6, headAway: 1.6, tail: 0.9, swayBack: 0.9, catchIn: 0.12, gatherFrom: 0.5, t3: 0.6 } },
   // relative masses for balance (the centre of mass is kept over the feet)
   mass: { head: 0.5, neck: 0.35, torso: 4.6, tail: 1.4, torsoF: 1.15 },
   // senses
