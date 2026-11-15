@@ -73,4 +73,6 @@ It is one app, not yet packages. The seams are already clean enough to split lat
 - Never print big files or test dumps into context; grep, cut and tail.
 - Cheap model for rote work, strong model only for body-simulation and mind judgement.
 - Playtest notes in the hosted arena's database carry inline screenshots: never read them raw.
-- The owner plays by clicking the hosted arena, the "Rex Sandbox" artifact on claude.ai, never by checking out and building. To give him a build: `npm run build`, then republish only `dist/app.js` (and `dist/index.html` if it changed) to that artifact in patch mode; the assets there stay. Say which branch the build is from.
+- The owner designs and playtests. He does not use git and should never be asked to think about branches, checkouts, builds, merges or pull requests: that bookkeeping is the agent's to do, quietly. Report to him in terms of what he will see and hear in the game.
+- He plays by clicking the hosted arena, the "Rex Sandbox" artifact on claude.ai. To give him a build: `npm run build`, then republish only `dist/app.js` (and `dist/index.html` if it changed) to that artifact in patch mode; the assets there stay.
+- `main` is what the hosted arena runs. Work on a short branch, run the checks, then merge to `main`, push, delete the branch and republish the arena in the same sitting, so the two never drift. If he rejects a change after playing it, fix forward or revert on `main` and republish. If several agents are working at once, merge through pull requests and rebase before merging.
