@@ -69,3 +69,4 @@ Also: "i also dont want to have to think about branches and worktrees and so on,
 "left some notes for you ingame to pick up and action next. put them as todo items in the repo so other agents can help later and pick what makes sense for you to fix."
 "note that crash collision stuff is working pretty well now. window intrusion kinda works."
 "death cam lets make that automatic a second or so after the shocking black screen from the death. fade in from black and auto watch the replay. pressing any key (except t) brings up the usual death/respawn menu, with restart replay button."
+"whilst its working, thinking for you: deaths and encounters can be funny viral moments, we already have the ability to re run scenarios for the death cam and the testing, can we make moments shareable with a link? its like a richer form of just screencapping a video. do not build this, just think about it"

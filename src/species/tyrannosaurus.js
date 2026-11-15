@@ -68,6 +68,12 @@ export const TYRANNOSAURUS = {
   // vertebrae); the skull turns on the atlas a further `skullSame` the same way as the neck's curve, but against it only
   // `skullOpp`. A head aim past that is the trunk's and the feet's to give. `latTau`: the curve's low-pass (s), so it cannot writhe.
   neck: { latJoint: 0.11, latTotal: 0.6, skullSame: 0.36, skullOpp: 0.1, latTau: 0.07, latRate: 1.6 },
+  // where it is going (T1; owner: "natural behavior would be to expect its head to go around the corner as soon as its able"): at a
+  // trot or faster, with nothing else claiming the head (no look, no attention, no gesture, not reeling from a blow), the head leads
+  // the body to where it is heading: into a turn `turnLead` s ahead of the body, and at the goal as soon as the straight way to it is
+  // clear (before that, at the furthest bend or edge of the route it can see, and `peek` of the way on from there toward the goal). Off the body axis by at most `maxYaw` rad (`sprintYaw` flat out,
+  // the neck is balance then), eased over `ease` s, turned at up to `rate` rad/s and `acc` rad/s^2; `roll` rad of head bank into the turn at full turn rate.
+  gazeLead: { minSpeed: 3.5, fullSpeed: 5.5, start: 0.7, peek: 0.1, turnLead: 0.5, maxYaw: 0.6, sprintYaw: 0.45, ease: 0.18, rate: 2.2, acc: 9, pad: 0.5, roll: 0.07, after: 2.0 },
   // running into things (sim/rex.js _crash). A head-on knock closing faster than `reelFrom` m/s makes it reel (head thrown back,
   // a drop on bent legs), fully from `reelFull`: it then backs off at `reelBack` m/s (least, most) and, from a reel of `shakeFrom`
   // (0..1), shakes its head. `stumble` scales the lurch of a glancing or corner hit at a run.
@@ -91,7 +97,7 @@ export const TYRANNOSAURUS = {
   // the mind: how it commits to a goal and what reads to it as prey (engine defaults and the meaning of each: sim/mind.js MIND_DEFAULT)
   mind: {
     commit: { hold: 0.6, bore: 25, sameTarget: 0.5, fixHold: 0.9, progressD: 1.5, breakSal: 0.5 },
-    prey: { quick: 0.6, dart: 0.11, bob: 0.015, bobH: 0.3, flee: 0.22, vanish: 0.16, vanishD: 40, slowHide: 0.5, prime: 4, peek: 0.14, small: 0.7, calmT: 20, goneT: 60, on: 0.45, off: 0.25,
+    prey: { quick: 0.6, dart: 0.11, bob: 0.015, bobH: 0.3, flee: 0.22, vanish: 0.16, vanishD: 40, slowHide: 0.5, prime: 4, peek: 0.1, small: 0.7, calmT: 20, goneT: 60, on: 0.45, off: 0.25,
       reflexW: 0.7, absorb: 0.5, pull: 0.9, rushD: 13, setT: [1.0, 1.8], rushK: 0.7, holdD: 3, calmGrace: 1.5, hungerGo: 0.6, hungerLead: 8, leadT: 8, boltD: 8, boltLock: 0.25, boltStrike: 2.5,
       leaveRise: 3, leaveT: 25, leaveDamp: 0.6 },
     // a chase: given up only when it has been losing ground flat out for a while, or the gap is huge (not on a short timer)

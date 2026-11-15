@@ -110,14 +110,30 @@ async function boot() {
     if (!S.dead || S.replay || !rec.play()) return false;
     S.replay = true; document.body.classList.add('replay'); tagEl.hidden = false; return true;
   }
+  // owner: "pressing any key (except t) brings up the usual death/respawn menu, with restart replay button"
+  // The key or click that ends it is swallowed (held key repeats, its keyup, the click after a tap) so it cannot press a button on the card.
+  let eatKey = null, eatClick = 0;
   function endReplay() {
     if (!S.replay) return;
     S.replay = false; rec.stop(); document.body.classList.remove('replay'); tagEl.hidden = true;
-    try { document.getElementById('xAgain').focus({ preventScroll: true }); } catch {}
+    if (!eatKey) try { document.getElementById('xAgain').focus({ preventScroll: true }); } catch {}      // after the keyup when a key ended it
   }
-  // any key, click or tap skips (before anything else sees it)
-  window.addEventListener('keydown', (e) => { if (S.replay) { e.stopImmediatePropagation(); e.preventDefault(); if (!e.repeat) endReplay(); } }, true);
-  window.addEventListener('pointerdown', (e) => { if (S.replay) { e.stopImmediatePropagation(); e.preventDefault(); endReplay(); } }, true);
+  window.addEventListener('keydown', (e) => {
+    if (S.frozen) return;      // the note box is open: typing there is its own
+    if (eatKey && e.key === eatKey) { e.stopImmediatePropagation(); e.preventDefault(); return; }
+    if (!S.replay || (e.key.toLowerCase() === 't' && !e.ctrlKey && !e.metaKey && !e.altKey)) return;      // t is the note box: it passes through and the replay runs on
+    e.stopImmediatePropagation(); e.preventDefault(); if (!e.repeat) { eatKey = e.key; endReplay(); }
+  }, true);
+  window.addEventListener('keyup', (e) => {
+    if (!eatKey || e.key !== eatKey) return;
+    e.stopImmediatePropagation(); e.preventDefault(); eatKey = null;
+    if (S.dead && !S.replay) try { document.getElementById('xAgain').focus({ preventScroll: true }); } catch {}
+  }, true);
+  window.addEventListener('pointerdown', (e) => {
+    if (!S.replay || S.frozen || (e.target.closest && e.target.closest('#noteBox, #noteBtn, #noteShield'))) return;
+    e.stopImmediatePropagation(); e.preventDefault(); eatClick = performance.now() + 500; endReplay();
+  }, true);
+  window.addEventListener('click', (e) => { if (performance.now() < eatClick) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
 
   function resize() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -852,14 +868,14 @@ async function boot() {
     for (let i = 0; i < blend.s.length; i++) blend.s[i] = prev.s[i] + (sim.pose.s[i] - prev.s[i]) * a;
     // the tape: the pose as drawn, with the player's body and the head (while the death cam plays, the tape is shown instead)
     if (S.replay && !S.dead) endReplay();
-    if (!S.replay) {
+    {      // (keeps appending the tail after the death while the replay already plays)
       if (S.mode === 'foot' && S.started) {
         const Y = S.you, V = arena.victim('you'), fr = V.free, hd = sim.head.pos;
         rec.tick(dts, S.dead, blend, fr ? { x: Y.x, y: Y.up ? Y.up.base + Y.up.h : terrain.height(Y.x, Y.z), z: Y.z, yaw: Y.yaw, eye: Y.eye, lying: 0, hx: hd.x, hy: hd.y, hz: hd.z }
           : { x: V.x, y: V.y, z: V.z, yaw: Y.yaw, eye: Y.eye, lying: 1, hx: hd.x, hy: hd.y, hz: hd.z });
       } else if (!S.dead) rec.reset();
     }
-    let shown = blend; if (S.replay) { if (rec.update(dtReal, camera)) shown = rec.pose; else endReplay(); }
+    let shown = blend; if (S.replay) { if (rec.update(S.frozen ? 0 : dtReal, camera)) shown = rec.pose; else endReplay(); }
     body.glareEye = mind.dazzle || null; body.update(shown); fx.breath(body.nostril, body.snout, blend.s[1], dtv); if (audio.breathCue) { fx.snort(body.nostril, body.snout, audio.breathCue); audio.breathCue = 0; }
 
     if (S.mode === 'observe') {
@@ -904,7 +920,7 @@ async function boot() {
   // sent the note; if the pointer was in use and is refused, the pause card comes up instead.
   function freeze(on) {
     if (on) {
-      if (!S.started || S.paused || S.dead || S.frozen) return false;
+      if (!S.started || S.paused || S.frozen || (S.dead && !S.replay && !document.body.classList.contains('dead'))) return false;      // (allowed in the death cam and on the card)
       S.frozen = true; S.keys.clear(); drag = null; S.call = null; S.zoom.hold = false; S.stick.x = S.stick.y = 0; S.stick.id = null; nub.style.transform = '';
       document.body.classList.add('frozen'); S.relockWas = locked(); releasePointer();
       try { if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend(); } catch {}
@@ -920,7 +936,7 @@ async function boot() {
   }
   // session telemetry and notes (src/telemetry.js): reads the game, never changes it; '#notel' turns it off
   let tel = NO_TELEMETRY;
-  if (!/notel/.test(location.hash)) tel = createTelemetry({ S, sim, mind, arena, act, audio, camera, canvas, Q, ui, props, post, renderer, SEED, backend: () => backend, freeze });
+  if (!/notel/.test(location.hash)) tel = createTelemetry({ replayInfo: () => (S.replay ? rec.info() : null), S, sim, mind, arena, act, audio, camera, canvas, Q, ui, props, post, renderer, SEED, backend: () => backend, freeze });
   window.__tel = tel;
 
   qualityMenu(qc);

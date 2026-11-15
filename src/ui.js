@@ -528,7 +528,7 @@ export function createUI(o) {
   }
 
   // ------------------------------------------------------------ the end: what happened, in its words; how long you lasted
-  const D = { evt: null, at: 0, shown: false, cause: '' };
+  const D = { evt: null, at: 0, shown: false, cause: '', auto: false, fade: -9, fadeLen: 0.8 };
   // the cut: a fraction of a second after the jaws close the picture is gone, hard (no fade): black, or with the camcorder look
   // the tape running out into snow and then black. The end card comes up out of that.
   const CUT = document.createElement('div'), CC = document.createElement('canvas'), cg = CC.getContext('2d');
@@ -536,7 +536,12 @@ export function createUI(o) {
   CC.style.cssText = 'width:100%;height:100%;image-rendering:pixelated;display:block'; CUT.appendChild(CC); document.body.appendChild(CUT);
   let snowData = null;
   function cutFrame() {
-    const on = S.dead && !S.replay && inv.clock - D.at > 0.18;
+    if (S.replay) {      // fading in from the black into the replay
+      const k = (inv.clock - D.fade) / D.fadeLen;
+      CUT.style.display = k < 1 ? 'block' : 'none'; CUT.style.opacity = String(Math.max(0, 1 - k)); CC.style.visibility = 'hidden'; return;
+    }
+    CUT.style.opacity = '1';
+    const on = S.dead && inv.clock - D.at > 0.18;
     CUT.style.display = on ? 'block' : 'none'; if (!on) return;
     const k = inv.clock - D.at - 0.18, snow = vhs() && k < 0.7;
     CC.style.visibility = snow ? 'visible' : 'hidden'; if (!snow) return;
@@ -548,12 +553,21 @@ export function createUI(o) {
   function deathFrame() {
     const V = arena.victims && arena.victims.get('you');
     if (!S.dead && S.mode === 'foot' && (D.evt || (V && V.dead))) {
-      S.dead = true; D.at = inv.clock; D.shown = false; D.cause = (D.evt && D.evt.cause) || (V && V.cause) || '';
+      S.dead = true; D.at = inv.clock; D.shown = false; D.auto = false; D.cause = (D.evt && D.evt.cause) || (V && V.cause) || '';
       D.lasted = S.footSince ? (performance.now() - S.footSince) / 1000 : 0;
       S.keys.clear(); if (session) session.releasePointer();
     }
-    if (S.dead && !D.shown && inv.clock - D.at > 1.3) showDeath();
+    // owner: "death cam lets make that automatic a second or so after the shocking black screen from the death. fade in from black and auto watch the replay."
+    // It starts ~1.2 s after the death while the tape still takes its last 2.5 s; with nothing to play the card comes up as before.
+    if (S.dead && !D.shown && !S.replay) {
+      if (!D.auto && inv.clock - D.at > 1.2) { D.auto = true; if (!playReplay(0.8)) showDeath(); }
+      else if (D.auto) showDeath();      // the replay ran out or was skipped
+    }
     cutFrame();
+  }
+  function playReplay(fade) {
+    if (!(session && session.canReplay && session.canReplay() && session.replay())) return false;
+    D.fade = inv.clock; D.fadeLen = fade; return true;
   }
   function showDeath() {
     D.shown = true; peek(false);
@@ -571,13 +585,13 @@ export function createUI(o) {
     act.respawn();
     const V = arena.victims && arena.victims.get('you');
     if (V) { if (V.dead) V.dead = false; if (typeof V.health === 'number' && V.health <= 0) V.health = V.health > 1 ? 100 : 1; }
-    D.evt = null; D.shown = false; S.dead = false; lifeEarned = []; document.body.classList.remove('dead');
+    D.evt = null; D.shown = false; D.auto = false; S.dead = false; lifeEarned = []; document.body.classList.remove('dead');
     if (S.zoom) { S.zoom.toggle = false; S.zoom.hold = false; const z = $('tZoom'); if (z) z.setAttribute('aria-pressed', 'false'); }      // a new life starts unzoomed
     if (watch && session) session.setMode('observe');
     if (session) session.lockPointer();
   }
   $('xAgain').addEventListener('click', () => { audio.resume(); retry(false); });
-  $('xReplay').addEventListener('click', () => { audio.resume(); if (session && session.replay) session.replay(); });
+  $('xReplay').addEventListener('click', () => { audio.resume(); playReplay(0.4); });
   // ------------------------------------------------------------ photo: the frame, the bubble, a quiet wordmark
   function compose() {
     const W = canvas.width, H = canvas.height, c = document.createElement('canvas'); c.width = W; c.height = H;

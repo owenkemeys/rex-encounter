@@ -8,7 +8,7 @@ window intrusion kinda works"; the kill cam "is quite funny already".
 ## Batch of 2026-11-15 21:47-21:59 UTC (sessions 20261115T214343Z-9vrm and 20261115T215107Z-xr5v)
 
 ### T1. Head does not lead into a turn or round a corner
-Status: in progress (2026-11-15, body agent).
+Status: built 2026-11-15, awaiting the owner. `_travelGaze` in rex.js, numbers in species `gazeLead`; only when it means to run and nothing else has the head. `node test/gazelead.mjs`: head now leads the body onto the goal by 0.3 s at the corner (before: never got there) and 0.8 s on open ground. Unseen. Left at a walk on purpose: fixing the head on the way ahead at a walk cost Saltline crouch/3 ten seconds of searching.
 "this test has highlighted that the rex's gaze or attention is theoretically around the corner but its head is looking dead ahead of its run direction. i noticed this because when it gets around the corner its head is still facing ahead even though its goal, theoretically, is whatever was around the corner that it was trying to reach. unless this is an artefact of the test setup only? natural behavior would be to expect its head to go around the corner as soon as its able, and it hits its shoulder because it misjudged its ability to clear the corner in its excitement"
 Where: the Corner crash test (debug drawer). Known: the crash tests run with `attention: null` on purpose (main.js, "in a crash
 test it is not to know of you"), so part of this is the test; but nothing makes the head lead toward where the body is going.
@@ -20,13 +20,13 @@ Where: animal at (-90.2, 44), stopped, after "bump! hard". Two parts: how bamboo
 Note: since the crash work it also reels off bamboo as if off a wall (test/crashread.mjs bamboo).
 
 ### T3. Creeping with its head sideways in besiege; eyelids look sad from the side
-Status: in progress (2026-11-15, mind agent) for the head; eyelids open.
+Status: head built 2026-11-15, awaiting the owner; eyelids open. When it sees him the head turns to him instead of lying along the gap (`node test/barn.mjs all 90`: head off his line 12% of seen time, was 52%, from the side he stood; from the south-east start still 40%, not fixed). Unseen.
 "why is it creeping with its head sideways like this? its weird. also its eyelid configuration when seen from the side makes it look sad or something. it works well from the front though"
 Where: he at (25.5, 76.4) (the Barn, "big box"), animal at (19.8, 81.2), besiege/probe, 7.5 m, seeing him.
 Known: besiege's eye spots cock the head (`eye` +/-1) at a low crouch; see the window work in mind.js (`thru`).
 
 ### T4. At the barn it snaps but cannot or will not get him; bite sounds like wet mud
-Status: in progress (2026-11-15, mind agent for the reach; audio agent for the sound).
+Status: built 2026-11-15, awaiting the owner. Reach: the strike was gated on the skull's distance, so it bit 1.5-2.6 m short; now a `closing` state steps up until the snout is in reach, then one strike (barn.mjs: seized in median 12 s, was 19; but 39 s vs 19 s from the south-east start: worse there). Sound: a snap on air was wet-impact clips pitched down (the `clack` hybrid voice); now a dry synthesised clack in audio.js `clack` (`python3 test/bite_audio.py`), about 10 dB quieter by rms than the old one, may need level. A bite that lands also gets this clack plus its crunch. Unheard, unseen.
 "it made biting sound effects (which sound like wet mud or something) but doesnt seem able or interested in getting me, which is suprising and detracts from the experience. i expected it to be tearing me to shreds in this situation already."
 Where: he at (24.4, 76.5), animal at (26.9, 81.0), besiege/probe, 5.2 m, seeing him, hunger 0.81, thoughts "no way there",
 "try other way". About 50 s later it seized him (T5).
@@ -36,9 +36,18 @@ Status: open, needs a design proposal for the owner, not a code fix.
 "oh it did immediately pick me up after that i guess. as a player thats fun but its not clear whether its trying to kill me and failing, due to lack of skill or bug, or if its just toying with me. need to think about how to clue the player in to the situation in the most fun way."
 
 ### T6. A splayed pose while pursuing, seen in the kill cam; could not leave a note during it
-Status: the T key in the kill cam is being fixed (2026-11-15, death cam agent). The pose is open: no data.
+Status: T fixed 2026-11-15 (T opens the note box in the kill cam and on the death card, the replay holds while typing, the note stores `replay`, `replayT` and positions). The pose is open: no data until he marks it in a replay.
 "the last death scene, in the kill cam replay i saw the rex made a weird splaying pose whilst pursuing me. i dont know if you can get that from the telemetry from this note which is immediatley after respawn. i couldnt leave a note during kill cam because pressing the T key just exited kill cam."
 Known: that note was taken after respawn (animal feeding at (29.6, 59)), so it does not hold the pursuit. Session
 20261115T215107Z-xr5v, life 2 to 3 at about t = 467 s: the `chunks` collection has the 2 Hz timeline of the chase.
 Useful first step: let a note taken during the kill cam store the replay time, and have test/review.mjs-style pose checks run
 over a recorded tape.
+
+## Also from the owner, 2026-11-15 late
+
+### T7. Death cam automatic
+Status: built 2026-11-15, awaiting the owner. About 1.2 s after death it fades in from black over 0.8 s into the replay; any key, click or button except T brings up the death card, which has "restart replay". Checked by keyboard and mouse in headless Chrome; touch and gamepad unverified. The live mind's thought text still shows during the replay.
+
+### T8. Shareable moments (design only, do NOT build yet)
+"deaths and encounters can be funny viral moments, we already have the ability to re run scenarios for the death cam and the testing, can we make moments shareable with a link? its like a richer form of just screencapping a video. do not build this, just think about it"
+Status: thinking only; see the orchestrator's reply of 2026-11-15 in the owner's chat. Sketch: a moment is the replay tape (poses, player track) plus scene state, stored server-side under a short id, opened by a plain #name link; richer than video because the viewer can move the camera, scrub, see what it was thinking, and step into the same moment to try to survive it.

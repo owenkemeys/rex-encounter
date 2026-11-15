@@ -632,7 +632,30 @@ export class Audio {
     }
     this.st.vocal = t; this.st.hush = t + 25;
   }
-  clack(dist) { this._voice('clack', dist, 0.75 * this._db(1.5), this._jit(0.05), 0.06); }
+  /** Jaws shut, on air or on anything: teeth and bone, hard and dry (owner 2026-11-15: the bite "sounds like wet mud"; the old
+   *  hybrid `clack` voice layered wetimp_/squish_ recordings, an octave down, under the teeth). Now: a puff of air pushed ahead of
+   *  the jaw, a sharp broadband crack, the weight of skull and mouth in 300-1500 Hz through broad low-Q resonances (no held pitch),
+   *  a short hollow of the mouth cavity, a bone_ recording snipped to its first moments and a tick or two of teeth settling.
+   *  Nothing wet or squelching; the bite that lands has its own crunch/tear. `force` (0..1, default 0.6) scales weight and level. */
+  clack(dist, force = 0.6) {
+    if (!this._ok()) return; const F = clamp(force, 0.1, 1);
+    const p = this._where(dist, 'head'), L = this._L(), d = Math.hypot(p.x - L.x, p.y - L.y, p.z - L.z), h = this.sim ? this.sim.head.pos : null;
+    const near = !h || Math.hypot(p.x - h.x, p.y - h.y, p.z - h.z) < 3, em = near ? this.head : this._free(this.creaturePool, 3);
+    const at = Math.max(this.ctx.currentTime + 0.06, this._arrive(d)), dest = em.in || em, R = this.R, side = this._jit(0.06), G = 2 * (0.7 + 0.5 * F) * this._db(1.5);
+    if (near) { em.place(p.x, p.y, p.z, at); em.set(d, this.st.occ, at); } else this._place(em, p, at);
+    this.st.vocal = this.ctx.currentTime; const room = this.voices < (this.low ? 14 : 32) - 6;
+    const B = (dt, dur, type, f, q, g, atk = 0.002) => this._burst(dest, at + dt, dur, type, f, q, g, atk);
+    B(-0.05, 0.055, 'bandpass', 1700 * side, 0.6, 0.22 * G, 0.045);                                  // air shoved ahead of the closing jaw, cut off by the hit
+    B(0, 0.012, 'highpass', 1800, 0.7, 1.0 * G, 0.0008);                                              // the crack: teeth meeting
+    B(0, 0.035, 'bandpass', 2600 * side, 0.9, 0.7 * G, 0.001);
+    B(0.001, 0.06, 'bandpass', 520 * side * (1.1 - 0.2 * F), 0.8, (1.4 + 0.8 * F) * G, 0.0015);       // skull and jaw mass, where a phone can say it
+    B(0.001, 0.08, 'bandpass', 880 * side, 0.9, 1.6 * G, 0.0015);
+    B(0.002, 0.05, 'bandpass', 1350 * side, 1.0, 1.0 * G, 0.0015);
+    B(0.004, 0.11, 'bandpass', 400 * side, 2.2, 1.0 * G * (0.6 + 0.6 * F), 0.003);                    // the mouth as a hollow box, short, broad
+    B(0.004, 0.08, 'bandpass', 760 * side, 2.2, 0.8 * G, 0.003);
+    if (room) { const k = 1 + Math.floor(R() * 2); for (let i = 0; i < k; i++) B(0.006 + 0.03 * R(), 0.012, 'highpass', 2500 + 2500 * R(), 0.7, (0.3 + 0.3 * R()) * G, 0.0008); }   // the rows settle on each other
+    const bn = this._clipNames('bone_'); if (bn.length && room) this._snip(this._bagPick('clackbone', bn), dest, at, 0.12, 0.92 + 0.2 * R(), 0.9 * G, 300, 6000);
+  }
   crunch(dist) { this._voice('crunch', dist, 0.8 * this._db(2), this._jit(0.06)); }
   tear(dist) { this._voice('tear', dist, 0.75 * this._db(2), this._jit(0.06)); }
   /** Breath: called every frame (level = chest expansion, dist = to the head). Also runs the per-frame update. */

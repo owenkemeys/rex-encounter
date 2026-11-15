@@ -302,6 +302,7 @@ function make(o) {
     const t = tt(), k = ++noteK;
     const n = { kind: 'note', s: sid, k, t, at: new Date().toISOString(), how, text: '', life: lives.length, ringF: RING_FIELDS, ring: ringCopy(),
       thoughts: thoughts.slice(-6), events: recent.slice(-15).filter((e) => e[1] !== 'th'), now: safe(() => state()), sounds: [...recentSnd.slice(-20), ...[...SB.values()].map((b) => [r1(b.t), 'snd', b.ctx, b.clip, b.n, r2(b.g), r1(b.d), b.a])], shot: null, shotWhy: 'pending', why: '' };
+    Object.assign(n, safe(() => o.replayInfo && o.replayInfo()) || {});      // taken in the death cam: where in the tape (replay, replayT, positions)
     shotWant = n; return n;
   }
   function saveNote(n) {
@@ -376,7 +377,7 @@ function make(o) {
     try {
       if (!S.started || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
       if (e.target && e.target.closest && e.target.closest('input, select, textarea')) return;
-      if (e.key.toLowerCase() !== NOTE_KEY || S.paused || S.dead || S.frozen) return;
+      if (e.key.toLowerCase() !== NOTE_KEY || S.paused || S.frozen) return;      // (open while dead too: the death cam and the card)
       e.preventDefault();      // the letter must not land in the box it opens
       openBox('key');
     } catch {}
@@ -385,7 +386,7 @@ function make(o) {
   const btn = $('noteBtn');
   if (btn) {
     btn.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
-    btn.addEventListener('click', (e) => { try { e.stopPropagation(); if (!S.paused && !S.dead) openBox('button'); } catch {} });
+    btn.addEventListener('click', (e) => { try { e.stopPropagation(); if (!S.paused) openBox('button'); } catch {} });
   }
   // gamepad R3 (button 11): a bare mark
   let padPrev = false;
@@ -411,7 +412,7 @@ function make(o) {
     try {
       const all = [...sealed.flatMap((c) => c.ev), ...ev].map((e) => (e[1] === 'death' ? e.slice(0, 5) : e));
       const rows = [...sealed.flatMap((c) => c.tl), ...tl], step = Math.max(1, Math.round(rows.length / 400));
-      const ns = notes.map((n) => ({ k: n.k, t: n.t, how: n.how, text: n.text, why: n.why, now: n.now, thoughts: n.thoughts, sounds: n.sounds, ring: n.ring.filter((_, i) => i % 10 === 0) }));
+      const ns = notes.map((n) => ({ k: n.k, t: n.t, replay: n.replay, replayT: n.replayT, rpx: n.rpx, rpz: n.rpz, rhx: n.rhx, rhz: n.rhz, how: n.how, text: n.text, why: n.why, now: n.now, thoughts: n.thoughts, sounds: n.sounds, ring: n.ring.filter((_, i) => i % 10 === 0) }));
       return 'DINO-SESSION ' + JSON.stringify({ header: header(), ev: all, tl: rows.filter((_, i) => i % step === 0), notes: ns });
     } catch (e) { return 'DINO-SESSION failed ' + e; }
   }

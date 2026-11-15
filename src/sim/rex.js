@@ -436,6 +436,7 @@ export class Creature {
     // a gesture aimed somewhere takes the gaze with it, except idle scenting while the brain holds its eyes on something:
     // a sniff at the sky must never pull the head off what it is watching
     if (this.act && this.act.pt && this.act.kind !== 'snap' && !(look && look.glance) && !(look && look.lock && (this.act.kind === 'sniffAir' || this.act.kind === 'sniffGround' || (this.act.kind === 'orient' && this.act.t > 0.35)))) S.copy(this.act.pt);      // (an orient while its eyes are locked on something is a glance: back after a third of a second)      // a glance (attend.js) wins
+    this.gazeK = this._travelGaze(dt, intent, player, look);      // (T1) the head leads to where it is going, when nothing else has it
     const lock = look && look.lock ? 1 : 0;
 
     // Fixation: hold a world point, pursue weakly, and jump when the error is too large.
@@ -1369,6 +1370,46 @@ export class Creature {
     return CK.dep;
   }
 
+  // T1: "where I am going" gaze. Only when nothing else claims the head. Sets the subject S and the fixation; returns its weight 0..1.
+  _travelGaze(dt, intent, player, look) {
+    const G = this.species.gazeLead, h = this.head, T = this.terrain; if (!G) return 0;
+    const act = this.act, C = this.crashS, r = this.reach, spd = Math.abs(this.v);
+    const free = !look && !player && !intent.attention && !intent.sense && this.v >= 0 && !(act && (act.pt || act.forced)) && !(C && this.t - C.at < G.after) && !(r && (r.probe || r.phase === 'investigate')) && !this.face;
+    const kT = free ? Math.max(sstep(G.minSpeed, G.fullSpeed, spd), (r && r.phase === 'travel' || this.move) && (intent.pace || 0) >= G.minSpeed ? G.start : 0) : 0;      /* only when it means to run: at a walk the head is for looking about (Saltline crouch/3 stalled 29 s in search with its head fixed on the way ahead) */      // (setting off for somewhere, the head is already on its way)
+    this.tgK = (this.tgK || 0) + (kT - (this.tgK || 0)) * expK(dt, kT > (this.tgK || 0) ? 0.3 : 0.15);
+    if (this.tgK < 0.01) { this.tgRel = 0; this.tgRoll = 0; return 0; }
+    const hx = h.pos.x, hz = h.pos.z, y = this.groundY + 1.2, goal = r || this.move;
+    // the heading a moment on: into a turn before the body follows (by the turn rate)
+    let rel = clamp(this.om * G.turnLead, -G.maxYaw, G.maxYaw);
+    if (goal) {
+      // the goal itself once the straight way to it is open (the corner no longer hides it); until then the furthest bend of the route that it can see
+      const vis = (x, z) => !T.segClear || T.segClear(hx, y, hz, x, y, z, G.pad);
+      let tx = goal.x, tz = goal.z;
+      if (!vis(tx, tz)) {
+        // the furthest bend of the route it can see, then on along the next leg as far as the line stays open: the head comes round the corner's edge as the way opens
+        const pts = this.path && this.path.pts; let ok = false;
+        if (pts) for (let i = pts.length - 2; i >= 0 && !ok; i--) if (vis(pts[i].x, pts[i].z)) {
+          ok = true; tx = pts[i].x; tz = pts[i].z; const q = pts[i + 1], L = Math.hypot(q.x - tx, q.z - tz), ax = tx, az = tz;
+          for (let d = L - 1; d > 1; d -= 2) { const u = d / L, x = ax + (q.x - ax) * u, z = az + (q.z - az) * u; if (vis(x, z)) { tx = x; tz = z; break; } }
+        }
+        if (!ok && pts && pts.length > 1) { tx = pts[0].x; tz = pts[0].z; }
+      }
+      if (Math.hypot(tx - hx, tz - hz) > 2) {
+        rel = wrap(bearing(tx - hx, tz - hz) - this.psi);
+        // the goal is hidden: the head still leans from the edge it can see toward where the goal is (its attention is there), by `peek` of the way
+        if (tx !== goal.x || tz !== goal.z) rel += G.peek * wrap(bearing(goal.x - hx, goal.z - hz) - this.psi - rel);
+      }
+    }
+    const lim = lerp(G.maxYaw, G.sprintYaw, sstep(8, 12, spd));
+    rel = clamp(rel, -lim, lim);
+    this.tgRel += (rel - this.tgRel) * expK(dt, G.ease);
+    const b = this.psi + this.tgRel, S = this.subject;
+    S.set(h.pos.x + Math.sin(b) * 25, this.groundY + 2.6, h.pos.z + Math.cos(b) * 25);
+    this.hfix.lerp(S, expK(dt, 0.1) * this.tgK); this.fix.copy(this.hfix); this.att.timer = Math.max(this.att.timer, 0.3);
+    this.tgRoll = clamp(this.om / 0.8, -1, 1) * G.roll * this.tgK;
+    return this.tgK;
+  }
+
   // ---------------------------------------------------------------- head and neck
   _head(dt, intent) {
     const PO = this.post || { alert: 0, display: 0, agit: 0, hold: 0 };
@@ -1462,7 +1503,7 @@ export class Creature {
     // something it is watching far off the skull's line is brought back with a quick head turn, not the slow drift of an idle
     // look round (a head left out to the side after a glance or a blow used to take 1.5 s to come back to what it watched)
     const watchK = (intent.look || (this.att.kind === 'player' && intent.attention)) ? sstep(0.35, 1.0, Math.abs(wrap(desYaw - h.yaw))) : 0;
-    const wn = lerp(lerp(6.5, 8.5, watchK), 13, fast), z = 0.9, maxRate = lerp(lerp(1.25, 2.0, watchK), 3.4, fast), maxAcc = lerp(lerp(4.2, 7, watchK), 20, fast);
+    const gk0 = this.gazeK || 0, wn = lerp(lerp(6.5, 8.5, watchK), 13, fast), z = 0.9, maxRate = lerp(lerp(lerp(1.25, (this.species.gazeLead || {}).rate || 2.2, gk0), 2.0, watchK), 3.4, fast), maxAcc = lerp(lerp(lerp(4.2, (this.species.gazeLead || {}).acc || 4.2, gk0), 7, watchK), 20, fast);
     // the yaw error is taken through the front of the animal, never round the back: a subject that crosses behind it from one
     // side to the other must not send the skull the short way round past its own shoulder (it used to, and ended up facing
     // backwards, 180 degrees off what it was watching)
@@ -1484,7 +1525,7 @@ export class Creature {
     // the anatomical limit, whatever asked for more (a body pivoting under a held gaze, a strike, a shake): the skull never turns
     // further than YAW_MAX off the chest; past that the gaze is carried by the trunk and feet (reorient, above) or not at all
     { const rr = wrap(h.yaw - c.yaw); if (Math.abs(rr) > YM) { h.yaw -= rr - Math.sign(rr) * YM; if (h.yawV * rr > 0) h.yawV = 0; } }
-    h.tilt.step(act && act.kind === 'shake' ? 0.34 * Math.sin(act.t * 21) * (1 - act.t / act.dur) : h.tiltT + this.glareSgn * 0.16 * this.glareS + 0.05 * Math.sin(this.t * 31) * roar + (act && act.kind === 'yawn' ? 0.12 * act.sgn * env : 0), act && act.kind === 'shake' ? 30 : 7, 0.8, dt);
+    h.tilt.step(act && act.kind === 'shake' ? 0.34 * Math.sin(act.t * 21) * (1 - act.t / act.dur) : h.tiltT + (this.tgRoll || 0) + this.glareSgn * 0.16 * this.glareS + 0.05 * Math.sin(this.t * 31) * roar + (act && act.kind === 'yawn' ? 0.12 * act.sgn * env : 0), act && act.kind === 'shake' ? 30 : 7, 0.8, dt);
     this.jawExtra = act && act.kind === 'yawn' ? 0.8 * Math.pow(Math.sin(Math.PI * act.t / act.dur), 2) : act && act.kind === 'sniffAir' ? 0.06 * env : 0.8 * roar * (0.93 + 0.07 * Math.sin(this.t * 2.6));      // the bellow's gape swells with the breath; it does not chatter
     if (gk === 'strike') this.jawExtra = act.t < 0.1 ? sstep(0, 0.1, act.t) : act.t < 0.2 ? 1.0 : act.t < 0.24 ? lerp(1.0, 0.1, (act.t - 0.2) / 0.04) : 0.1;
     if (gk === 'seize') this.jawExtra = gu < 0.3 ? 0.9 * sstep(0.05, 0.3, gu) : gu < 0.46 ? 1.0 : gu < 0.52 ? lerp(1.0, 0.16, (gu - 0.46) / 0.06) : 0.16;
@@ -1514,12 +1555,14 @@ export class Creature {
     const lie = clamp(this.lieS.x, 0, 1), lean = this.lieLean.x;
     // relaxed, the head is carried low; lying relaxed it comes down toward the ground; getting up it is thrown forward and down as a counterweight
     const hfP = hf + 0.38 * PO.display + NK.hfA * PO.alert + 0.75 * lean, huP = hu + NK.huA * PO.alert - 0.7 * PO.display - 0.3 * this.relax * (1 - PO.alert) - 0.75 * lie * this.relax * (1 - PO.alert) - 0.3 * lean;
-    const swingK = gk === 'orient' ? sstep(0, 0.15, act.t) * (1 - sstep(0.7, 1.1, act.t)) : 0, gzR = lerp(gazeRel, clamp(wrap(desYaw - c.yaw), -1.7, 1.7), swingK), yawH = this.psi + this.twistYaw.x + clamp(Math.sign(gzR) * Math.max(Math.abs(lerp(0.5, 0.8, swingK) * gzR), Math.abs(gzR) - 0.6), -lerp(0.95, 1.1, swingK), lerp(0.95, 1.1, swingK));      // (the head goes far enough out to the side that the skull stays within its turn off the neck's line)      // jerked round toward a sound, the neck swings out ahead of the skull
-    const G = h.goal.set(t5.x + Math.sin(yawH) * hfP, t5.y + huP, t5.z + Math.cos(yawH) * hfP);
+    const swingK = Math.max(gk === 'orient' ? sstep(0, 0.15, act.t) * (1 - sstep(0.7, 1.1, act.t)) : 0, this.gazeK || 0),      /* (T1: the head's place goes out to the side of where it is going ahead of the skull, as for a jerk toward a sound) */ gzR = lerp(gazeRel, clamp(wrap(desYaw - c.yaw), -1.7, 1.7), swingK), yawH = this.psi + this.twistYaw.x + clamp(Math.sign(gzR) * Math.max(Math.abs(lerp(0.5, 0.8, swingK) * gzR), Math.abs(gzR) - 0.6), -lerp(0.95, 1.1, swingK), lerp(0.95, 1.1, swingK));      // (the head goes far enough out to the side that the skull stays within its turn off the neck's line)      // jerked round toward a sound, the neck swings out ahead of the skull
+    // (T1) going somewhere: the neck swings out toward the aim, leaving the skull only part of its turn on the atlas (else the skull, pinned to a neck that lags behind the body's turn, never gets there)
+    const yawBase = c.yaw, yawH2 = (this.gazeK || 0) > 0.01 ? lerp(yawH, yawBase + clamp(wrap(desYaw - 0.22 * clamp(wrap(desYaw - yawBase) / 0.3, -1, 1) - yawBase) + clamp(0.3 * this.om, -0.3, 0.3), -0.95, 0.95), this.gazeK) : yawH;
+    const G = h.goal.set(t5.x + Math.sin(yawH2) * hfP, t5.y + huP, t5.z + Math.cos(yawH2) * hfP);
     G.y += 0.3 * roar; G.x += h.f.x * 0.25 * roar; G.z += h.f.z * 0.25 * roar;
     if (gk === 'huff') { const k = Math.sin(Math.PI * Math.min(1, gu * 2.2)) * (gu < 0.45 ? 1 : 0); G.addScaledVector(h.f, 0.18 * k); G.y += 0.08 * k; }
     if (gk === 'growl') { G.y -= 0.25 * env; G.addScaledVector(h.f, 0.12 * env); }
-    let wpBoost = 1;
+    let wpBoost = 1 + 1.5 * (this.gazeK || 0) * sstep(0.05, 0.3, Math.abs(this.tgRel || 0));      // (T1: the head's place goes out to where it is going a little quicker)
     if (gk === 'tear' && act.pt) {
       // bite down into it, then wrench back and up with the whole neck, worrying it side to side
       const u = gu;

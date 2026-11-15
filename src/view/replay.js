@@ -11,7 +11,7 @@ export class Replay {
     this.terrain = terrain; this.nv = nv; this.ns = ns;
     this.v = new Float32Array(N * nv); this.s = new Float32Array(N * ns); this.m = new Float32Array(N * M);
     this.pose = { v: new Float32Array(nv), s: new Float32Array(ns) };      // what is drawn during playback
-    this.n = 0; this.acc = 0; this.death = -1; this.after = 0; this.on = false; this.t = 0;
+    this.n = 0; this.acc = 0; this.death = -1; this.after = 0; this.on = false; this.t = 0; this.s0 = 0;
     this.cam = new THREE.Vector3(); this.aim = new THREE.Vector3(); this.from = new THREE.Vector3();
     const g = new THREE.CapsuleGeometry(R, EYE_H - 2 * R, 4, 12), m = new THREE.MeshStandardMaterial({ color: 0xd9d5cc, roughness: 0.92, metalness: 0 });
     this.pill = new THREE.Mesh(g, m); this.pill.castShadow = true; this.pill.receiveShadow = true; this.pill.visible = false; this.pill.rotation.order = 'YXZ';
@@ -39,11 +39,21 @@ export class Replay {
   /** Begin playback; false if there is nothing worth showing. */
   play() {
     if (this.count < 10 || this.death < 0) return false;
+    // The tape may still be growing (the tail after the death). Playback counts in absolute frames from s0 and reads up to the live end;
+    // while the ring is full the oldest frames are still being overwritten, so start past the ones the tail will take.
+    const rest = Math.max(0, Math.ceil((AFTER - this.after) * HZ)) + 2;
+    this.s0 = this.n - this.count + (this.n >= N ? rest : 0);
+    if (this.n - this.s0 < 10) return false;
     this.on = true; this.t = 0; this.pill.visible = true;
     const o = (this.death % N) * M, m = this.m, px = m[o], pz = m[o + 2], hx = m[o + 6], hz = m[o + 8];
     this.chooseCam(px, m[o + 1], pz, hx, m[o + 7], hz);
     this.aim.copy(this.anchor);
     return true;
+  }
+  /** Where the shown frame sits, for a note: seconds from the death, the player's spot and the animal's head. Small, no arrays. */
+  info() {
+    const f = this.s0 + this.t * HZ, o = (Math.floor(f) % N) * M, m = this.m, r = (v) => Math.round(v * 10) / 10;
+    return { replay: true, replayT: r((f - this.death) / HZ), rpx: r(m[o]), rpz: r(m[o + 2]), rhx: r(m[o + 6]), rhz: r(m[o + 8]) };
   }
   stop() { this.on = false; this.pill.visible = false; }
   /** A spot ~10 m from the midpoint of the player and the head, across the line between them, in the clear. First that works, else the first. */
@@ -72,9 +82,9 @@ export class Replay {
   /** Advance by dt: pose, pill and camera. False when the tape has run out. */
   update(dt, camera) {
     this.t += dt;
-    const f = this.t * HZ, last = this.count - 1;
+    const f = this.s0 + this.t * HZ, last = this.n - 1;
     if (f >= last) return false;
-    const i = Math.floor(f), u = f - i, base = this.n - this.count, a = ((base + i) % N), b = ((base + i + 1) % N);
+    const i = Math.floor(f), u = f - i, a = i % N, b = (i + 1) % N;
     const pv = this.pose.v, ps = this.pose.s, nv = this.nv, ns = this.ns, V = this.v, Sx = this.s;
     for (let j = 0; j < nv; j++) pv[j] = V[a * nv + j] + (V[b * nv + j] - V[a * nv + j]) * u;
     for (let j = 0; j < ns; j++) ps[j] = Sx[a * ns + j] + (Sx[b * ns + j] - Sx[a * ns + j]) * u;
@@ -88,7 +98,7 @@ export class Replay {
     // look at the midpoint of the player and the head, easing so a quick lunge does not whip the view round
     const tx = (x + L(6)) / 2, tz = (z + L(8)) / 2, ty = (y + L(7)) / 2, k = Math.min(1, dt * 4);
     this.aim.x += (tx - this.aim.x) * k; this.aim.y += (ty - this.aim.y) * k; this.aim.z += (tz - this.aim.z) * k;
-    const push = 1 - (1 - PUSH) * Math.min(1, this.t * HZ / last), an = this.anchor;
+    const push = 1 - (1 - PUSH) * Math.min(1, this.t * HZ / Math.max(1, last - this.s0)), an = this.anchor;
     camera.position.set(an.x + (this.from.x - an.x) * push, this.from.y, an.z + (this.from.z - an.z) * push);
     camera.lookAt(this.aim);
     return true;

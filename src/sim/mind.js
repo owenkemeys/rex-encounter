@@ -1799,7 +1799,10 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
           const off = Math.hypot(sx - sp.E.x, sy - sp.E.y, sz - sp.E.z), there = off < (b.thereT ? 0.75 : 0.45);      // (once there it stays there through the gaze's own sweep; it flipped between pushing in and using the place every tick)
           // searching once there: the head works a little round the planned place, the gaze sweeping
           const sw = there ? Math.sin((b.t - b.at) * 0.9) : 0, lx = -sp.d.z, lz = sp.d.x, ll = Math.hypot(lx, lz) || 1;
-          I.sense = { H: { x: sp.H.x + lx / ll * 0.12 * sw, y: sp.H.y + 0.05 * Math.sin((b.t - b.at) * 1.3), z: sp.H.z + lz / ll * 0.12 * sw }, d: { x: sp.d.x + lx / ll * 0.18 * sw, y: sp.d.y, z: sp.d.z + lz / ll * 0.18 * sw }, eye: s, low: sp.low, back: sp.back, k: 1, key: sp.key };
+          // (the owner at the barn, "why is it creeping with its head sideways like this?": with you in sight it looks squarely at you, no cocked eye, the
+          //  head's line turned toward you from the planned one as far as the gap allows; the one-eyed peer is for looking into a gap for someone it cannot see)
+          let dX = sp.d.x, dZ = sp.d.z; if (c.seen && a) { const hz = Math.hypot(sp.d.x, sp.d.z) || 1, yp = Math.atan2(sp.d.x, sp.d.z), yy = yp + clamp(wrap(Math.atan2(a.x - sp.H.x, a.z - sp.H.z) - yp), -0.5, 0.5); dX = Math.sin(yy) * hz; dZ = Math.cos(yy) * hz; }
+          I.sense = { H: { x: sp.H.x + lx / ll * 0.12 * sw, y: sp.H.y + 0.05 * Math.sin((b.t - b.at) * 1.3), z: sp.H.z + lz / ll * 0.12 * sw }, d: { x: dX + lx / ll * 0.18 * sw, y: sp.d.y, z: dZ + lz / ll * 0.18 * sw }, eye: c.seen && a ? 0 : s, low: sp.low, back: sp.back, k: 1, key: sp.key };
           I.alert = 0.6;
           // the owner, at a big window he stood beside: "this peering behavior is odd, its low and its head is off to the side, why? i would be
           // expecting it to get its head through this giant window im standing right next to and try to get me this way". The places
@@ -1832,6 +1835,18 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
               I.goal = { kind: 'drive', throttle: st === 'free' && c.dHead > 0.9 && !(sim.headBlocked > 0.3) ? clamp(0.3 * (c.dHead - 0.8), 0, 0.3) : 0, steer: st === 'free' ? clamp(1.6 * wrap(bearing(a.x - sim.x, a.z - sim.z) - sim.psi), -0.5, 0.5) : 0 };
               b.sub = 'strike'; this.attacking = true;
               this.thought = 'Its jaws go in after you.';
+              break;
+            }
+            // (the owner at the barn: "it made biting sounds but doesn't seem able to get me": it struck from where the snout was 1.5 to 2 m short of
+            //  him, over and over, the body standing 5 m off the wall. Through a gap it closes up first, the body stepping up behind the head, and only
+            //  bites when the jaws can reach; a body that will not come on any nearer, or a way that does not take it, is given up for the next place)
+            const tipD = a ? Math.hypot(sim.head.pos.x + sim.head.f.x * this.sp.dims.headLen - a.x, sim.head.pos.y + sim.head.f.y * this.sp.dims.headLen - (a.y - 0.4), sim.head.pos.z + sim.head.f.z * this.sp.dims.headLen - a.z) : 99;
+            const closing = (thru || c.aff.reach) && tipD > 1.5 && !(b.strikeAt !== undefined && b.t - b.strikeAt < 1.4);
+            if (closing) {
+              if (b.closeT === undefined || tipD < (b.closeBest ?? 99) - 0.1) { b.closeBest = tipD; b.closeT = b.t; }
+              I.goal = { kind: 'drive', throttle: sim.headBlocked > 0.3 ? 0 : clamp(0.5 * (tipD - 1.0), 0.25, 0.6), steer: clamp(1.6 * wrap(bearing(a.x - sim.x, a.z - sim.z) - sim.psi), -0.5, 0.5) }; I.pace = 1.0;
+              b.sub = 'close'; this.thought = 'Stepping up to the gap, snout in, closing on you.';
+              if (b.t - b.closeT > 5) { b.closeT = undefined; b.closeBest = undefined; fail(4); }
               break;
             }
             if (jd.v > 0.2 && (c.aff.reach || thru) && c.dHead < 4.8 && b.t - (b.strikeAt ?? -99) > 3.5 + 3 * R()) {

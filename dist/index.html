@@ -174,7 +174,8 @@ body.touch #pNote { min-height: 44px; }
 #pNotes { margin: 4px 0 0; font-size: 12px; color: var(--ink-faint); min-height: 1em; }
 #pNotes:empty { display: none; }
 #pCopy { width: 100%; margin-top: 6px; }
-body:not(.started) #corner, body.paused #corner, body.dead #corner, body.bare #corner { display: none; }
+body:not(.started) #corner, body.paused #corner, body.bare #corner { display: none; }
+body.dead #corner button:not(#noteBtn) { display: none; }      /* the note button stays in the death cam and on the card */
 /* the controls: one short table, on the pause card and while Tab (View) is held */
 .ctl { display: grid; grid-template-columns: max-content 1fr; gap: 5px 14px; margin: 14px 0 4px; font-size: 13px; text-transform: lowercase; align-items: baseline; }
 .ctl b { font: 500 12px var(--mono); text-transform: none; color: var(--ink); background: rgba(241,238,228,0.1); border-radius: 3px; padding: 1px 6px; justify-self: end; white-space: nowrap; }
@@ -369,14 +370,14 @@ body.touch #hint { bottom: calc(var(--sb) + 64px); }
     <details id="pLogBox"><summary>found<span id="pCount" class="val"></span></summary><ul id="pLog" class="tries"></ul></details>
   </div>
 </section>
-<div id="replayTag" hidden>REPLAY<small>any key to skip</small></div>
+<div id="replayTag" hidden>REPLAY<small>any key for menu</small></div>
 <section id="dead" class="cardwrap" role="dialog" aria-label="You died">
   <div class="card">
     <p class="k">you did not make it</p>
     <h2 id="xCause"></h2>
     <div id="xWords"></div>
     <p class="lasted">you lasted <span id="xTime"></span></p>
-    <div class="btns"><button id="xAgain" class="big">go again <b class="kc" id="xKey"></b></button><button id="xReplay" class="big">watch it back</button></div>
+    <div class="btns"><button id="xAgain" class="big">go again <b class="kc" id="xKey"></b></button><button id="xReplay" class="big">restart replay</button></div>
   </div>
 </section>
 
