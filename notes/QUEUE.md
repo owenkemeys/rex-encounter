@@ -70,3 +70,7 @@ Also: "i also dont want to have to think about branches and worktrees and so on,
 "note that crash collision stuff is working pretty well now. window intrusion kinda works."
 "death cam lets make that automatic a second or so after the shocking black screen from the death. fade in from black and auto watch the replay. pressing any key (except t) brings up the usual death/respawn menu, with restart replay button."
 "whilst its working, thinking for you: deaths and encounters can be funny viral moments, we already have the ability to re run scenarios for the death cam and the testing, can we make moments shareable with a link? its like a richer form of just screencapping a video. do not build this, just think about it"
+
+## Owner, 2026-11-15 ~23:30 UTC, after the automatic death cam build
+"https://github.com/apekshik/three-nanite Might be useful."
+"I left some new notes from this play experience. The kill cam would be helped a lot by the pill standin being visibly sent flying or in its jaws etc, currently it's way too static. It may also be time to swap in a little human character instead of the pill. It's VERY entertaining seeing your own past movements but the perspective does highlight gaps in the sim now."

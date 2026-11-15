@@ -51,3 +51,26 @@ Status: built 2026-11-15, awaiting the owner. About 1.2 s after death it fades i
 ### T8. Shareable moments (design only, do NOT build yet)
 "deaths and encounters can be funny viral moments, we already have the ability to re run scenarios for the death cam and the testing, can we make moments shareable with a link? its like a richer form of just screencapping a video. do not build this, just think about it"
 Status: thinking only; see the orchestrator's reply of 2026-11-15 in the owner's chat. Sketch: a moment is the replay tape (poses, player track) plus scene state, stored server-side under a short id, opened by a plain #name link; richer than video because the viewer can move the camera, scrub, see what it was thinking, and step into the same moment to try to survive it.
+
+## Batch of 2026-11-15 23:09-23:15 UTC (session 20261115T230319Z-dlmq) and the owner's message with it
+
+### T9. Kill cam stand-in is too static; time for a little human figure
+Status: in progress (2026-11-15, view agent: src/view/figure.js, replay.js).
+"The kill cam would be helped a lot by the pill standin being visibly sent flying or in its jaws etc, currently it's way too static. It may also be time to swap in a little human character instead of the pill. It's VERY entertaining seeing your own past movements but the perspective does highlight gaps in the sim now."
+
+### T10. It picks him up again and again and never kills: no longer threatening
+Status: in progress (2026-11-15, mind agent). Supersedes the question in T5.
+"its picked me up like 4 times now but chosen not to kill me each time, its becoming non threatening feeling"
+Where: he at (-45, 67.2), animal at (-39.9, 66), seize/hold, hunger 0.89, stance predatory; seized "through the gap" (the Warehouse window work).
+
+### T11. A thought when it crashes and hurts itself
+Status: in progress (2026-11-15, mind agent).
+"it needs to have a thought when it crashes into something and hurts itself. not having one is jarring. if its frustrated and getting wound up it may start ignoring the pain signals though."
+Known: the mind has `onCrash` / `crashBeat` (mind.js ~l.790) and thoughts like "bump! hard", "something hard" do appear in the stream; the note says in play it reads as no thought.
+
+### T12. "weird lunge pose just happened"
+Status: in progress (2026-11-15, body agent, diagnosis first).
+Where: he at (-2.9, -23.6), animal at (-6.2, -25.3), heading -4.47, prowl phase `set`, 3.7 m apart, hunger 1. See also T6 (a splayed pose while pursuing).
+
+### Reference: three-nanite (https://github.com/apekshik/three-nanite), suggested by the owner
+Looked at 2026-11-15. Nanite-style cluster level of detail for three.js: an offline tool cuts a GLB into 128-triangle clusters and the runtime picks detail per frame. Static, opaque, rigid meshes only (no skinning, no morphs), one material per asset, WebGL2 with `WEBGL_multi_draw` (not Firefox), three 0.186+, MIT, experimental (2 commits; "an experiment that works, not a production engine feature"). Not usable for the animal (its body is deformed every frame). It could matter later for very detailed static scenery (scanned rock, ruins, dense props) if the arena's triangle count becomes the limit; today the arena is far below that, and our first renderer is WebGPU (docs/adr/0001), where this library is not the supported path. Park it.
