@@ -73,3 +73,4 @@ It is one app, not yet packages. The seams are already clean enough to split lat
 - Never print big files or test dumps into context; grep, cut and tail.
 - Cheap model for rote work, strong model only for body-simulation and mind judgement.
 - Playtest notes in the hosted arena's database carry inline screenshots: never read them raw.
+- The owner plays by clicking the hosted arena, the "Rex Sandbox" artifact on claude.ai, never by checking out and building. To give him a build: `npm run build`, then republish only `dist/app.js` (and `dist/index.html` if it changed) to that artifact in patch mode; the assets there stay. Say which branch the build is from.
