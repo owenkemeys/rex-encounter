@@ -60,7 +60,9 @@ It is one app, not yet packages. The seams are already clean enough to split lat
 
 ## Open work (newest first; details in `notes/QUEUE.md`)
 
-Built 2026-11-15 evening by three subagents in parallel, merged and tested together (review, corner, crashread, platform, mind all 3, Saltline: no failures), now in the hosted arena. **None of it has been seen or played by the owner yet; wait for his verdict before building on any of it.**
+**Start with `notes/TODO.md`: the owner's latest playtest notes as numbered to-do items with status. Mark an item as yours before working on it.**
+
+Built 2026-11-15 evening by three subagents in parallel, merged and tested together (review, corner, crashread, platform, mind all 3, Saltline: no failures), now in the hosted arena. **Owner has played it (21:45): crash collisions "working pretty well now", window intrusion "kinda works", kill cam "quite funny already" and to become automatic (in progress).**
 
 - **Body blows are a three-beat sequence** (`_crash` and the locomotion block in `src/sim/rex.js`, numbers in the species file under `crash.blow`): blow, rebound off the surface with roll, head and tail swinging the other way and a catch step asked for, then on hard hits a huff as it gathers itself. `test/crashread.mjs` prints "roll into wall ... then away". Open questions: the first lean into the wall measures smaller than before (0.13-0.19 rad at the corner, was about 0.3); the catch step is not confirmed visible.
 - **Death cam** (`src/view/replay.js`, wiring in `src/main.js` and `src/ui.js`, "watch it back" on the death card): the last ~10 s from a fixed side camera, the player as a pill. Checked in headless Chrome by key only. Not checked: gamepad, touch and click skip; the camera's avoidance of buildings. Pressed within 2.5 s of dying, the tape ends early. Other things in the scene show their present state, not the past.

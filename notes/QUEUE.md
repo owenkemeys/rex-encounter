@@ -63,3 +63,9 @@ Decision: GitHub (owenkemeys/rex-encounter) is the master; new per-feature chats
 "additionally, when the player dies, the meat resource the body represents should be depleted pretty quickly, a bite or two. in a long play session the rex is distracted for a long time eating the body and itsboring"
 Playtest note (session 20261115T201359Z-65uz, note 2; he at -50.3, 60.6 inside the "shiny box", rex 5.7 m off, besiege): "this peering behavior is odd, its low and its head is off to the side, why? i would be expecting it to get its head through this giant window im standing right next to and try to get me this way"
 Also: "i also dont want to have to think about branches and worktrees and so on, I'm not a github guy. i design experiences and playtest them. the bookkeeping is for agents to execute with best practices."
+
+## Owner, 2026-11-15 ~21:45 UTC, after playing the death cam / window / body blow build
+"the kill cam is quite funny already, even with just the pill player stand in, seeing your stupid frantic actions from third person just before your untimely demise."
+"left some notes for you ingame to pick up and action next. put them as todo items in the repo so other agents can help later and pick what makes sense for you to fix."
+"note that crash collision stuff is working pretty well now. window intrusion kinda works."
+"death cam lets make that automatic a second or so after the shocking black screen from the death. fade in from black and auto watch the replay. pressing any key (except t) brings up the usual death/respawn menu, with restart replay button."
