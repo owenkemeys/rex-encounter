@@ -8,7 +8,7 @@ An intelligent-animal platform for browser games: a procedurally simulated body 
 
 The rule that matters most: **general rules over properties and events, never names or scripts.** The animal must behave sensibly in a world it was not written for (`variants/saltline` is the proof). If a fix only works because it knows it is in our arena, or because the thing is the player, it is the wrong fix.
 
-Owner's intent for the mind: `docs/MIND_DESIGN.md`. Not yet copied here from the Claude project "Dino Hunter": `VISION.md`, `GLOSSARY.md`, and two decision records (Three.js on WebGPU with WebGL2 fallback; single-player first with a network-agnostic simulation). The vision in one line: a sustained duel with one huge, believable animal whose organic motion is the first priority; it finds you by sight, sound and smell; no health bars or hit markers.
+Owner's intent lives in `docs/VISION.md` (the game) and `docs/MIND_DESIGN.md` (the mind). Vocabulary: `docs/GLOSSARY.md`. Hard decisions: `docs/adr/`.
 
 ## Run it
 
@@ -60,8 +60,8 @@ It is one app, not yet packages. The seams are already clean enough to split lat
 
 ## Open work (newest first; details in `notes/QUEUE.md`)
 
-1. **Crashes do not read.** Head-on: no flinch or reaction, the head just butts. Glancing and corner hits: nothing visible. Sound, dust and camera jolt were added on 2026-11-15 but are unheard. Needs visible body reaction scaled to force.
-2. **Bamboo and squeezing.** Thin stems should give way with effort; a determined animal should force a nearly-wide-enough gap (volumes compress, narrow side first, spine a little past limits, slow, scraping) and refuse plainly impossible ones. Phone slows when it is in the bamboo: measure sim cost first.
+1. **Crashes do not read.** Head-on: no flinch or reaction, the head just butts. Glancing and corner hits: nothing visible. Sound, dust and camera jolt were added on 2026-11-15 but are unheard. Needs visible body reaction scaled to force. Owner after hearing it (2026-11-15): concrete hit good; metal improved but some hits still sound like a xylophone (the old light-contact metal partials in `audio.contact`, and probably the new resonances too: wants weight, not pitch); timber barn hit inaudible; camera shake and dust okay but a little weak.
+2. **Bamboo and squeezing.** Thin stems should give way with effort; a determined animal should force a nearly-wide-enough gap (volumes compress, narrow side first, spine a little past limits, slow, scraping) and refuse plainly impossible ones. Phone slows when it is in the bamboo: measure sim cost first. Owner watched the bamboo test: it got stuck, then unstuck, and the skeleton's poses were tortured on the way.
 3. Strike misses a man under its chin. Tail has no contact or slap. Gaze more than 60 degrees off target 5.3% of the time.
 4. Three long stalls remain in Saltline over 8 seeds.
 5. More watchable set-piece scenarios like the crash tests (owner liked them).
