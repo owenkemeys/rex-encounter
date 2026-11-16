@@ -74,3 +74,7 @@ Also: "i also dont want to have to think about branches and worktrees and so on,
 ## Owner, 2026-11-15 ~23:30 UTC, after the automatic death cam build
 "https://github.com/apekshik/three-nanite Might be useful."
 "I left some new notes from this play experience. The kill cam would be helped a lot by the pill standin being visibly sent flying or in its jaws etc, currently it's way too static. It may also be time to swap in a little human character instead of the pill. It's VERY entertaining seeing your own past movements but the perspective does highlight gaps in the sim now."
+
+## Owner, 2026-11-16 ~01:00 UTC, after the human figure / kills-when-hungry build
+"left some notes. this is very funny, although the replay incites you to clown around more now, but let's not try and "solve" that just yet."
+"is the saltline version ready to run?"

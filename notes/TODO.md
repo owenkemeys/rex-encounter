@@ -74,3 +74,21 @@ Where: he at (-2.9, -23.6), animal at (-6.2, -25.3), heading -4.47, prowl phase 
 
 ### Reference: three-nanite (https://github.com/apekshik/three-nanite), suggested by the owner
 Looked at 2026-11-15. Nanite-style cluster level of detail for three.js: an offline tool cuts a GLB into 128-triangle clusters and the runtime picks detail per frame. Static, opaque, rigid meshes only (no skinning, no morphs), one material per asset, WebGL2 with `WEBGL_multi_draw` (not Firefox), three 0.186+, MIT, experimental (2 commits; "an experiment that works, not a production engine feature"). Not usable for the animal (its body is deformed every frame). It could matter later for very detailed static scenery (scanned rock, ruins, dense props) if the arena's triangle count becomes the limit; today the arena is far below that, and our first renderer is WebGPU (docs/adr/0001), where this library is not the supported path. Park it.
+
+## Batch of 2026-11-16 00:55-01:00 UTC (session 20261116T005223Z-twfk)
+Owner with it: "this is very funny, although the replay incites you to clown around more now, but let's not try and "solve" that just yet." Also asked whether Saltline is ready to run: its artifact matches the repo build but carries its own older copy of the sim (none of 15 Nov's work); porting is offered, not started.
+
+### T13. No thoughts at all after a crash (regression, urgent)
+Status: in progress (2026-11-16, mind agent).
+"think it may be broken- not seen any thoughts from it at all on this spawn."
+Where: he at (27.9, 56.6), animal at (41.4, 56.5), speed 0, behaviour `pause`, not seeing him, hunger 1. Its last thoughts: 408.6 "it run! get it", 409.6 "ow! hurt", 412.2 "ow! head hurt", 414.6 "slow. careful", then nothing for about a minute, and no behaviour change in the last events either. Suspect: the crash thought hold or the `wary` state added for T11 leaves the thought stream (or the animal) stuck.
+
+### T14. Splayed pose rounding a corner at a walk
+Status: in progress (2026-11-16, body agent).
+"splaying pose just happened as it rounded the corner"
+Where: animal at (-30.6, 77.3), speed 1.8, behaviour `besiege` phase `go` (it had just planned a besiege of the Warehouse: "shiny walls. it go in"), he at (-31.6, 72.3), 5.2 m.
+
+### T15. Splayed pose in a rush that stops at once
+Status: in progress (2026-11-16, body agent).
+"another splaying pose less than a second ago"
+Where: animal at (18.1, 56.4), speed -0.3 (backing), he at (15.1, 53.3), 4.2 m. Events in the 1.5 s before: `pounce` lock, `pause`, `prowl` rush, `pause`. So: a rush begun and cancelled within a fraction of a second, twice.
