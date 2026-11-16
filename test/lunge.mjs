@@ -94,6 +94,38 @@ for (const seed of ONLY ? [] : [1, 2, 3]) { const W = {}; for (const rel of [-0.
   if (process.env.GRID && seed === 1) console.log(`grid face+strike rel=${rel} D=${D}: ` + ['stance', 'footOut', 'toeYaw', 'thighs', 'stretch', 'pitch', 'roll'].map((k) => k + ' ' + (w.R[k] ? w.R[k].max.toFixed(2) : '-')).join(' '));
   for (const [n, e] of Object.entries(w.W)) { const o = W[n] || (W[n] = { ...e, n: 0, ep: 0 }); o.ep += e.ep; o.n += e.n; if (e.worst > (o.w2 ?? -1)) { o.w2 = e.worst; o.worst = e.worst; o.t = e.t; o.ctx = e.ctx + ` [face+strike rel=${rel} D=${D}]`; } }
 } merge('body alone face then strike', seed, W); }
+
+// ---- T14 / T15: body-only intents, as the mind would write them (no mind, no arena; `sim.step(dt, intent)`)
+// T15 sighting: pounce lock (face + stalk + quickTurn), pause, prowl rush (approach, pace 9.6, burst, quickTurn) cancelled after 0.1-0.4 s,
+// again, then a backward drive. T14 sighting: besiege `go` = move goal at pace 2.0 with the eye locked on the person, round the Warehouse.
+const BO = {};
+const bodyRun = (seed, x, z, yaw, secs, fn, tag) => { const T = makeTerrain(7), sim = new Creature(T, { x, z, yaw, seed }), w = watcher(sim, null, T); sim.__st = true;
+  for (let i = 0; i < secs * 120; i++) { const t = i * dt, intent = fn(t, sim); sim.step(dt, intent); for (const e of sim.events) if (e.type === 'contact' && !process.env.QUIETC) console.log('  contact', tag, 't=' + t.toFixed(2), JSON.stringify(e).slice(0, 120)); sim.events.length = 0; w.tick(t);
+    if (process.env.TRACE === tag && i % +(process.env.EVERY || 12) === 0) console.log(t.toFixed(2), `x=${sim.x.toFixed(1)} z=${sim.z.toFixed(1)} psi=${sim.psi.toFixed(2)} v=${sim.v.toFixed(1)} om=${sim.om.toFixed(2)} u=${hyp(sim.ux, sim.uz).toFixed(1)} act=${sim.act ? sim.act.kind : '-'} stalk=${(sim.stalk || 0).toFixed(1)} low=${(sim.lowness || 0).toFixed(2)} pre=${sim.pre ? 'Y' : '-'} fp=${sim.feet[0].planted ? 'P' : 's'}${sim.feet[1].planted ? 'P' : 's'} ${sim.feet.map((f, k) => (f.planted ? 'pl' : 'tg') + '(' + ((f.target.x - sim.x) * Math.cos(sim.psi) - (f.target.z - sim.z) * Math.sin(sim.psi)).toFixed(2) + ',' + ((f.target.x - sim.x) * Math.sin(sim.psi) + (f.target.z - sim.z) * Math.cos(sim.psi)).toFixed(2) + ' yaw' + (f.yaw - sim.psi).toFixed(2) + ')').join(' ')}`, Object.entries(w.cur).filter(([k]) => ['stance', 'footOut', 'thighs'].includes(k)).map(([k, v]) => k + '=' + v.toFixed(2)).join(' ')); }
+  return w; };
+const rushSc = (beta, d) => (seed) => { const tx = Math.sin(beta) * 4, tz = Math.cos(beta) * 4, st = { x: tx, z: tz };
+  const seg = [['lock', 0.4], ['stand', 0.3], ['rush', d], ['stand', 0.1], ['rush', d], ['stand', 0.3], ['back', 0.5], ['stand', 3]]; let t0 = 0; const tl = seg.map(([k, L]) => { const o = { k, a: t0, b: t0 + L }; t0 += L; return o; });
+  return bodyRun(seed, 0, 0, 0, 2 + t0, (t0s, sim) => { const t = t0s - 2; if (t < 0) return { goal: null, pace: 1, freeze: true }; const e = tl.find((q) => t >= q.a && t < q.b) || { k: 'stand' };
+    if (e.k === 'lock') return { goal: { kind: 'face', x: tx, z: tz }, pace: 1, stalk: true, quickTurn: true, alert: 1, look: { x: tx, y: 1.7, z: tz, lock: true } };
+    if (e.k === 'rush') return { goal: { kind: 'approach', id: 7 + Math.round(t * 10), x: tx, z: tz, stop: 2, quick: true }, pace: 9.6, burst: true, agitation: 0.4, quickTurn: true, look: { x: tx, y: 1.7, z: tz, lock: true } };
+    if (e.k === 'back') return { goal: { kind: 'drive', throttle: -0.35, steer: 0 }, pace: 1, look: { x: tx, y: 1.7, z: tz, lock: true } };
+    return { goal: null, pace: 1, look: { x: tx, y: 1.7, z: tz, lock: true } }; }, 'p' + (beta * 57.3).toFixed(0) + ':' + d); };
+for (const beta of [0, 0.52, -0.52, 1.05, -1.05]) for (const d of [0.1, 0.2, 0.3, 0.4]) BO[`T15 rush cancel bearing ${(beta * 57.3).toFixed(0)} dur ${d}`] = rushSc(beta, d);
+// T14: the animal at (-30.6, 77.3) heading -8.24 walking at 1.8 m/s; goals to the Warehouse's south wall round its east end (x -44, south wall z 60)
+for (const [gx, gz] of [[-46, 56], [-50, 57], [-44, 58], [-56, 57]]) BO[`T14 move round Warehouse corner to ${gx},${gz}`] = (seed) => bodyRun(seed, -30.6, 77.3, -8.24, 30, (t, sim) => ({ goal: { kind: 'move', id: 3, x: gx, z: gz, last: true }, pace: 2.0, look: { x: -31.6, y: 1.7, z: 72.3, lock: true }, noIdle: true }), 'c' + gx + ':' + seed);
+
+// T14 variant: walking straight at 1.8 m/s, then the goal (a `move` at pace 2.0, eye locked ahead on the person) jumps to a point 6 m off at bearing beta
+for (const beta of [0.8, -0.8, 1.57, -1.57, 2.4, -2.4, 3.14]) BO[`T14 walk then turn to bearing ${(beta * 57.3).toFixed(0)}`] = (seed) => bodyRun(seed, 0, 0, 0, 12, (t, sim) => { const look = { x: 0, y: 1.7, z: 20, lock: true };
+  if (t < 3) return { goal: { kind: 'move', id: 1, x: 0, z: 40, last: true }, pace: 2.0, look, noIdle: true };
+  if (!sim.__g) sim.__g = { x: sim.x + Math.sin(sim.psi + beta) * 6, z: sim.z + Math.cos(sim.psi + beta) * 6 };
+  return { goal: { kind: 'move', id: 2, x: sim.__g.x, z: sim.__g.z, last: true }, pace: 2.0, look, noIdle: true }; }, 'w' + (beta * 57.3).toFixed(0) + ':' + seed);
+// T14 variant 2: running (pace 4.5 or 8) for 3 s, then the mind's besiege `go` (move goal at pace 2.0 at bearing beta, eye on the person)
+for (const pc of [4.5, 8]) for (const beta of [0.8, -0.8, 1.57, -1.57, 2.4, -2.4]) BO[`T14 run ${pc} then besiege go at bearing ${(beta * 57.3).toFixed(0)}`] = (seed) => bodyRun(seed, 0, 0, 0, 10, (t, sim) => { const look = { x: 0, y: 1.7, z: 20, lock: true };
+  if (t < 3) return { goal: { kind: 'move', id: 1, x: 0, z: 80, last: false }, pace: pc, look, noIdle: true };
+  if (!sim.__g) sim.__g = { x: sim.x + Math.sin(sim.psi + beta) * 6, z: sim.z + Math.cos(sim.psi + beta) * 6 };
+  return { goal: { kind: 'move', id: 2, x: sim.__g.x, z: sim.__g.z, last: true }, pace: 2.0, look, noIdle: true }; }, 'r' + pc + ':' + (beta * 57.3).toFixed(0) + ':' + seed);
+const BOONLY = process.env.BO || (ONLY ? 'none' : '');
+for (const [name, f] of Object.entries(BO)) { if (BOONLY === 'none' || (BOONLY && !name.includes(BOONLY))) continue; for (const sd of [1, 2, 3]) { sc = name; seed = sd; const w = f(sd); merge(name, sd, w.W); rawMerge(name, w.R); } }
 // table: per scenario and measure, the worst over seeds (with seed, time, context) and the number of seeds / episodes involved
 const key = (r) => r.sc + '|' + r.name; const by = new Map(); for (const r of rows) { const g = by.get(key(r)) || { ...r, seeds: new Set(), ep: 0 }; g.seeds.add(r.seed); g.ep += r.ep; if (r.worst > g.worst || !by.has(key(r))) { g.worst = r.worst; g.t = r.t; g.ctx = r.ctx; g.seed = r.seed; } by.set(key(r), g); }
 const list = [...by.values()].sort((a, b) => a.sc.localeCompare(b.sc) || (RV[a.name] ? 1 : 0) - (RV[b.name] ? 1 : 0) || a.name.localeCompare(b.name));

@@ -1,4 +1,6 @@
-// Saltline Rex (v2): the current Dino Hunter T. rex (rex_rc, 15 Nov) in Saltline, with Saltline's NPCs as creatures it perceives.
+// Saltline Rex (v3): the SHARED animal (../../../src/sim, src/species: no copy here) in Saltline. This file, saltworld.js, pills.js, audio.js and
+// view/rexbody_gl.js are the whole host. NOTE: the NPCs are computed as `world.creatures` (below) but the shared sim does not read them yet:
+// the 'other creatures' module of v2 is parked in variants/saltline/pending/ until the shared mind has a hook for it (see notes/HOSTING.md).
 // Loaded after Saltline has booted (window.__G, window.__ready). Everything it touches in Saltline:
 //  - reads G.physics (boxes, bounds, groundHeight, raycast, lineOfSight), G.level (interiorBoxes, zones, groundSurfaceAt),
 //    G.ground (puddles, wetness), G.enemies.list (positions, velocities, bodies of the hounds and drones), G.player
@@ -8,11 +10,11 @@
 //  - calls G.enemies.alert(point, r) when the animal is loud (footfalls, roars): Saltline's NPCs go to investigate it
 //  - applies its kill of an NPC through the NPC's own damage(); its kill of you through G.player.damage (Saltline's death flow)
 //  - adds the rex mesh to G.scene; pills to #ui; its sounds to Saltline's AudioContext
-// The NPCs reach the mind as physical properties only (world.creatures, contract in sim/others.js): no Saltline names.
+// The NPCs are described by physical properties only (world.creatures, contract in pending/others.js): no Saltline names.
 import { makeSaltTerrain } from './saltworld.js';
-import { Creature } from './sim/rex.js';
-import { Mind } from './sim/mind.js';
-import { Arena } from './sim/arena.js';
+import { Creature } from '../../../src/sim/rex.js';
+import { Mind } from '../../../src/sim/mind.js';
+import { Arena } from '../../../src/sim/arena.js';
 import { RexBodyGL } from './view/rexbody_gl.js';
 import { makePills } from './pills.js';
 import { RexAudio } from './audio.js';
@@ -120,7 +122,7 @@ function rayRex(o, d) {
   return best;
 }
 // Saltline's damage onto the animal: a rifle round (26) is k = 1, the hardest blow a thrown stone gives; head and neck 1.5x.
-// It is never killed here: what a hit does is the mind's (pain, grudge, wariness, retreat; others.js for NPC fire).
+// It is never killed here: what a hit does is the mind's (pain, grudge, wariness, retreat; pending/others.js for NPC fire).
 function rexHit(o, d, h, dmg, by) {
   const k = (dmg / 26) * (h.part === 'head' || h.part === 'neck' ? 1.5 : 1), sp = 14 * k;
   arena.hits.push({ type: 'hit', id: -1, kind: 'bullet', missile: true, part: h.part, x: h.x, y: h.y, z: h.z, vx: h.dx * sp, vy: h.dy * sp, vz: h.dz * sp, speed: sp, from: { x: o.x, z: o.z }, by, dmg });

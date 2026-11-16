@@ -793,12 +793,14 @@ export class Mind {
    *  the stream's gap (1.7 to 3 s, 2.5 times that when idle), could be weighed away by attention, was limited to one in 20 s, and was
    *  pushed out by the next behaviour's thought. Now each knock says one thing at once, held 1.8 s, scaled to it; a hard one is felt
    *  (pain, a little care near the place); wound up (irritation above 0.45, or frustration above 0.5, or aroused above 0.6 on a chase)
-   *  it brushes it off: nothing, or a dismissal, and no pain, no care. */
+   *  it presses on: a short thought that says it hit something and goes on, no pain, no care. */
   _onCrash(C, k) {
     const M = this.mood, t = this.t, bn = this.beh ? this.beh.name : '', chasing = ['chase', 'pounce', 'hunt', 'bluff', 'seize'].includes(bn) || (bn === 'prowl' && this.beh.phase === 'rush');
     const lvl = C.reel > 0.5 ? 'reel' : C.hard > 0.5 || k >= 2.5 ? 'hard' : 'light', wound = M.irritation > 0.45 || this.peril.frus > 0.5 || (M.arousal > 0.6 && chasing);
     this.thinker.keyT.set('crash', t); this.thinker.keyT.set('bump', t);      // (thoughts.js 'crash' would say it a second time, late)
-    if (wound) { if (lvl !== 'light' && this.thinker.R() < 0.6) this._say('crash', ['no. stop', 'not care', 'no stop. go']); return; }
+    // (owner, after playing it: "i saw very few crash related thoughts ever": in a chase it is wound up nearly every time (91% of 11 knocks in
+    //  a 5 min scripted chase), and it then said nothing or "not care". It still says something that reads as the knock: it hit, it presses on)
+    if (wound) { this._say('crash', lvl === 'light' ? ['bump', 'bump. keep go', 'clip. go'] : ['ow. no stop', 'hit. keep go', 'hard thing. still chase', 'ow. not care. go', 'hit. no stop']); return; }
     if (lvl === 'light') { this._say('crash', ['bump', 'bump. side', 'bump. ok']); return; }
     this.onPain(lvl === 'reel' ? 1.6 : 1);      // (painSpike: it feeds irritation as it fades)
     this.wary = { x: this.sim.x, z: this.sim.z, until: t + 20 };
@@ -3004,6 +3006,7 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
     const out = fresh.length ? L[Math.floor(th.R() * L.length)] : L.slice().sort((a, b) => (used.get(a) ?? -999) - (used.get(b) ?? -999))[0];
     used.set(out, t); th.keyT.set(key, t); th.lastText = out; th.lastEmit = t + Math.max(0, hold - 0.8); th.gap = Math.max(th.gap, hold + 0.2);
     th.queue = th.queue.filter((c) => c.pri >= 0.85 ? false : c.pri > 0.5);
+    this.sayUntil = t + hold;
     th.stream.push({ t: +t.toFixed(2), text: out, kind, cond: key, key, about: 'self', focus: 'self', resp: 'focus' }); if (th.stream.length > 24) th.stream.shift();
     return out;
   }
@@ -3043,7 +3046,8 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
     }
     // think: the newest thought of the stream (thoughts.js), held for a few seconds, then nothing until the next
     const TS = this.thinker.stream, last = TS[TS.length - 1];
-    const think = this.peril.quiet ? '' : last && t - last.t < (K.seen || M.arousal > 0.3 ? 6 : 8) ? last.text : '';
+    const think = this.peril.quiet && !(t < (this.sayUntil ?? -1)) ? '' :      // (a thought said by `_say` stays up through its hold even when it has gone still to strike)
+      last && t - last.t < (K.seen || M.arousal > 0.3 ? 6 : 8) ? last.text : '';
     // want: what the behaviour is for
     const mot = b && b.motive;
     const W = { roam: 'WALK.', pause: M.boredom > 0.6 ? 'NOTHING.' : 'REST.', listen: 'HEAR IT AGAIN.', sniff: 'SMELL IT.', search: 'FIND IT.', stare: 'SEE IT MOVE.', ambush: 'IT COME OUT.', leave: 'GO AWAY FROM HERE.', watch: 'SEE WHAT IT DO.', stalk: 'GET CLOSE. NOT SEEN.', circle: 'SEE OTHER SIDE.', inspect: 'SMELL IT.', display: 'IT GO AWAY.', bluff: 'SCARE IT.', chase: 'CATCH IT.', snap: 'IT BACK OFF.', feign: 'TRICK IT.', backoff: 'SPACE.', nudge: 'KNOW WHAT IT IS.', revisit: 'SEE IF IT BACK.', besiege: 'GET IN.', investigate: 'KNOW BRIGHT THING.', trail: 'FIND MEAT.', feed: sub === 'guard' ? 'MY MEAT. NOT YOURS.' : 'EAT.', hunt: 'EAT ONE.', answer: 'BE LOUDER THAN SKY.', appraise: 'KNOW IF FOOD.', test: 'SEE IF IT RUN.', shadow: 'FOLLOW. NOT SEEN.', lurk: 'IT COME HERE.', prowl: 'EAT IT.', avoid: 'KEEP AWAY FROM IT.' };

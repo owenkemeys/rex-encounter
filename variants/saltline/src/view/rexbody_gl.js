@@ -9,8 +9,8 @@
 // The gaze target: the integration sets `body.fix` to the sim's LIVE `sim.fix` every frame (see main.js), so a reset of the
 // sim (which replaces `sim.fix`) can never leave the eyes on a stale point (the bug body.js works around near its top).
 import * as THREE from 'three';
-import { RexSim, PS } from '../sim/rex.js';
-import { buildRexGeometry, paintRex, boneMatrices, BONE_COUNT, BONE, mouthY, EYE, EYE_AIM, eyeAim, WEB, WEBSHEET } from './rexgeo.js';
+import { RexSim, PS } from '../../../../src/sim/rex.js';
+import { buildRexGeometry, paintRex, boneMatrices, BONE_COUNT, BONE, mouthY, EYE, EYE_AIM, eyeAim, WEB, WEBSHEET } from '../../../../src/view/rexgeo.js';
 
 const flat = { height: () => 0, normal: (x, z, o) => { o.x = 0; o.y = 1; o.z = 0; return o; }, arena: 1e4, size: 1e4, addBump() {}, bumps: [] };
 export const MAX_VBUF = 16;

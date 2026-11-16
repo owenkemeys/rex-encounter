@@ -1,0 +1,77 @@
+src/sim/mind.js-41-import { Attention } from './attend.js';
+src/sim/mind.js:42:import { Others } from './others.js';      // SALTREX: other creatures (N, by physical properties)
+src/sim/mind.js-43-import { Thinker } from './thoughts.js';
+--
+src/sim/mind.js-157-    this.att = new Attention(this, seed);
+src/sim/mind.js:158:    this.others = new Others(this, seed);      // SALTREX: other creatures, by physical properties (others.js)      // one attention: what it thinks about and where its head goes
+src/sim/mind.js-159-    this.thinker = new Thinker(this, seed); this.voice.stream = this.thinker.stream;      // its own random stream: thinking never changes the simulation
+--
+src/sim/mind.js-617-    this.hunger = Math.min(1, this.hunger + dt / 700);
+src/sim/mind.js:618:    this.others.perceive(dt, world);      // SALTREX: other creatures (others.js): appraisal, attention items, prey offered to the hunt
+src/sim/mind.js-619-    const eyeTo = (x, y, z) => {
+--
+src/sim/mind.js-672-      const k = clamp(hit.speed / 14, 0.3, 1.2);
+src/sim/mind.js:673:      // SALTREX: a missile from another creature (by: its id): pain, a flinch, its own record (others.js); not a blow from you, so
+src/sim/mind.js-674-      // no grudge against you, no belief about you, no weighing of you afresh
+--
+src/sim/mind.js-685-      this.ap.onHit(hit, k);
+src/sim/mind.js:686:      if (hit.missile) { this.onPain(0.4 * k); this.others.onSelfHit(hit, k); }      // SALTREX: a missile that strikes it hurts (before, only a sore foot was pain); others.js keeps the tally (retreat)
+src/sim/mind.js-687-      M.irritation = Math.min(1, M.irritation + 0.3 * k * (0.5 + this.temper.irritable)); M.arousal = Math.min(1, M.arousal + 0.45 * k);
+--
+src/sim/mind.js-1156-        // (a goal 30 m off by a 150 m detour, or 5 m off, is no leaving at all)
+src/sim/mind.js:1157:        const LF = this.leaveFrom || this.sum;      // SALTREX: what it leaves (the belief about you, or another creature)
+src/sim/mind.js-1158-        const away = bearing(sim.x - LF.x, sim.z - LF.z), Mb = this._midB(), mB = this.T.rect ? clamp(0.1 * Math.min(Mb.hx, Mb.hz), 3, 20) : 0, F = this._walkField();
+--
+src/sim/mind.js-1803-            const tip = { x: hp.x + sim.head.f.x * 1.5, y: hp.y + sim.head.f.y * 1.5, z: hp.z + sim.head.f.z * 1.5 };
+src/sim/mind.js:1804:            if (Math.hypot(tip.x - q.x, tip.y - q.y, tip.z - q.z) < 1.7) { this.events.push({ type: 'kill', id: q.id, x: q.x, z: q.z, other: !!q.other }); b.done = true; if (!(q.other && this.others.onKill(q.id))) this.hunger = Math.max(0, this.hunger - 0.15); this.thought = 'Caught one.'; break; }      // S
+src/sim/mind.js-1805-          }
+--
+src/sim/mind.js-2311-    this.t += dt; this.acc += dt;
+src/sim/mind.js:2312:    this.others.offer(world);      // SALTREX: the creatures it is going for, as prey for the hunt (others.js)
+src/sim/mind.js-2313-    if (world.noises.length) (this.heard || (this.heard = [])).push(...world.noises);
+--
+src/sim/mind.js-2349-      } else if ((ou = this._otherUrge(c, b, busy))) {
+src/sim/mind.js:2350:        // SALTREX: another creature (others.js): the prey reflex at a small thing darting at its feet, a pest it can get at, food
+src/sim/mind.js-2351-        // when hungry (all through the hunt), or a threat it cannot get at (it leaves)
+--
+src/sim/mind.js-2432-    this.att.update(world);
+src/sim/mind.js:2433:    // SALTREX: a pest closing in that it cannot get at is warned off: a growl at it (others.js)
+src/sim/mind.js-2434-    { const W = this.others.takeWarn(); if (W && !this._handling() && !(this.beh && ['hunt', 'pounce', 'snap', 'strike', ...ATTACKS].includes(this.beh.name)) && !this.peril.busy) this.sim.gesture('growl', W); }
+--
+src/sim/mind.js-2521-   *  get going is not stuck. */
+src/sim/mind.js:2522:  /** SALTREX: whether an urge about another creature (others.js) takes over now. The reflex breaks into anything but an attack
+src/sim/mind.js-2523-   *  or what it holds (as the prey drive does); going for a pest into anything not already about you or a kill; food and leaving
+src/sim/attend.js-54-    if (k === 'prey') { const q = (W.prey || []).find((p) => String(p.id) === id) || (m.prey && String(m.prey.id) === id ? m.prey : null); return q ? { x: q.x, y: (q.y ?? m.T.height(q.x, q.z)) + 1, z: q.z } : null; }
+src/sim/attend.js:55:    if (k === 'other') { const p = m.others ? m.others.pos(id) : null; return p ? { x: p.x, y: p.y, z: p.z } : null; }      // SALTREX
+src/sim/attend.js-56-    if (k === 'obj') { const o = (W.things || []).find((t) => String(t.id) === id) || (m.focus && String(m.focus.id) === id ? m.focus : null); return o ? { x: o.x, y: (o.y ?? m.T.height(o.x, o.z)) + 0.3, z: o.z } : null; }
+--
+src/sim/attend.js-91-    const n = m.mem.lastNoise; if (n && t - n.t < 1.5) it.set('sound', clamp(0.25 + (n.loud || 0.3), 0, 1));
+src/sim/attend.js:92:    if (m.others) for (const [k, s] of m.others.items()) it.set(k, s);      // SALTREX: other creatures (others.js), each an item
+src/sim/attend.js-93-    this.items.clear();
+src/sim/thoughts.js-212-    const old = this.queue.findIndex((c) => c.key === key); if (old >= 0) this.queue.splice(old, 1);
+src/sim/thoughts.js:213:    const [about, ref] = ab ? [ab, ab] : this._about(key, texts, cond);      // SALTREX: a thought can name what it is about (another creature)
+src/sim/thoughts.js-214-    this.queue.push({ key, kind, pri, texts, cond, at: t, ttl, ok, W, cool, about, ref });
+--
+src/sim/thoughts.js-225-    else if (/^(hit|glare|thunder|wade|calm|full|spent|winded|stuck|gaveup|hush|muse:(hunger|bored|idle|tired))$/.test(key) && !hasIt) about = 'self';
+src/sim/thoughts.js:226:    const ref = ((key === 'beh' || key === 'phase') && about !== 'self') || /^(prey:n|other:)/.test(about) ? about : 'you';      // (SALTREX: {N} about another creature is that creature)
+src/sim/thoughts.js-227-    return [about, ref];
+--
+src/sim/thoughts.js-232-    if (key === 'sound') return 'noise';
+src/sim/thoughts.js:233:    if (this.m.others && (key.startsWith('other:') || key.startsWith('prey:n'))) return this.m.others.name(key.split(':')[1]);      // SALTREX: its name for that kind of creature (others.js)
+src/sim/thoughts.js-234-    const e = this.names.get(key); if (e) return e.name;
+--
+src/sim/thoughts.js-288-    if (resp === 'disregard') c = best.key === 'muse:ignore' ? { ...best, kind: 'disregard', name: this._nameFor('you', s) } : { ...best, kind: 'disregard', texts: this._disTexts(about, s), name: null };
+src/sim/thoughts.js:289:    else if (best.ref !== foc || /^(other:|prey:n)/.test(best.ref || '')) c = { ...best, name: this._nameFor(best.ref, s) };      // (SALTREX: another creature is always named, never 'you')
+src/sim/thoughts.js-290-    const r = this._render(c, s); if (!r) return;
+--
+src/sim/thoughts.js-295-  }
+src/sim/thoughts.js:296:  /** SALTREX: thoughts about other creatures, from others.js news; each names the creature by what it perceives of it. */
+src/sim/thoughts.js-297-  _others(q, t) {
+--
+src/sim/thoughts.js-329-    const m = this.m, t = s.t, q = this._q.bind(this), K = m.know, mo = this.model, sim = m.sim;
+src/sim/thoughts.js:330:    if (m.others) this._others(q, t);      // SALTREX: news about other creatures (others.js)
+src/sim/thoughts.js-331-    // ---- you, coming into sight
+--
+src/sim/thoughts.js-466-    }
+src/sim/thoughts.js:467:    if (s.preyId && s.preyId !== p.preyId) q('prey', 'world', 0.6, m.prey && m.prey.other ? (m.hunger > 0.6 ? ['{N}. food?', 'hungry. {N} there'] : ['{N} there', 'watch {N}']) : m.hunger > 0.6 ? ['meat animals!', 'food walk there', 'meat animals. hungry'] : ['meat animals', 'meat animals there'], 'prey', 
+src/sim/thoughts.js-468-    if (s.stoneId && s.stoneId !== p.stoneId) q('stoneFly', 'sense', 0.8, ['rock fly', 'something fly', 'see rock fly'], 'stone', { cool: 6 });

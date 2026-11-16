@@ -63,7 +63,18 @@ export class RexAudio {
     else if (e.src === 'sim' && e.type === 'huff') { this.clip('huff', h.x, h.y, h.z, 0.5, 0.6); this.lastVocal = this.t; }
     else if (e.src === 'sim' && (e.type === 'snap' || e.type === 'clack')) this.clip('snap', h.x, h.y, h.z, 0.55, 0.7);
     else if (e.src === 'sim' && e.type === 'rumble') this._rumble(sim, ctx, true);
+    else if (e.src === 'sim' && e.type === 'contact') this.thud(e.x ?? h.x, e.y ?? h.y, e.z ?? h.z, e);      // the body or head meeting something solid (rex.js 'contact': part, force)
     else if (e.src === 'sim' && e.type === 'settle') this.step(e.x, e.y ?? 0, e.z, 1.4, ctx.wet ?? 0.8);
+  }
+  /** A crash: the animal's trunk, hips or a hard knock of the head on something solid (event 'contact': part, force in m/s). Soft touches are silent. */
+  thud(x, y, z, e = {}) {
+    const big = e.part === 'torso' || e.part === 'hips', f = e.force ?? 0; if (!this._ok() || !(big || f > 2.5)) return;
+    const t = this.t; if (t - (this._thudT ?? -9) < 0.25) return; this._thudT = t;
+    const d = this._dist(x, y, z); if (d > 110) return; const k = Math.min(1.4, 0.5 + f / 8 + (big ? 0.3 : 0));
+    const c = this.ctx, t0 = c.currentTime + Math.min(0.3, d / 343), dest = this._pan(x, y, z, 9);
+    const o = c.createOscillator(), og = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(70, t0); o.frequency.exponentialRampToValueAtTime(30, t0 + 0.4);
+    og.gain.setValueAtTime(0, t0); og.gain.linearRampToValueAtTime(1.0 * k, t0 + 0.01); og.gain.exponentialRampToValueAtTime(0.001, t0 + 0.5); o.connect(og); og.connect(dest); o.start(t0); o.stop(t0 + 0.55);
+    this._burst(dest, t0, 0.18, 'lowpass', 240, 0.7, 0.8 * k, 0.004); this._burst(dest, t0 + 0.005, 0.1, 'bandpass', 600, 0.9, 0.35 * k, 0.003);
   }
   _rumble(sim, ctx, asked) {
     const h = sim.head.pos, c = this.camera, d = this._dist(h.x, h.y, h.z);
