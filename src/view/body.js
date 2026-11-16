@@ -294,6 +294,17 @@ function teethGeometry(sockets, upper, ridge) {
   return g;
 }
 
+// EYELIDS FOLLOW THE BALL (16 Nov): the lids used to swing about a horizontal axis fixed in the skull (17 degrees out), so
+// their widest parting stayed there while the ball turned: 15 degrees off the rest gaze the pupil was 13-17 degrees from the
+// middle of the opening (up/down it was cut by a lid: 30 degrees up the upper lid hid 76% of the pupil). Now the pivot axis and
+// the centre of the opening are carried by `lidDir`, a damped, weighted copy of the ball's look direction (never 1:1: the lids
+// lag and fall short of the eye a little, as real ones do), clamped about the resting gaze so they never leave the socket.
+const LID_FOLLOW = 0.8;       // 0..1: how much of the ball's turn sideways the opening takes (0 = fixed in the skull, 1 = glued to the pupil)
+const LID_FOLLOW_UP = 0.9;    // the same up and down: upper lids track vertical gaze more closely than sideways
+const LID_TAU = 0.1;          // s: time constant of the lids easing after the ball (a saccade is over before they have moved much)
+const LID_YAW_MAX = 0.45, LID_PITCH_MAX = 0.4;     // rad: furthest the opening's centre may leave the resting gaze (no gap at brow or cheek)
+const LID_CANT = 0;           // rad: outer corner raised about the lid's own axis (the rim line is level in the skull at 0)
+
 export class RexBody {
   constructor(Q = { tier: 'high' }) {
     const lo = Q.tier === 'low';
@@ -394,11 +405,12 @@ export class RexBody {
       // EYES: the lids and brow face 17 degrees out (EYE_AIM.lidYaw), not the orbit's 34, so their opening is widest where the
       // ball looks when it stares ahead (at 34 the upper lid's rim cut off the top of a pupil turned toward someone in front)
       const lidLocal = new THREE.Matrix4().makeRotationY(sd * EYE_AIM.lidYaw).multiply(new THREE.Matrix4().makeRotationX(-0.06)).setPosition(sd * EY.x, EY.y, EY.z);
-      return { e, lid, lidLo, brow, local, lidLocal, sd, cu: 0, cl: 0, sq: 0, rest, dir: rest.clone(), pos: new THREE.Vector3(), sac: new THREE.Vector3() };
+      const lidRest = eyeAim(new THREE.Vector3().setFromMatrixPosition(local), local, sd, null, new THREE.Vector3());     // the ball's own resting gaze, in head space
+      return { e, lid, lidLo, brow, local, lidLocal, sd, cu: 0, cl: 0, sq: 0, rest, dir: rest.clone(), pos: new THREE.Vector3(), sac: new THREE.Vector3(), lidRest, lidDir: lidRest.clone() };
     });
     this.glareEye = null;     // optional per-eye dazzle from the mind ({1: left, -1: right}, 0..1): the lids follow each eye separately
     this.glare = 0;     // optional outside drive for the squint (0..1), on top of the pose's SQUINT
-    this._t = new THREE.Matrix4(); this._hi = new THREE.Matrix4(); this._d = new THREE.Vector3(); this._o = new THREE.Vector3(); this._up = new THREE.Vector3(0, 1, 0); this._lm = new THREE.Matrix4();
+    this._t = new THREE.Matrix4(); this._hi = new THREE.Matrix4(); this._d = new THREE.Vector3(); this._o = new THREE.Vector3(); this._up = new THREE.Vector3(0, 1, 0); this._lm = new THREE.Matrix4(); this._lf = new THREE.Matrix4(); this._lk = 1;
     this.fix = null; this._sacT = 0; this._sacV = new THREE.Vector3(); this.nostril = new THREE.Vector3(); this.snout = new THREE.Vector3(0, 0, 1);
   }
 
@@ -419,7 +431,7 @@ export class RexBody {
     // saccades: every so often both eyes jump a little (a few degrees) and hold; between jumps they are still
     const now = performance.now() / 1000;
     if (now > this._sacT) { this._sacT = now + 0.35 + Math.random() * 1.6; this._sacV.set((Math.random() - 0.5) * 0.09, (Math.random() - 0.5) * 0.05, 0); }
-    this._ek = 1 - Math.exp(-55 * Math.min(0.25, Math.max(0, now - (this._eT ?? now - 1 / 60)))); this._eT = now;
+    this._ek = 1 - Math.exp(-55 * Math.min(0.25, Math.max(0, now - (this._eT ?? now - 1 / 60)))); this._eT = now; this._lk = 1 - Math.exp(-Math.min(0.25, Math.max(0, now - (this._lT ?? now - 1 / 60))) / LID_TAU); this._lT = now;
     const GE = this.glareEye, gmax = GE ? Math.max(GE[1] || 0, GE[-1] || 0) : 0;
     for (const E of this.eyes) {
       // the pose's squint is shared; while a beam dazzles, the lit eye screws shut and the shaded one only partly
@@ -437,11 +449,20 @@ export class RexBody {
       // lids: blink shuts both; a squint screws them nearly shut and pulls the brow down; contentment droops the upper
       const tu = Math.max(blink, 0.82 * squint, 0.7 * droop), tl = Math.max(blink, 0.6 * squint, 0.25 * droop);
       E.cu += (tu - E.cu) * (tu > E.cu ? 0.6 : 0.35); E.cl += (tl - E.cl) * (tl > E.cl ? 0.6 : 0.35); E.sq += (squint - E.sq) * 0.25;
-      const look = Math.max(-0.12, Math.min(0.12, E.dir.y - E.rest.y));     // the upper lid follows the ball up and down a little
-      this._t.makeRotationX(-0.5 + 0.7 * E.cu - look * 1.2);
-      E.lid.matrix.copy(H).multiply(E.lidLocal).multiply(this._t); E.lid.matrixWorldNeedsUpdate = true;
-      this._t.makeRotationX(0.62 - 0.7 * E.cl - look * 0.6);
-      E.lidLo.matrix.copy(H).multiply(E.lidLocal).multiply(this._t); E.lidLo.matrixWorldNeedsUpdate = true;
+      // lid frame: its +z is `lidDir`, an eased, weighted, clamped copy of the ball's look direction about the resting gaze (yaw and
+      // pitch separately, so the lids stay level in the skull: the x axis they swing about stays horizontal); blink, droop and
+      // squint swing the two lids about that x axis exactly as before, so a blink still closes over the pupil wherever it points
+      const R = E.lidRest, ry = Math.atan2(R.x, R.z), rp = Math.asin(R.y), dy = Math.atan2(E.dir.x, E.dir.z), dp = Math.asin(Math.max(-1, Math.min(1, E.dir.y)));
+      const wy = Math.max(-LID_YAW_MAX, Math.min(LID_YAW_MAX, LID_FOLLOW * (dy - ry))), wp = Math.max(-LID_PITCH_MAX, Math.min(LID_PITCH_MAX, LID_FOLLOW_UP * (dp - rp)));
+      const ty = ry + wy, tp = rp + wp, ly = Math.atan2(E.lidDir.x, E.lidDir.z), lp = Math.asin(E.lidDir.y), k = this._lk;
+      const ny = ly + (ty - ly) * k, np = lp + (tp - lp) * k;
+      E.lidDir.set(Math.sin(ny) * Math.cos(np), Math.sin(np), Math.cos(ny) * Math.cos(np));
+      this._lf.lookAt(E.lidDir, this._o.set(0, 0, 0), this._up).setPosition(E.pos);
+      this._lf.multiply(this._t.makeRotationX(-0.06)).multiply(this._t.makeRotationZ(E.sd * LID_CANT));      // the old 3.4 degrees up keeps the opening even above and below the pupil
+      this._t.makeRotationX(-0.5 + 0.7 * E.cu);
+      E.lid.matrix.copy(H).multiply(this._lf).multiply(this._t); E.lid.matrixWorldNeedsUpdate = true;
+      this._t.makeRotationX(0.62 - 0.7 * E.cl);
+      E.lidLo.matrix.copy(H).multiply(this._lf).multiply(this._t); E.lidLo.matrixWorldNeedsUpdate = true;
       // the brow: a heavy pad over the lid that comes down and forward when it squints
       const r = EYE.r;
       this._lm.makeRotationX(0.25 + 0.3 * E.sq).scale(this._o.set(r * 1.5, r * 0.5, r * 1.3)).setPosition(0, r * (1.12 - 0.42 * E.sq), r * (-0.3 + 0.42 * E.sq));
