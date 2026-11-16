@@ -109,7 +109,8 @@ export class Peril {
     this._stage(d, c, a, dist);
   }
   _calm() { if (this.stage === 'reach') { const tg = this.m.know.target; if (tg && !tg.dead) this.m.ap.balk('cover'); this._endReach('cover'); return; }
-    if (this.stage !== 'calm' && this.stage !== 'strike') { this.stage = 'calm'; this.quiet = false; this.cur = null; } }
+    const act = this.m.sim.act, striking = this.stage === 'strike' && act && act.kind === 'strike';      // (a strike in flight is left to finish; a 'strike' stage with no strike under way is a stale latch)
+    if (this.stage !== 'calm' && !striking) { this.stage = 'calm'; this.quiet = false; this.cur = null; } }
   _tell(kind, extra = {}) { const e = { kind, t: this.m.t, r: +this.r.toFixed(2), life: this.life, ...extra }; this.tells.push(e); if (this.tells.length > 400) this.tells.shift(); this.m.events.push({ type: 'tell', kind }); return e; }
 
   _stage(d, c, a, dist) {
@@ -158,6 +159,10 @@ export class Peril {
     this.cur = { kind, until: m.t + (kind === 'bluff' ? 1.3 : kind === 'stare' || kind === 'lower' ? 2.2 : 1.0), from: { x: sim.x, z: sim.z }, d0: dist };
   }
   _strike(a) {
+    // (never at the dead: for half a second after a kill the behaviour that made it was still running on a stale record of him,
+    //  struck again, and set the stage back to 'strike' after onKill had cleared it. With nobody left in view nothing ever cleared
+    //  it: the animal stood in `pause`, silent, not eating, for a minute. Owner 2026-11-16: "think it may be broken".)
+    if (!a || a.dead || this.m.t - (this.m.killedT ?? -9) < 1) return;
     const m = this.m, sim = m.sim, y = a.state && a.state !== 'free' ? m.T.height(a.x, a.z) + 0.3 : a.y - 0.6, L = 0.3;      // it leads a moving target
     if (sim.gesture('strike', { x: a.x + (a.vx || 0) * L, y, z: a.z + (a.vz || 0) * L }, { over: true })) {
       if (m.core) m.core.killHow = this.stage === 'reach' ? 'reach' : (m.beh ? m.beh.name : '-') + '/' + this.stage;
