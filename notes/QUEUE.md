@@ -78,3 +78,8 @@ Also: "i also dont want to have to think about branches and worktrees and so on,
 ## Owner, 2026-11-16 ~01:00 UTC, after the human figure / kills-when-hungry build
 "left some notes. this is very funny, although the replay incites you to clown around more now, but let's not try and "solve" that just yet."
 "is the saltline version ready to run?"
+
+## Owner, 2026-11-16 ~01:40 UTC
+"i saw very few crash related thoughts ever."
+"when i asked about saltline i meant "with the current rex". that's something I'd like to test."
+"the idea is this rex might get dropped into many other games and scenarios that other people make, so it sounds like maybe some of the code architecture might not quite be suiting that just yet? what's it gonna take to make that happen? it doesnt have to be perfect or seamless, everyone playing with it will be using agents to help just like our own collaboration, but still if we can make it easier somehow we may as well"
