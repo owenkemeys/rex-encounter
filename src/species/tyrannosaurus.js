@@ -40,6 +40,8 @@ export const TYRANNOSAURUS = {
   // how the hips, back and tail take part in walking and turning (engine defaults in sim/rex.js HIPS_DEFAULT)
   hips: {
     pelvisHold: 0.92, pelvisLag: 0.35, pelvisCatch: 9,
+    lungeSide: 0.35,        // (T12) a snap, seize or butt drives the hips 35% as hard sideways as along the heading (a full side lunge splayed the legs: stance 1.6 m)
+    lungeSideStrike: 1,     // the killing strike keeps its full side drive (strikepass timing; see test/lunge.mjs)
     hipRot: 0.4, hipAbd: [-0.15, 0.35], kneeFollow: [0.3, 0.95],
     backYawMax: 0.85, backEven: 1, backGaze: [0.55, 0.75], tailInertia: 0.6, tailRootMax: 0.3,
     reorient: { cone: 0.8, coneT: 0.6, snap: 1.25, done: 0.35 },

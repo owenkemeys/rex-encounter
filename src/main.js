@@ -870,9 +870,7 @@ async function boot() {
     if (S.replay && !S.dead) endReplay();
     {      // (keeps appending the tail after the death while the replay already plays)
       if (S.mode === 'foot' && S.started) {
-        const Y = S.you, V = arena.victim('you'), fr = V.free, hd = sim.head.pos;
-        rec.tick(dts, S.dead, blend, fr ? { x: Y.x, y: Y.up ? Y.up.base + Y.up.h : terrain.height(Y.x, Y.z), z: Y.z, yaw: Y.yaw, eye: Y.eye, lying: 0, hx: hd.x, hy: hd.y, hz: hd.z }
-          : { x: V.x, y: V.y, z: V.z, yaw: Y.yaw, eye: Y.eye, lying: 1, hx: hd.x, hy: hd.y, hz: hd.z });
+        rec.tick(dts, S.dead, blend, rec.body(S.you, arena.victim('you'), sim, terrain));
       } else if (!S.dead) rec.reset();
     }
     let shown = blend; if (S.replay) { if (rec.update(S.frozen ? 0 : dtReal, camera)) shown = rec.pose; else endReplay(); }

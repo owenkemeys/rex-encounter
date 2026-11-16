@@ -787,13 +787,31 @@ export class Mind {
       else if (A && A.glance && A.glance.key === key) A.glance.until = Math.max(A.glance.until, this.t + 0.4);
     }
   }
+  /** A knock of its body (rex.js crashS: `reel` head-on, `hard` a blow at speed, else a clip). T11 (the owner: "it needs to have a thought
+   *  when it crashes into something and hurts itself. not having one is jarring. if its frustrated and getting wound up it may start
+   *  ignoring the pain signals though"): the thought used to come only from thoughts.js 'crash', at 0.6 to 0.82 priority, so it waited for
+   *  the stream's gap (1.7 to 3 s, 2.5 times that when idle), could be weighed away by attention, was limited to one in 20 s, and was
+   *  pushed out by the next behaviour's thought. Now each knock says one thing at once, held 1.8 s, scaled to it; a hard one is felt
+   *  (pain, a little care near the place); wound up (irritation above 0.45, or frustration above 0.5, or aroused above 0.6 on a chase)
+   *  it brushes it off: nothing, or a dismissal, and no pain, no care. */
+  _onCrash(C, k) {
+    const M = this.mood, t = this.t, bn = this.beh ? this.beh.name : '', chasing = ['chase', 'pounce', 'hunt', 'bluff', 'seize'].includes(bn) || (bn === 'prowl' && this.beh.phase === 'rush');
+    const lvl = C.reel > 0.5 ? 'reel' : C.hard > 0.5 || k >= 2.5 ? 'hard' : 'light', wound = M.irritation > 0.45 || this.peril.frus > 0.5 || (M.arousal > 0.6 && chasing);
+    this.thinker.keyT.set('crash', t); this.thinker.keyT.set('bump', t);      // (thoughts.js 'crash' would say it a second time, late)
+    if (wound) { if (lvl !== 'light' && this.thinker.R() < 0.6) this._say('crash', ['no. stop', 'not care', 'no stop. go']); return; }
+    if (lvl === 'light') { this._say('crash', ['bump', 'bump. side', 'bump. ok']); return; }
+    this.onPain(lvl === 'reel' ? 1.6 : 1);      // (painSpike: it feeds irritation as it fades)
+    this.wary = { x: this.sim.x, z: this.sim.z, until: t + 20 };
+    this._say('crash', lvl === 'reel' ? ['OW. head hurt', 'OW. head. hurt', 'ow! head hurt'] : ['ow. hard thing', 'ow. that hurt', 'ow. hard thing there']);
+    if (lvl === 'reel') this.crashAfter = { at: t + Math.max(1.9, C.dur) };      // and, once the head has stopped ringing, a word of care
+  }
   /** Objects, prey, blows and light: everything that is not the intruder. */
   _perceiveWorld(dt, world) {
     const sim = this.sim, h = sim.head, M = this.mood, R = this.R, SN = this.sp.senses, w = world.wind || { x: 0, z: 0 }, wl = Math.hypot(w.x, w.z) || 1;
     this.hunger = Math.min(1, this.hunger + dt / 700);
     // its body ran into something (rex.js crashS: t goes back to 0 at each crash, dur grows with the closing speed; the
     // 'contact' event itself goes to the view, not here): felt, a beat of surprise, remembered for a thought
-    { const C = sim.crashS; if (C && typeof C.t === 'number') { if (C.t < (this._crashT0 ?? 99) - 0.01 && C.dur > 0) { const k = clamp((C.dur - 0.5) / 0.1, 1, 9); this.mem.crash = { t: this.t, k, hard: k >= 2.5 }; if (k >= 2) this.crashBeat = { t: this.t, until: this.t + Math.min(1.4, 0.5 + 0.12 * k), k }; } this._crashT0 = C.t; } }
+    { const C = sim.crashS; if (C && typeof C.t === 'number') { if (C.t < (this._crashT0 ?? 99) - 0.01 && C.dur > 0) { const k = clamp((C.dur - 0.5) / 0.1, 1, 9); this.mem.crash = { t: this.t, k, hard: k >= 2.5 }; if (k >= 2) this.crashBeat = { t: this.t, until: this.t + Math.min(1.4, 0.5 + 0.12 * k), k }; this._onCrash(C, k); } this._crashT0 = C.t; } }
     // its head met something solid (rex.js: headTouch.kn goes back to 0 at each new touch): felt, remembered for a moment (a thought)
     { const C = sim.headTouch; if (C && typeof C.kn === 'number') { if (C.kn < (this._bumpKn ?? 99) - 0.005 && this.t - (this.mem.bump ? this.mem.bump.t : -99) > 1) this.mem.bump = { t: this.t, part: C.part, hard: (sim.headPress || 0) > 1.5 }; this._bumpKn = C.kn; } }
     const eyeTo = (x, y, z) => {
@@ -2629,7 +2647,15 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
             // the decision, every second or two, on what it feels in its mouth
             let nx;
             const fight = a.struggle > 0.35 || a.escape > 0.45;
-            if (prey && b.sub === 'taste' && !b.tasted) {
+            // T10 (the owner: "its picked me up like 4 times now but chosen not to kill me each time, its becoming non threatening
+            // feeling"): nothing in a hold ever hurt him (his health does not wear down; only a committed `strike` kills, arena.js), and
+            // the hold ended by the arena's 12 s limit, which counted as a slip against him (appraise.js onSlip: cost up, worth down), so
+            // the 3rd or 4th taste came out "not meat". A hungry animal that has him that is not afraid finishes it: one shake, then the bite
+            // (very hungry, the first time; hungry above half, once he is known meat and known harmless: handled before). Fed and playing,
+            // or afraid, it still lets go, and says why.
+            const known = (a.handled || 0) > 1, resolute = b.lethal || (!play && this.ap.fear < 0.35 && (prey && this.hunger > 0.75 || known && this.hunger > 0.5));
+            if (resolute) nx = b.shakes < 1 ? 'worry' : 'kill';
+            else if (prey && b.sub === 'taste' && !b.tasted) {
               // what it found in its mouth: worth keeping, or not meat after all
               const ap = this.ap, ovv = this.ov.verdict;
               // (a kicking mouthful is what prey does: it hardly counts against it; blood in the mouth counts for it)
@@ -2637,7 +2663,6 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
               b.tasted = true; b.kept = keep; ap.onTaste(keep); if (!keep) { b.spat = true; nx = 'drop'; }
             }
             if (nx) { /* decided by the taste */ }
-            else if (b.lethal) nx = b.shakes < 7 ? 'worry' : 'drop';      // no toying: it shakes until it is over
             else if (prey && !b.tasted && held > 0.8) nx = 'taste';
             else if (prey && b.kept) nx = fight || b.shakes < 1 || b.carried ? 'worry' : 'carry';      // food it means to keep: it kills it
             else if (limp && held > 3) nx = prey && this.hunger > 0.85 && !b.carried ? 'carry' : 'drop';
@@ -2650,11 +2675,16 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
             else if (held > 14) nx = angry ? 'toss' : 'drop';
             else nx = b.sub === 'lift' ? (angry ? 'worry' : 'hold') : R() < 0.5 ? 'hold' : angry ? 'worry' : 'hold';
             if (angry && fight && b.shakes < 3 && this.attacks >= 3 && nx === 'toss') nx = 'worry';      // it has had enough of you
-            b.sub = nx; b.subAt = b.t; b.next = { worry: 2.0, toss: 1.6, drop: 0.6, carry: lognormal(R, 7, 0.3), hold: lognormal(R, 1.8, 0.4), lift: 1.2, taste: 1.8 }[nx];
+            b.sub = nx; b.subAt = b.t; b.next = { worry: 2.0, toss: 1.6, kill: 1.0, drop: 0.6, carry: lognormal(R, 7, 0.3), hold: lognormal(R, 1.8, 0.4), lift: 1.2, taste: 1.8 }[nx];
             if (nx === 'worry') { gest('worry', null, { force: angry ? 1 : 0.8, over: true }); b.shakes++; }
             if (nx === 'toss') gest('toss', null, { sgn: R() < 0.5 ? 1 : -1, force: angry ? 1 : 0.55, over: true });
             if (nx === 'carry') { b.carried = true; b.route = null; }
-            if (nx === 'drop') b.dropping = true;
+            if (nx === 'kill') gest('strike', { x: a.x, y: a.y, z: a.z }, { over: true });      // the jaws close for good (arena.js: a strike on a held person kills)
+            if (nx === 'drop') {
+              b.dropping = true;
+              // a release is a choice, and says so
+              if (!b.spat) this._say('letgo', play ? (this.hunger < 0.5 ? ['not hungry. play', 'not hungry. just play', 'play. not eat'] : ['play. drop it', 'just play. drop']) : this.ap.fear >= 0.35 ? ['bad thing. let go', 'scared. let go', 'no. drop it'] : angry ? ['enough. go away', 'enough. drop it'] : this.hunger < 0.5 ? ['not hungry. drop it', 'not hungry. let go'] : ['not worth it. drop', 'drop it. not now']);
+            }
           }
           if (b.dropping) {
             // putting you down: the head comes down first, then the jaws open
@@ -2841,6 +2871,9 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
     { const CB = this.crashBeat; if (CB && this.t < CB.until && !handling && !this.attacking && !(this.beh && ['pounce', 'chase'].includes(this.beh.name)) && !(this.beh && this.beh.name === 'prowl' && this.beh.phase === 'rush')) {
         I.breathHold = Math.max(I.breathHold || 0, 0.7); I.alert = Math.max(I.alert || 0, 0.8); I.stalk = false; I.low = 0; I.pace = Math.min(I.pace || 2, 0.6);
         if (!CB.huffed && this.t > CB.until - 0.2) { CB.huffed = true; this.sim.gesture('huff'); } } }
+    // after a head-on knock: a word of care once the shake is over; and for a while, a little slower near the place it happened
+    { const CA = this.crashAfter; if (CA && this.t >= CA.at) { this.crashAfter = null; this._say('crash', ['careful now', 'careful. slow', 'slow. careful']); }
+      const W = this.wary; if (W && this.t < W.until && !handling && !this.attacking && !this.peril.busy && !(this.beh && ['pounce', 'chase', 'hunt', 'bluff', 'prowl'].includes(this.beh.name)) && Math.hypot(this.sim.x - W.x, this.sim.z - W.z) < 8) I.pace = Math.min(I.pace || 2.4, 2.4); }
     // a thing that has just shown (the orienting reflex, _orientObj): for the beat the look lasts, the body comes round to it too
     // when it is far round (the neck alone cannot bring the eyes onto it while it walks on); then it goes on with what it was doing
     { const g = this.att.glance, OO = this.objOrient;
@@ -2962,6 +2995,18 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
   }
 
   // ---------------------------------------------------------------------- voice
+  /** Say one short thing now, as itself (a choice at a seize, a knock): one of `texts`, not word for word what it said last
+   *  (nor what it used lately), at once, and kept up for `hold` s: nothing else in the stream may replace it before then
+   *  (thoughts.js: a news thought may follow `0.8 s` after the last, any other 1.7 s or more). */
+  _say(key, texts, hold = 1.6, kind = 'body') {
+    const th = this.thinker, t = this.t, used = th.used; if (!th || !texts.length) return null;
+    const fresh = texts.filter((x) => t - (used.get(x) ?? -999) > 40 && x !== th.lastText), pool = fresh.length ? fresh : texts.filter((x) => x !== th.lastText), L = pool.length ? pool : texts;
+    const out = fresh.length ? L[Math.floor(th.R() * L.length)] : L.slice().sort((a, b) => (used.get(a) ?? -999) - (used.get(b) ?? -999))[0];
+    used.set(out, t); th.keyT.set(key, t); th.lastText = out; th.lastEmit = t + Math.max(0, hold - 0.8); th.gap = Math.max(th.gap, hold + 0.2);
+    th.queue = th.queue.filter((c) => c.pri >= 0.85 ? false : c.pri > 0.5);
+    th.stream.push({ t: +t.toFixed(2), text: out, kind, cond: key, key, about: 'self', focus: 'self', resp: 'focus' }); if (th.stream.length > 24) th.stream.shift();
+    return out;
+  }
   /** What it is thinking, in its own words: short, blunt, read straight off the live state. Nothing here is decided;
    *  it only says what the belief, the senses, the moods, the behaviour and the gaze already are. */
   _speak() {
@@ -3008,7 +3053,7 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
     if (b && b.bored) want = 'SOMETHING ELSE.';
     if (nm === 'leave' && this.log[1] && ATTACKS.includes(this.log[1].name)) want = 'SOMETHING ELSE. NOT FUN.';
     // doing: the phase of it, as it is right now
-    const hold = { lift: 'HOLD. LIFT UP.', carry: 'CARRY IT.', worry: 'SHAKE IT!', toss: 'THROW IT!', drop: 'DROP IT.', hold: 'HOLD. FEEL IT.' };
+    const hold = { kill: 'BITE DOWN!', lift: 'HOLD. LIFT UP.', carry: 'CARRY IT.', worry: 'SHAKE IT!', toss: 'THROW IT!', drop: 'DROP IT.', hold: 'HOLD. FEEL IT.' };
     const D = {
       roam: 'WALK.', pause: 'STAND.', listen: 'FREEZE. LISTEN.', sniff: 'SNIFF AIR.', search: 'GO LOOK.', stare: 'STARE.', ambush: 'NOT MOVE. WAIT.', leave: 'WALK AWAY.',
       watch: 'WATCH.', stalk: b && b.creep && c.watched ? 'STOP. IT LOOK.' : 'CREEP.', circle: 'GO ROUND.', inspect: c.d < 10 ? 'SNIFF IT.' : 'GO CLOSER.', display: 'SHOW BIG. GROWL.', bluff: ph === 'charge' ? 'RUN AT IT!' : 'STOP. STARE.', chase: 'RUN!', snap: 'BITE AIR.',

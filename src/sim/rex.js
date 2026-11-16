@@ -79,6 +79,8 @@ const STAM_DEFAULT = { full: 50, free: 0.12, recover: 35, restV: 3, turn: 1.1, t
 const STAM = { ...STAM_DEFAULT, ...(TYRANNOSAURUS.stamina || {}) };
 // how the hips, back and tail take part in walking and turning; a species overrides any of these in `species.hips`
 export const HIPS_DEFAULT = {
+  lungeSideStrike: 1,       // the same for the killing strike
+  lungeSide: 1,             // share of a lunge's side-on part (relative to the heading) that drives the hips; 1 = all of it
   pelvisHold: 0.8,          // in single support the stance foot holds the pelvis against this share of the body's turn
   pelvisLag: 0.35,          // most the pelvis may trail the body heading (rad): the stance hip's rotation range takes it
   pelvisCatch: 9,           // stiffness (rad/s) with which the pelvis catches up when both feet are down
@@ -366,7 +368,12 @@ export class Creature {
       const sg = a.kind === 'strike' ? clamp((d - DIM.reachStop + 0.6) / 1.2, -0.6, 1) : 1, k = kk * sg / 120;
       // the lunge is driven by the legs: only as hard as the feet on the ground can still carry the hips (_support)
       const head = (this.supRaw ?? Infinity) - Math.abs(this.v) - Math.hypot(this.ux, this.uz), kl = (isFinite(head) ? clamp(head / 1.5, 0, 1) : 1) * clamp((5 - Math.abs(this.v)) / 3, 0, 1);      // (legs already driving a run have little left to lunge with)
-      this.ux += (dx / d) * k * kl; this.uz += (dz / d) * k * kl; this.pPitch.v -= (a.kind === 'strike' ? 4.5 : 2.8) / 120;
+      // (T12) only the part of the lunge along the body's heading is driven at full strength: the yaw wrench below turns the body only a
+      // fraction of the way in 0.2 s (0.15 rad of 0.87 at 50 degrees), so a full-strength side lunge slid the hips up to a metre over
+      // planted feet (stance 0.9 -> 1.6 m, thighs 37 degrees apart, one foot a metre out to the side). The side part is scaled by
+      // `lungeSide` (species file; the killing strike has its own, `lungeSideStrike`, so its timing is untouched)
+      const rl = bearing(dx, dz) - this.psi, lc = Math.cos(rl) * k * kl, ls = Math.sin(rl) * k * kl * (a.kind === 'strike' ? this.H.lungeSideStrike : this.H.lungeSide), ux0 = Math.sin(this.psi), uz0 = Math.cos(this.psi);
+      this.ux += ux0 * lc + uz0 * ls; this.uz += uz0 * lc - ux0 * ls; this.pPitch.v -= (a.kind === 'strike' ? 4.5 : 2.8) / 120;
       // (BODY4) and the body wrenches round toward it, hips and chest, with the head: the neck alone no longer reaches round a
       // man walking past at its side (it used to, by bending into an S)
       if (a.kind === 'strike' || a.kind === 'seize' || a.kind === 'snap') { const rel = wrap(bearing(dx, dz) - this.psi); if (Math.abs(rel) > 0.35) { const w = clamp(rel, -2.6, 2.6) / 120; this.psi += w; this.psiV += w; this.twistYaw.v += clamp(rel, -1.2, 1.2) * 0.35; } }

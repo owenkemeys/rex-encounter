@@ -55,21 +55,21 @@ Status: thinking only; see the orchestrator's reply of 2026-11-15 in the owner's
 ## Batch of 2026-11-15 23:09-23:15 UTC (session 20261115T230319Z-dlmq) and the owner's message with it
 
 ### T9. Kill cam stand-in is too static; time for a little human figure
-Status: in progress (2026-11-15, view agent: src/view/figure.js, replay.js).
+Status: built 2026-11-16, awaiting the owner. `src/view/figure.js`: a 1.77 m person from primitives (jacket, trousers, skin), walk/run with planted feet, crouch, tumbling in the air, limp across the jaws, down/rising/pinned/dead. The tape now records the victim's state, position and velocity and follows the body after death (in the jaws while the head is on it, else where it fell). Seen in headless screenshots: running, in the air, held, lying. Not seen: pinned, rising, a natural (unforced) attack. The animal often hides the figure from the fixed camera: the camera choice is the next thing to improve.
 "The kill cam would be helped a lot by the pill standin being visibly sent flying or in its jaws etc, currently it's way too static. It may also be time to swap in a little human character instead of the pill. It's VERY entertaining seeing your own past movements but the perspective does highlight gaps in the sim now."
 
 ### T10. It picks him up again and again and never kills: no longer threatening
-Status: in progress (2026-11-15, mind agent). Supersedes the question in T5.
+Status: built 2026-11-16, awaiting the owner. Supersedes the question in T5. Cause: holding never hurt him and nothing in the hold delivered a killing bite; each timed-out hold lowered his worth until "not meat". Now (`resolute` in the hold decision, mind.js): very hungry (> 0.75) and unafraid kills on the first seize about 3 s after it (6/6 seeds, `node test/seizeend.mjs`); hunger 0.6 drops once then kills; hunger 0.3 always lets go, and every release says why ("not hungry. play", "scared. let go", "enough. go away"). Anger-motive seizes at hunger 0.6 now kill too. Unplayed.
 "its picked me up like 4 times now but chosen not to kill me each time, its becoming non threatening feeling"
 Where: he at (-45, 67.2), animal at (-39.9, 66), seize/hold, hunger 0.89, stance predatory; seized "through the gap" (the Warehouse window work).
 
 ### T11. A thought when it crashes and hurts itself
-Status: in progress (2026-11-15, mind agent).
+Status: built 2026-11-16, awaiting the owner. Cause: the crash thought was queued behind the thought stream (up to 3 s late, 20 s cooldown, overwritten). Now `_onCrash` in mind.js speaks within a tick and holds 1.8 s: "bump", "ow. hard thing", "OW. head hurt", then "careful now"; wound up (irritation > 0.45, or frustration > 0.5, or arousal > 0.6 in a chase) it says "not care" / "no stop" or nothing. A hard knock also caps its pace at 2.4 m/s within 8 m of the spot for 20 s (not checked for stalls beyond Saltline passing). `node test/crashthought.mjs`. Unplayed.
 "it needs to have a thought when it crashes into something and hurts itself. not having one is jarring. if its frustrated and getting wound up it may start ignoring the pain signals though."
 Known: the mind has `onCrash` / `crashBeat` (mind.js ~l.790) and thoughts like "bump! hard", "something hard" do appear in the stream; the note says in play it reads as no thought.
 
 ### T12. "weird lunge pose just happened"
-Status: in progress (2026-11-15, body agent, diagnosis first).
+Status: partly built 2026-11-16, awaiting the owner; nobody knows this is the pose he saw. Found with `node test/lunge.mjs` (body driven directly): a snap/seize/butt at a target off to one side drove the hips about 1 m sideways over planted feet (stance 1.9 m against 0.9 standing). The sideways part of that lunge is now scaled by `hips.lungeSide` 0.35 (stance 1.27 m). Open: a long strike leaves the trailing foot at full reach for about 0.5 s (hips 1.9 m past it); proposal: shorten `dsMin` for a foot in great need, or cap the strike's reach. Mind-driven runs showed nothing clearly bad, and they end at the kill, so post-strike poses go unrecorded.
 Where: he at (-2.9, -23.6), animal at (-6.2, -25.3), heading -4.47, prowl phase `set`, 3.7 m apart, hunger 1. See also T6 (a splayed pose while pursuing).
 
 ### Reference: three-nanite (https://github.com/apekshik/three-nanite), suggested by the owner
