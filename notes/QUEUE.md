@@ -83,3 +83,6 @@ Also: "i also dont want to have to think about branches and worktrees and so on,
 "i saw very few crash related thoughts ever."
 "when i asked about saltline i meant "with the current rex". that's something I'd like to test."
 "the idea is this rex might get dropped into many other games and scenarios that other people make, so it sounds like maybe some of the code architecture might not quite be suiting that just yet? what's it gonna take to make that happen? it doesnt have to be perfect or seamless, everyone playing with it will be using agents to help just like our own collaboration, but still if we can make it easier somehow we may as well"
+
+## Owner, 2026-11-16 ~02:00 UTC, on the eyelids (T3)
+"the sad eyelids are to do with the axis that the eyelids pivot around. that axis is fixed relative to skull, in a way that produces a good parted effect from dead ahead, but strange from side. the eyelid rotation axis should be a child of the eyeball's look direction, so that the widest parting of the lids is always around the pupil. or at least something closer to this, with some damping and weighting factor for realism rather than 1:1 tracking. this is my diagnosis from observation only, and may be wrong or an incomplete fix."
