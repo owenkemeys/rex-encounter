@@ -128,3 +128,9 @@ Then, on the plan: "the doors currently are janky and i dont ever use them, we c
 "make this finishing card have some VHS like effect over it too so its not jarring after the game experience"
 Also: "yes you may flip the switch that lets testers export the clip" (done). On thoughts in closeouts: "its final thoughts are already shown [on the death screen], and they're rarely amusing to be honest, at least in that context."
 "ys, rex encounter is the game name." (owner, 2026-11-17; title screen, tab, photo stamp renamed from Dino Hunter / Rex Sandbox)
+
+## Owner, 2026-11-17, after the public page went live
+"pause menu has "note for the developer", "copy session"? debug tools (crash tests)? take the crash tests label off at least."
+"where is the record a clip anytime function?"
+"I notice that the rex always starts out curious about you but stays on the sniffing you phase for what feels like far too long. we should make it do things to provoke you, because the default behaviour is to forget its an interactive game and that you can move, and so you end up just watching a rex politely sniff you for a long time. lets get the nose nudge behavior back and sometimes picking you up and throwing you, things like that."
+"re the ending card, have the headline scale down if needed so that the card always fits nicely on any res and ratio screen"
