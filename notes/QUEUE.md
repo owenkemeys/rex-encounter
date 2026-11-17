@@ -140,3 +140,6 @@ Also: "yes you may flip the switch that lets testers export the clip" (done). On
 "i really dislike the death page and have for some time. i also dislike the Enter box next to replay, which feels like its a tooltip to me or something."
 "for saving the clip, its not clear enough upfront that 1. pressing the button runs a replay THAT IS BEING RECORDED FOR YOU and that 2. clicking the apparent same button again afterward will give you the saveable clip"
 "please get some other agents working on the other items in the alpha release list, let's try and get this sucker posted online"
+"the storm also needs to be darker and more intimidating. we had this nailed very early in development then someone made it lighter randomly sometime." (owner, 2026-11-17)
+"please tweak the closing card of the video to be about 2x duration." (owner, 2026-11-17; sent to the clip agent)
+"spending a lot of time waiting for renders i think, not an efficient use of time" (owner, 2026-11-17)
