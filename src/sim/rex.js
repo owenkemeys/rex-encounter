@@ -80,6 +80,14 @@ const STAM = { ...STAM_DEFAULT, ...(TYRANNOSAURUS.stamina || {}) };
 // how the hips, back and tail take part in walking and turning; a species overrides any of these in `species.hips`
 export const HIPS_DEFAULT = {
   lungeSideStrike: 1,       // the same for the killing strike
+  reachLift: 0.45,          // both feet down: the foot with less than this many seconds of reach left (at the hips' speed) is the one that lifts next
+  swingHurry: { need: [1.3, 2.6], om: [0.15, 0.4], k: 0.6, min: 0.3 },     // swing time x k (not under min s) when the stance foot's need is high and the body is turning
+  sinkMax: [10, 0.12, 1.5, 3.5],   // most the hips may sink under their height for a leg's reach: at walking pace as much as it takes, from 3.5 m/s this many m
+  roomSink: 0.12,           // (m) a leg's room is measured with the hips at most this far below the height they would stand at: they sink where it runs out, they do not make more room
+  needHurry: [1.2, 2.0],    // the swing in the air is speeded (to hurryMax) as the stance foot's need goes from the first to the second, in a turn
+  hurryMargin: 0.2,         // (m) the same for a swing already in the air: it is speeded when less than this is left (a late change of rate pops, so this stays small)
+  reachMargin: 1.5,         // (m) the hips sink where the stance leg reaches (cap in _balance) well before _room says it is spent: a swing is timed to land with this much room still left
+  hurryMax: 2.2,            // most a late swing is speeded
   lungeSide: 1,             // share of a lunge's side-on part (relative to the heading) that drives the hips; 1 = all of it
   pelvisHold: 0.8,          // in single support the stance foot holds the pelvis against this share of the body's turn
   pelvisLag: 0.35,          // most the pelvis may trail the body heading (rad): the stance hip's rotation range takes it
@@ -666,7 +674,7 @@ export class Creature {
     let fx = Math.sin(foot.yaw), fy = 0, fz = Math.cos(foot.yaw); { const d = fx * n.x + fz * n.z; fx -= n.x * d; fy -= n.y * d; fz -= n.z * d; const l = Math.hypot(fx, fy, fz) || 1; fx /= l; fy /= l; fz /= l; }
     const a2 = Math.max(0, ROLL - FT.peel), up = FT.pad + lp3 * Math.sin(ROLL) + ld3 * Math.sin(a2), fw = TL - lp3 * Math.cos(ROLL) - ld3 * Math.cos(a2);
     const mx = p.x + n.x * up + fx * fw, my = p.y + n.y * up + fy * fw, mz = p.z + n.z * up + fz * fw;
-    const ok = this._hipOk, hx0 = ok ? this.hc.x + this.pl.x * foot.s * DIM.hipHalf : this.x, hy = ok ? this.hc.y : this.py.x, hz0 = ok ? this.hc.z + this.pl.z * foot.s * DIM.hipHalf : this.z;
+    const ok = this._hipOk, hx0 = ok ? this.hc.x + this.pl.x * foot.s * DIM.hipHalf : this.x, hy = Math.max(ok ? this.hc.y : this.py.x, (this.yNom ?? 0) - this.H.roomSink), hz0 = ok ? this.hc.z + this.pl.z * foot.s * DIM.hipHalf : this.z;
     const over = (d) => {
       const Hx = hx0 + dx * d, Hz = hz0 + dz * d, x = (Hx - p.x) * fx + (hy - p.y) * fy + (Hz - p.z) * fz;
       const th = 1.08 + 0.38 * clamp(x / 1.2, -1.2, 1.6) + 0.5 * ROLL, c = Math.cos(th) * DIM.meta, sn = Math.sin(th) * DIM.meta;
@@ -927,6 +935,11 @@ export class Creature {
         foot.nT = need >= 1 ? (foot.nT || 0) + dt : 0;
         if (!best || need > best.need) best = foot;
       }
+      // (T6/T14/T15, owner 2026-11-17: "its body drops low to the ground ... to span the distance between wide spaced feet") when both are down,
+      // the foot whose leg is running out of reach goes first (_support's supGo): the other must carry the hips while it swings. The
+      // foot with the larger `need` (a fresh landing, heading lagging round a bend) used to be lifted instead, leaving the exhausted
+      // leg alone under the hips for a whole swing: they sank 0.5-1.9 m (cap in _balance) and the stance spanned 2 m.
+      if (A.planted && B.planted && this.supGo && best !== this.supGo && spd > 0.5 && this.supGo.room < (spd + (this.supU || 0)) * this.H.reachLift) best = this.supGo;
       const other = this.feet[best === A ? 1 : 0];
       const since = this.t - Math.max(A.tLand, B.tLand);
       const turnK = sstep(0.1, 0.3, Math.abs(this.om)) * (1 - m);
@@ -978,8 +991,11 @@ export class Creature {
     if (inj) T *= sore ? 1 + 0.22 * inj.sev : 1 - 0.38 * inj.sev;      // the sore foot is carried through carefully; the good one is hurried down under the body
     const oLand = other.planted ? other.tLand : this.t + (other.sw.T - other.sw.t);
     if (m > 0.5 && !inj) T = clamp(oLand + Tstep - this.t, 0.8 * T, 1.25 * T);   // pull the two legs toward even spacing (a limp is not even)
+    // (T14/T15, owner 2026-11-17) the planted foot wants off (its need is high: the hips have arced round it) but may not leave while
+    // this one is up: at speed in a turn the swing is hurried, so the stance foot is never left 0.6 s while the hips go round it
+    if (m > 0.5 && other.planted && !inj) { const SH = this.H.swingHurry, hurry = sstep(SH.need[0], SH.need[1], other.need || 0) * sstep(SH.om[0], SH.om[1], Math.abs(this.om)); T = Math.max(SH.min, T * lerp(1, SH.k, hurry)); }
     // and never longer than the stance leg can carry the hips meanwhile (_support): the foot comes down before the other runs out
-    if (other.planted && isFinite(other.room) && spd > 0.5) T = Math.max(0.28, Math.min(T, Math.max(0, other.room) / (spd + (this.supU || 0))));
+    if (other.planted && isFinite(other.room) && spd > 0.5) T = Math.max(0.28, Math.min(T, Math.max(0, other.room - this.H.reachMargin) / (spd + (this.supU || 0))));
     const p0 = foot.mtp.clone().addScaledVector(foot.n, -this.FT.pad);
     foot.sw = { p0, frz0: !!this.freeze, fix: spd < 0.3 && Math.abs(this.vReq ?? this.vT) <= 0.3 && Math.abs(this.omT) <= 0.12 && !foot.forced, yaw0: foot.yaw, n0: foot.n.clone(), t: 0, T, clr: lerp(0.3, 0.5, m) + 0.45 * sstep(3, 8, spd) + 0.4 * this.stalk + (sore ? 0.25 * inj.sev : 0), beta0: foot.beta, p1: foot.pos.clone(), yaw1: foot.yaw, n1: foot.n.clone() };
     foot.planted = false; this.pre = null; this.lastStepFoot = foot;
@@ -1001,7 +1017,7 @@ export class Creature {
     const hold = still && sore && this.holdFootReq && !this.lying && Math.abs(this.vT) < 0.05 && sw.t / sw.T > 0.3 && sw.t / sw.T < 0.6;
     // a swing that would come down after the standing leg has run out of length is hurried (_support: the other foot's room)
     const ot0 = this.feet[s === 1 ? 1 : 0], sp0 = Math.abs(this.v) + (this.supU || 0);
-    const hurry = ot0.planted && isFinite(ot0.room) && sp0 > 0.5 ? clamp((sw.T - sw.t) / Math.max(0.12, ot0.room / sp0), 1, 1.8) : 1;
+    const hurry = Math.max(ot0.planted && isFinite(ot0.room) && sp0 > 0.5 ? clamp((sw.T - sw.t) / Math.max(0.12, (ot0.room - this.H.hurryMargin) / sp0), 1, this.H.hurryMax) : 1, ot0.planted && sp0 > 1.5 ? 1 + (this.H.hurryMax - 1) * Math.max(clamp(((this.sink || 0) - 0.03) / 0.2, 0, 1) * sstep(3, 4.5, sp0), sstep(this.H.needHurry[0], this.H.needHurry[1], ot0.need || 0) * sstep(0.2, 0.6, Math.abs(this.om))) : 1);      // (a stance foot that wants off and the hips sinking over it both hurry the swing)
     sw.rate = (sw.rate ?? 1) + ((hold ? 0 : Math.max(hurry, this.freeze && still ? 1.5 : 1)) - (sw.rate ?? 1)) * (1 - Math.exp(-dt / 0.12));      // a held foot slows to a stop, it does not snap still
     sw.t += sw.rate * dt * (1 - 0.3 * this.stalk * (1 - Math.abs(sw.t / sw.T - 0.5) * 2));
     const u = Math.min(sw.t / sw.T, 1);
@@ -1026,7 +1042,11 @@ export class Creature {
       // side by side, or one turned in on the spot, keep a foot's width apart while feet a stride apart can come close to the line
       const FG = this.H.footGap, FP = this.H.footprint, sy1 = Math.sin(psiMs), cy1 = Math.cos(psiMs), sy0 = Math.sin(ot.yaw), cy0 = Math.cos(ot.yaw);
       const deficit = (px, pz) => {
-        const mid = FG.midline - s * ((px - ot.pos.x) * lxx + (pz - ot.pos.z) * lzz);
+        // (T6/T14/T15, owner 2026-11-17: "taking a wide corner fast ... feet wide spaced") in a turn at speed the standing foot a stride behind
+        // lies to the inside of where the body will be (the heading will have turned by then): "keep to your own side" pushed the
+        // landing 0.4-1 m out the other way. Feet a stride apart cannot cross shanks, so the rule relaxes with the fore-aft gap
+        const sepF = Math.abs((px - ot.pos.x) * Math.sin(psiTd) + (pz - ot.pos.z) * Math.cos(psiTd)), far = FG.crossFar ? sstep(FG.farFrom[0], FG.farFrom[1], sepF) * sstep(FG.fromSpeed[0], FG.fromSpeed[1], spdP) : 0;
+        const mid = FG.midline - s * ((px - ot.pos.x) * lxx + (pz - ot.pos.z) * lzz) - far * (FG.midline + FG.crossFar);
         // a print is a narrow heel-to-toe strip (radius r) and, when the species gives one, the toes' fan ahead of it (`fan`: a
         // short strip from a0 to a1 along the foot, radius fr): two prints may not overlap, any part against any part
         const F = FP.fan, qx = px + lxx * s, qz = pz + lzz * s;
@@ -1243,7 +1263,13 @@ export class Creature {
     const crouch = 0.24 * se + 0.24 * PO.display + 0.36 * mRun + 0.5 * Math.min(1, this.lowness) + 0.72 * Math.max(0, this.lowness - 1) + (0.04 + (DIM.hipMove || 0)) * m + 0.26 * this.stalk + windup;
     const mFl = sstep(8.5, 10.5, spd);
     let yT = gY + DIM.hipHeight - crouch - lerp(1, -0.4, mRun) * drop + this.breath * 0.012 + 0.16 * mFl * (1 - Math.min(1, L.load + R.load));
-    yT = Math.min(yT, cap - 0.03);
+    { const D = this._dbgH || (this._dbgH = {}); D.yT0 = yT; D.cap = cap; D.drop = drop; D.crouch = crouch; D.gY = gY; } this.yNom = yT;      // (_dbgH: what test/splay.mjs reads)      // (the height it would stand at but for the legs' reach: _room measures the legs' room at this height, not at the sunk one)
+    // (T6/T14/T15, owner 2026-11-17: "its body drops low to the ground presumably to try and span the distance between wide spaced feet ...
+    // only for a split second during chases but its really bad for the illusion!") while it runs, a leg that cannot reach does not
+    // pull the hips down: the foot is hurried down instead (_swing) and the hips sink at most `sinkMax` m under the height they would stand at
+    this.sink = Math.max(0, yT - cap);
+    { const SM = this.H.sinkMax, capE = Math.max(cap, yT - lerp(SM[0], SM[1], sstep(SM[2], SM[3], Math.abs(this.v)))); this.capEff = capE; cap = capE; }
+    yT = Math.min(yT, cap - 0.03); this._dbgH.yF = yT; this._dbgH.capE = cap;
     if (lie > 0) yT = lerp(yT, gY + LIE_H, lie);      // down on its belly, sitting back on its heels
     this.py.step(yT, this.py.x > cap ? 13 : se > 0.05 ? 11 : 7.5, 0.9, dt);
     if (this.py.x > cap + 0.3) { this.py.x -= Math.min(this.py.x - cap - 0.3, 2.2 * dt); if (this.py.v > 0) this.py.v = 0; }     // legs too short for this height: sink, never snap

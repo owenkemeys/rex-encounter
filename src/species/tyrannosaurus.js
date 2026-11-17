@@ -41,12 +41,23 @@ export const TYRANNOSAURUS = {
   // how the hips, back and tail take part in walking and turning (engine defaults in sim/rex.js HIPS_DEFAULT)
   hips: {
     pelvisHold: 0.92, pelvisLag: 0.35, pelvisCatch: 9,
+    // (T6/T14/T15) the owner, 2026-11-17: "we really have to fix this splaying thing when it is taking a wide corner fast I think, its body drops
+    // low to the ground presumably to try and span the distance between wide spaced feet. its only for a split second during chases but its
+    // really bad for the illusion!"  Found with test/splay.mjs: the foot lifted was not the one whose leg had run out of reach, so the other
+    // leg stood alone under the hips through a whole swing and the hips sank to its reach (up to 1.9 m); and the "keep to your own side"
+    // rule pushed an inside landing 0.4-1 m outward because the standing foot a stride behind lies across the turned heading.
+    reachLift: 0.45,        // both feet down: a foot with under this many seconds of reach left goes first, whatever the other's need
+    reachMargin: 1.5,       // (m) a swing is timed to come down with this much of the stance leg's room left (the hips sink well before the room is gone)
+    hurryMargin: 0.2, hurryMax: 2.2, needHurry: [1.2, 2.0],      // a swing in the air is speeded (up to x2.2) when the stance leg is nearly out or its foot badly wants off in a turn
+    swingHurry: { need: [1.3, 2.6], om: [0.15, 0.4], k: 0.6, min: 0.3 },      // and a swing begun while the stance foot wants off in a turn is 40% shorter (not under 0.3 s)
+    roomSink: 0.12,         // (m) a leg's room is measured with the hips no lower than this under the height they would stand at
+    sinkMax: [10, 0.12, 1.5, 3.5],      // the most the legs' reach may lower the hips: as much as it takes at a walk, 0.12 m from 3.5 m/s
     lungeSide: 0.35,        // (T12) a snap, seize or butt drives the hips 35% as hard sideways as along the heading (a full side lunge splayed the legs: stance 1.6 m)
     lungeSideStrike: 1,     // the killing strike keeps its full side drive (strikepass timing; see test/lunge.mjs)
     hipRot: 0.4, hipAbd: [-0.15, 0.35], kneeFollow: [0.3, 0.95],
     backYawMax: 0.85, backEven: 1, backGaze: [0.55, 0.75], tailInertia: 0.6, tailRootMax: 0.3,
     reorient: { cone: 0.8, coneT: 0.6, snap: 1.25, done: 0.35 },
-    footGap: { midline: 0.24 }, footprint: { heel: 0.5, toe: 0.55, r: 0.24, fan: { a0: 0.35, a1: 0.62, r: 0.36 } }, swingClear: 0.5,
+    footGap: { midline: 0.24, crossFar: 0.9, farFrom: [1.0, 1.8], fromSpeed: [2.5, 4.5] }, footprint: { heel: 0.5, toe: 0.55, r: 0.24, fan: { a0: 0.35, a1: 0.62, r: 0.36 } }, swingClear: 0.5,
     sway: [0.5, 0.2], list: 0.055, listLoad: 0.02, listWn: 14, nod: 0.026,
     kneeOut: 0.3,            // lateral lean of the knee plane: the knees stand out from the hips, so from the front two legs read as an A over a narrow track (0.1 was the engine's old constant, 0.2 the hips pass)
   },
