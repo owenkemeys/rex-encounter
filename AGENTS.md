@@ -60,7 +60,7 @@ It is one app, not yet packages. The seams are already clean enough to split lat
 
 ## Open work (newest first; details in `notes/QUEUE.md`)
 
-**Start with `notes/TODO.md`: the owner's latest playtest notes as numbered to-do items with status. Mark an item as yours before working on it.**
+**The owner will post this publicly soon as a rough alpha: the PRIORITY HIT LIST at the top of `notes/TODO.md` comes first. The hosted "Rex Sandbox" artifact is public: republishing needs `shared_live: "public"` and the title.** **Start with `notes/TODO.md`: the owner's latest playtest notes as numbered to-do items with status. Mark an item as yours before working on it.**
 
 Built 2026-11-15 evening by three subagents in parallel, merged and tested together (review, corner, crashread, platform, mind all 3, Saltline: no failures), now in the hosted arena. **Owner has played it (21:45): crash collisions "working pretty well now", window intrusion "kinda works", kill cam "quite funny already" and to become automatic (in progress).**
 

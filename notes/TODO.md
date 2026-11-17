@@ -5,6 +5,20 @@ status line that you have it, and wait for his verdict after he plays the result
 His standing verdicts (2026-11-15 21:45): head-on crashes "great"; "crash collision stuff is working pretty well now.
 window intrusion kinda works"; the kill cam "is quite funny already".
 
+
+## PRIORITY HIT LIST for the public rough alpha (owner, 2026-11-17; his words are in QUEUE)
+He wants to post the game publicly soon. Deliver these first, in this order unless he says otherwise. Mark an item as yours before starting.
+
+- **P1. Share a replay easily** ("core to the virality"). In progress 2026-11-17: "save clip" on the death card records the security-cam replay with its sound to an mp4/webm file (src/view/clip.js). Facts that shape the rest: the hosted "Rex Sandbox" artifact is now PUBLIC (anyone with the link). Its database serves only signed-in visitors, and visitors at viewer level cannot write, so a link-to-a-tape feature stored there cannot work for the public; in the artifact a file can only be saved through the `downloads` capability, which is NOT declared yet (the session's attempt to declare it was refused by the permission system: the owner must approve). For the public: host the static `dist/` somewhere public (for example GitHub Pages from this repo) where plain downloads and the phone share sheet work. Later: tape links with a real store (T23), clip the last X seconds at any time (T23b).
+- **P2. Privacy of playtest data on the public artifact.** With default database rules, any signed-in visitor of the public artifact can read the `notes`, `sessions` and `chunks` collections (the owner's playtest notes with screenshots). Proposed rules: read and write `admin` for those three paths. Not applied: needs the owner's yes.
+- **P3. Collision for every world prop.** "i noticed light poles and the bridge at the barn dont have collision to the rex". Audit every placed thing in src/paddock.js against what the body collides with (`terrain.near`, structures, things) and what the player collides with; list each prop without a collider; add them (poles as thin cylinders the body shoulders past or knocks, the bridge as a solid); check nav routes round them; test/crashread.mjs post scenario, test/mind.mjs, Saltline.
+- **P4. Jump.** "i expect spacebar/gamepad A to be a jump button in this sort of FPS environment". Find what Space and A do now, move those, add a jump (about 1.1 m apex, no air control beyond a little, landing sound, a short stamina cost), make the victim/replay figure show it, and make sure the animal's perception and strike handle an airborne player.
+- **P5. A goal / scenario** (design with the owner first; see the orchestrator's reply 2026-11-17). "lack of goal bothered one of my playtesters ... i like the "distract it from eating the kids for X minutes" scenario idea".
+- **P6. The arena and spawn.** "overly big and boring, i end up dashing over to the ruins or the barn from the start point ... the bamboo LODs as cones are terrible. i have no idea if the arena has anything else in other areas because i never go to it." (design with the owner; see the reply). Includes T2 (bamboo).
+- **P7. Delightful pseudo-emergent behaviours** ("it stamping on the flare is a great one"). Candidate list in the reply; each must be a general rule over properties, never a script (AGENTS.md).
+- **P8. The pubic boot.** "the rex model is missing a pubic bone hump between the legs I think?" He is right about the anatomy: the pubis of Tyrannosaurus ends in a large "boot" that makes a keel-like bulge low on the belly just in front of and between the thighs. Check src/view/rexgeo.js / body.js for the belly profile there and add it (and to Saltline's drawing, or wait for T20).
+- Then: T20 (creature package), T21 (strip the doors), T14/T15 (splayed poses), T17 (brow), the dark-barn and portrait kill cam cases (T19).
+
 ## Batch of 2026-11-15 21:47-21:59 UTC (sessions 20261115T214343Z-9vrm and 20261115T215107Z-xr5v)
 
 ### T1. Head does not lead into a turn or round a corner

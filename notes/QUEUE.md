@@ -101,3 +101,13 @@ Then, on the plan: "the doors currently are janky and i dont ever use them, we c
 ## Owner, 2026-11-16 (while the jaw and CCTV kill cam were being built)
 "another thing for the to-do list is the "send this to a friend" for your death tape"
 "this also suggests that recording a shareable tape at any time (say last X seconds of gameplay) would be very viral and fun, not just on death!"
+
+## Owner, 2026-11-16/17, after the jaw + security-cam build
+"this is really really good fun now. the kill cams are hysterical, the crude little human and its animations really add to it. I want to post this publicly soon as a rough alpha. put all this on the priority hit list for other agents to deliver on:"
+"* we need people to be able to share their replays easily because thats core to the virality. if you're halfway there with that already, you can finish it this session"
+"* i'd like to think about possibilities for other easy to implement, delightful, surprising, psuedo-emergent behaviors - it stamping on the flare is a great one"
+"* make sure all game world props have appropriate collision - i noticed light poles and the bridge at the barn dont have collision to the rex"
+"* i expect spacebar/gamepad A to be a jump button in this sort of FPS environment"
+"* lets talk about the scenario, because lack of goal bothered one of my playtesters, even though most players just enjoy clowning around with the rex. i like the "distract it from eating the kids for X minutes" scenario idea"
+"* the arena and/or spawn position i find to be overly big and boring, i end up dashing over to the ruins or the barn from the start point most times because that gives opportunities for fooling around with the rex. the bamboo LODs as cones are terrible. i have no idea if the arena has anything else in other areas because i never go to it. thoughts?"
+"* the rex model is missing a pubic bone hump between the legs I think?"
