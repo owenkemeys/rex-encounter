@@ -97,3 +97,7 @@ Then, on the plan: "the doors currently are janky and i dont ever use them, we c
 "i'd like to see the jaw animation first and it should be procedural based on emitted sound effect, not hand crafted, to allow future flexibility. I am sure you can find a way to handle the need to precede the actual audio by a fraction."
 "the kill cam update can come in the same build, please. these two are visible changes that affect the fun immediately."
 "the creature package stuff can be just articulated on the to do list for a future agent." "the stuck alarm is up to you" "bamboo can stay on the to-do list."
+
+## Owner, 2026-11-16 (while the jaw and CCTV kill cam were being built)
+"another thing for the to-do list is the "send this to a friend" for your death tape"
+"this also suggests that recording a shareable tape at any time (say last X seconds of gameplay) would be very viral and fun, not just on death!"
