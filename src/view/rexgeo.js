@@ -387,10 +387,10 @@ export const FOOTSKIN = { width: [0.102, 0.114, 0.102], pad: 0.06, top: 0.062, p
 // ~0.75 of the femur, to a small tip under the tail base. All distances below are measured from the hip joint's mid point, along the
 // pelvis' frame: `fwd` ahead (+) or behind, `drop` below. `soft`: flesh under the bone. `toe`, `heel`: the boot's flat bottom from its
 // front toe to its back end, relative to the shaft's end. `w`, `h`: half width and half height of the keel's section.
-// `front`, `back`: the distance over which it runs into the belly ahead and up to the tail base behind.
+// `front`, `back`: the distance over which it runs into the belly ahead and up to the tail base behind. `cleft`: half widths (m) between which its blend with other shapes fades to a hard join (it blends with the belly on the midline, not with the thighs); `own`: how far (m) from its own lobes a vertex still belongs to the pelvis alone.
 const FEMUR = TYRANNOSAURUS.dims.femur, PUBIS_LEN = 0.9 * FEMUR, PUBIS_TILT = 12 * Math.PI / 180;
 export const PUBIS = { len: PUBIS_LEN, shaftFwd: PUBIS_LEN * Math.sin(PUBIS_TILT), drop: PUBIS_LEN * Math.cos(PUBIS_TILT) + 0.06 + 0.0, boot: 0.62 * PUBIS_LEN, toe: 0.2, heel: 0.59,
-  w: 0.06, h: 0.15, front: 0.8, back: 0.35, k: 0.15, sag: 0.05, belly: 0.8,
+  w: 0.06, h: 0.15, front: 0.8, back: 0.35, k: 0.15, sag: 0.05, belly: 0.8, cleft: [0.1, 0.18], own: [0.09, 0.17],
   isch: { len: 0.75 * FEMUR, ang: 50 * Math.PI / 180, w: 0.09, h: 0.09 } };
 { const G = TUNE_G, R = 'reload', rg = (v) => (v >= 0 ? [v * 0.4, v * 2.5 + 0.02] : [v * 2.5 - 0.02, v * 0.4]);      // tune
   const T = (label, o, k, code) => { const r = rg(o[k]); tune(G, label, o, k, r[0], r[1], 0.005, null, code, R); };      // tune
@@ -453,7 +453,7 @@ function buildPrims(pose, B, coarse = false, cell = 0.04) {
     const PB = PUBIS, pu = Uv[IDX.PELVIS], pf = V().subVectors(J[IDX.PELVIS + 1], J[IDX.PELVIS - 1]).normalize(), pl = V().crossVectors(pu, pf).normalize();
     const hm = V().fromArray(v, PV.LEG * 3).add(V().fromArray(v, (PV.LEG + 6) * 3)).multiplyScalar(0.5);
     const pb = [[IDX.PELVIS, 1.6]], tilt = V().copy(pf).addScaledVector(pu, -pf.dot(pu)).normalize();
-    const lobe = (fwd, bottom, w, h, len, k, sg) => add('ell', frame(V().copy(hm).addScaledVector(tilt, fwd).addScaledVector(pu, bottom + h), pl, pu, tilt), [w, h, len], pb, { k, sigma: sg });
+    const lobe = (fwd, bottom, w, h, len, k, sg) => { const q = add('ell', frame(V().copy(hm).addScaledVector(tilt, fwd).addScaledVector(pu, bottom + h), pl, pu, tilt), [w, h, len], pb, { k, sigma: sg }); q.boot = true; return q; };
     const f1 = PB.shaftFwd + PB.toe, b1 = PB.shaftFwd - PB.heel, step = 0.08, bot = -(PB.drop - PB.sag);   // the flat bottom runs from b1 to f1
     for (let f = b1 - PB.back; f <= f1 + PB.front + 1e-6; f += step) {
       const tf = ss(0, PB.front, f - f1), tb = ss(0, PB.back, b1 - f), t = Math.max(tf, tb), e = 1 - t;
@@ -729,14 +729,15 @@ export function buildRexGeometry(simPose, { cell = 0.04 } = {}) {
   const idx = (i, j, k) => i + nx * (j + ny * k);
   const smin = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; };
   const smax = (a, b, k) => -smin(-a, -b, k);
-  for (const p of prims) {
+  // the pubic boot is added last, and blends only on the midline (PUBIS.cleft): beside it the thighs' inner faces stay their own smooth slabs
+  for (const p of prims.filter((q) => !q.boot).concat(prims.filter((q) => q.boot))) {
     if (p.op === 'cut') continue;
     const i0 = Math.max(0, Math.floor((p.c.x - p.rad - lo.x) / cell)), i1 = Math.min(nx - 1, Math.ceil((p.c.x + p.rad - lo.x) / cell));
     const j0 = Math.max(0, Math.floor((p.c.y - p.rad - lo.y) / cell)), j1 = Math.min(ny - 1, Math.ceil((p.c.y + p.rad - lo.y) / cell));
     const k0 = Math.max(0, Math.floor((p.c.z - p.rad - lo.z) / cell)), k1 = Math.min(nz - 1, Math.ceil((p.c.z + p.rad - lo.z) / cell));
     for (let k = k0; k <= k1; k++) for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const d = p.sd(lo.x + i * cell, lo.y + j * cell, lo.z + k * cell), n = idx(i, j, k);
-      F[n] = smin(F[n], Math.max(d, -0.5), p.k);
+      F[n] = smin(F[n], Math.max(d, -0.5), p.boot ? Math.max(0.004, p.k * (1 - ss(PUBIS.cleft[0], PUBIS.cleft[1], Math.abs(lo.x + i * cell)))) : p.k);
     }
   }
   // field lookups in head space (bind pose: the jaw is shut, so skull and jaw share the frame)
@@ -902,7 +903,7 @@ export function buildRexGeometry(simPose, { cell = 0.04 } = {}) {
       if (wf > 1e-4) { const t = ((px - G.hip.x) * G.fe.x + (py - G.hip.y) * G.fe.y + (pz - G.hip.z) * G.fe.z) / G.lt, sh = 1 - ss(LW.twist[0], LW.twist[1], t); W[o + G.bW] += wf * sh; W[o + G.bF] = wf * (1 - sh); }
     }
   };
-  const WD = new Float32Array(nv * BONE_COUNT); let sPar = new Float32Array(nv).fill(-1);
+  const bootPrims = prims.filter((q) => q.boot), WD = new Float32Array(nv * BONE_COUNT); let sPar = new Float32Array(nv).fill(-1);
   for (let i = 0; i < nv; i++) {
     const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2];
     wb.fill(0); let best = Infinity, tag = 0;
@@ -988,6 +989,10 @@ export function buildRexGeometry(simPose, { cell = 0.04 } = {}) {
       } }
     { let t = 0; for (let b = 0; b < BONE_COUNT; b++) t += wb[b]; t = t || 1; for (let b = 0; b < BONE_COUNT; b++) WD[i * BONE_COUNT + b] = wb[b] / t; }
     legWeights(WD, i * BONE_COUNT, x, y, z);
+    // the keel is the pelvis' alone: inside the boot's own shape (a few cm of falloff) all weight is the pelvis', none the legs'
+    { let db = 9; for (const p of bootPrims) { if (p.c.distanceTo(_q.set(x, y, z)) > p.rad + 0.3) continue; db = Math.min(db, p.sd(x, y, z)); }
+      const m = 1 - ss(PUBIS.own[0], PUBIS.own[1], db);
+      if (m > 0) { const o = i * BONE_COUNT; for (let b = 0; b < BONE_COUNT; b++) WD[o + b] *= 1 - m; WD[o + IDX.PELVIS] += m; } }
     void x; void y; void z;
   }
   // the paint reads the spine's frames (back-to-belly shading, fold coordinates): for it, a neck station's weight is its

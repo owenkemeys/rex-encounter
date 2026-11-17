@@ -143,3 +143,4 @@ Also: "yes you may flip the switch that lets testers export the clip" (done). On
 "the storm also needs to be darker and more intimidating. we had this nailed very early in development then someone made it lighter randomly sometime." (owner, 2026-11-17)
 "please tweak the closing card of the video to be about 2x duration." (owner, 2026-11-17; sent to the clip agent)
 "spending a lot of time waiting for renders i think, not an efficient use of time" (owner, 2026-11-17)
+Owner 2026-11-17 with a marked-up screenshot: "the pubic boot is mapped to bones poorly- outer chunks are mapped to leg bones whilst the center rows arent, leaving this red M shaped impression. it should be more like the green, where the legs are smooth slabs of muscle only." Fixed in rexgeo.js (PUBIS.own, PUBIS.cleft: keel weighted to the pelvis alone, hard join to the thighs); unseen.
