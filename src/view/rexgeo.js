@@ -391,12 +391,19 @@ export const FOOTSKIN = { width: [0.102, 0.114, 0.102], pad: 0.06, top: 0.062, p
 const FEMUR = TYRANNOSAURUS.dims.femur, PUBIS_LEN = 0.9 * FEMUR, PUBIS_TILT = 12 * Math.PI / 180;
 export const PUBIS = { len: PUBIS_LEN, shaftFwd: PUBIS_LEN * Math.sin(PUBIS_TILT), drop: PUBIS_LEN * Math.cos(PUBIS_TILT) + 0.06 + 0.0, boot: 0.62 * PUBIS_LEN, toe: 0.2, heel: 0.59,
   w: 0.06, h: 0.15, front: 0.8, back: 0.35, k: 0.15, sag: 0.05, belly: 0.8, cleft: [0.1, 0.18], own: [0.09, 0.17],
-  isch: { len: 0.75 * FEMUR, ang: 50 * Math.PI / 180, w: 0.09, h: 0.09 } };
+  isch: { len: 0.75 * FEMUR, ang: 50 * Math.PI / 180, w: 0.09, h: 0.09 },
+  // the wedge (owner: "it was actually more of a hoop that even had a void between it and the pelvis"): the pubis is buried in the body wall,
+  // the space between its shaft, the belly ahead and the ischium behind is muscle and the floor of the body cavity, so between the legs the trunk
+  // is one solid wedge, widest at the hips and narrowing down to the boot. A stack of `n` lobes from `top` to `bottom` (drops below the hip joint,
+  // m), half width `wTop` to `wLow`, half height `h`, half length `len` [bottom, top] centred `fwd` ahead of the hip; they belong to the pelvis
+  // alone within `own` x the keel's reach (small, so that no thigh skin is taken)
+  wedge: { n: 7, top: -0.3, bottom: -1.0, wTop: 0.22, wLow: 0.1, h: 0.14, len: [0.5, 0.7], fwd: 0.1, own: 0.55 } };
 { const G = TUNE_G, R = 'reload', rg = (v) => (v >= 0 ? [v * 0.4, v * 2.5 + 0.02] : [v * 2.5 - 0.02, v * 0.4]);      // tune
   const T = (label, o, k, code) => { const r = rg(o[k]); tune(G, label, o, k, r[0], r[1], 0.005, null, code, R); };      // tune
   T('Pubic boot: how far it drops (m)', PUBIS, 'drop', 'pubis.drop'); T('Pubic boot: length of the boot (m)', PUBIS, 'boot', 'pubis.boot'); T('Pubic boot: toe (forward point)', PUBIS, 'toe', 'pubis.toe'); T('Pubic boot: heel (rear point)', PUBIS, 'heel', 'pubis.heel');      // tune
   T('Pubic keel: half width (m)', PUBIS, 'w', 'pubis.w'); T('Pubic keel: half height (m)', PUBIS, 'h', 'pubis.h'); T('Pubic keel: runs into the belly over (m)', PUBIS, 'front', 'pubis.front'); T('Pubic keel: runs up to the tail over (m)', PUBIS, 'back', 'pubis.back');      // tune
   T('Pubic keel: blend softness', PUBIS, 'k', 'pubis.k'); T('Pubic keel: sag', PUBIS, 'sag', 'pubis.sag'); T('Pubic keel: belly fullness', PUBIS, 'belly', 'pubis.belly'); T('Pubic shaft: forward lean (m)', PUBIS, 'shaftFwd', 'pubis.shaftFwd');      // tune
+  T('Pubic wedge: half width at the hips (m)', PUBIS.wedge, 'wTop', 'pubis.wedge.wTop'); T('Pubic wedge: half width at the keel (m)', PUBIS.wedge, 'wLow', 'pubis.wedge.wLow'); T('Pubic wedge: half length at the keel (m)', PUBIS.wedge.len, 0, 'pubis.wedge.len0'); T('Pubic wedge: half length at the hips (m)', PUBIS.wedge.len, 1, 'pubis.wedge.len1');      // tune
   T('Ischium: length (m)', PUBIS.isch, 'len', 'pubis.isch.len'); T('Ischium: angle (rad)', PUBIS.isch, 'ang', 'pubis.isch.ang'); T('Ischium: half width (m)', PUBIS.isch, 'w', 'pubis.isch.w'); T('Ischium: half height (m)', PUBIS.isch, 'h', 'pubis.isch.h');      // tune
 }      // tune
 export const CHESTF = { f0: 0.1, u0: -0.62, r: [0.34, 0.6, 0.5], k: 0.2 };
@@ -458,8 +465,12 @@ function buildPrims(pose, B, coarse = false, cell = 0.04) {
     for (let f = b1 - PB.back; f <= f1 + PB.front + 1e-6; f += step) {
       const tf = ss(0, PB.front, f - f1), tb = ss(0, PB.back, b1 - f), t = Math.max(tf, tb), e = 1 - t;
       const up = tf > 0 ? tf * (PB.drop - PB.belly) : tb * 0.55;           // ahead it rises into the belly; behind it rises steeply to the tail base
-      lobe(f, bot + up, PB.w * (0.5 + 0.5 * e), PB.h * (0.3 + 0.7 * e), step * 1.1, PB.k, 0.14);
+      lobe(f, bot + up, PB.w * (0.5 + 0.5 * e), PB.h * (0.3 + 0.7 * e), step * 1.1, PB.k, 0.04);
     }
+    // the wedge: fills the body between the shaft, the belly and the ischium, so the keel hangs from the pelvis and not in the air
+    { const Wd = PB.wedge;
+      for (let q = 0; q < Wd.n; q++) { const t = q / (Wd.n - 1), c = Wd.bottom + (Wd.top - Wd.bottom) * t;
+        lobe(Wd.fwd, c - Wd.h, Wd.wLow + (Wd.wTop - Wd.wLow) * t, Wd.h, Wd.len[0] + (Wd.len[1] - Wd.len[0]) * t, PB.k, 0.04).ownSc = Wd.own; } }
     // the ischium: down and back from the socket, a small tip under the tail base (two lobes along its line)
     const I = PB.isch;
     for (const q of [0.8, 1]) lobe(-I.len * q * Math.cos(I.ang), -I.len * q * Math.sin(I.ang) * 0.9 + 0.02, I.w, I.h, 0.2, PB.k, 0.12);
@@ -990,8 +1001,8 @@ export function buildRexGeometry(simPose, { cell = 0.04 } = {}) {
     { let t = 0; for (let b = 0; b < BONE_COUNT; b++) t += wb[b]; t = t || 1; for (let b = 0; b < BONE_COUNT; b++) WD[i * BONE_COUNT + b] = wb[b] / t; }
     legWeights(WD, i * BONE_COUNT, x, y, z);
     // the keel is the pelvis' alone: inside the boot's own shape (a few cm of falloff) all weight is the pelvis', none the legs'
-    { let db = 9; for (const p of bootPrims) { if (p.c.distanceTo(_q.set(x, y, z)) > p.rad + 0.3) continue; db = Math.min(db, p.sd(x, y, z)); }
-      const m = 1 - ss(PUBIS.own[0], PUBIS.own[1], db);
+    { let m = 0; for (const p of bootPrims) { if (p.c.distanceTo(_q.set(x, y, z)) > p.rad + 0.3) continue; const sc = p.ownSc ?? 1; m = Math.max(m, 1 - ss(PUBIS.own[0] * sc, PUBIS.own[1] * sc, p.sd(x, y, z))); }
+      m *= 1 - ss(PUBIS.cleft[0] + 0.05, PUBIS.cleft[1] + 0.05, Math.abs(x));      // never beside the keel: the thighs' inner faces keep their own weights
       if (m > 0) { const o = i * BONE_COUNT; for (let b = 0; b < BONE_COUNT; b++) WD[o + b] *= 1 - m; WD[o + IDX.PELVIS] += m; } }
     void x; void y; void z;
   }
