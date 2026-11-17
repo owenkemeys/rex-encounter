@@ -143,7 +143,6 @@ body[data-tlook="drag"] #lstick { display: none; }
 #tAct { transform: none; flex-direction: row; padding: 0 12px; border-radius: 22px; background: rgba(241,238,228,0.9); color: #1b1410; opacity: 0.95; font-size: 15px; }
 body[data-mode="observe"] #tbtns, body[data-mode="observe"] #tAct, body[data-mode="observe"] #tCall, body[data-mode="observe"] #tTorch { display: none; }
 body:not(.touch) #tClip, body:not(.touch) .touchonly { display: none; }
-body.touch #bubble { top: calc(var(--st) + 52px); }
 #tHint { position: fixed; inset: 0; z-index: 7; pointer-events: none; font: 600 15px var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); text-shadow: 0 1px 6px rgba(0,0,0,0.9); animation: thint 3s forwards; }
 #tHint b { position: absolute; padding: 5px 10px; border-radius: 8px; background: rgba(18,20,17,0.6); white-space: nowrap; transform: translate(-50%, -50%); text-align: center; }
 #tHint .h3 { font-size: 12px; line-height: 1.35; white-space: normal; transform: none; }
@@ -345,7 +344,7 @@ body.touch #hint { bottom: calc(var(--sb) + 64px); }
 /* ---- thoughts at range or off-screen: the direction and distance of the animal */
 #bcue { display: none; color: var(--ink); opacity: 0.6; line-height: 1; }
 #bubble.cue #bcue { display: inline-flex; }
-#bcue i { font-style: normal; display: inline-block; font-size: 13px; transition: transform .3s; }
+#bcue i { display: inline-block; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid currentColor; transition: transform .3s; }
 #bpills { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 #bubble.dock-left #bpills { align-items: flex-start; } #bubble.dock-right #bpills { align-items: flex-end; }
 #bubble.dock-left, #bubble.dock-left #bcue { align-self: flex-start; } 
@@ -492,7 +491,7 @@ body.tuning #tuneStrip { display: none; }
 <div id="hint" role="status"></div>
 <div id="noteShield" hidden></div>
 <div id="noteBox" hidden role="dialog" aria-label="Note for the developer"><textarea id="noteTa" rows="1" maxlength="2000" placeholder="note" enterkeyhint="send" autocomplete="off" autocapitalize="sentences" aria-label="Note for the developer"></textarea><button id="noteSend">send</button></div>
-<div id="bubble" aria-hidden="true"><div id="bpills"></div><div id="bcue"><i>&#8593;</i></div></div>
+<div id="bubble" aria-hidden="true"><div id="bpills"></div><div id="bcue"><i></i></div></div>
 
 <div id="corner"><button id="noteBtn" aria-label="Note for the developer"><svg viewBox="0 0 14 14"><path d="M2 2h10v7H6l-3 3V9H2z"/></svg><b class="kc" id="noteKey">T</b></button><button id="helpBtn" aria-label="Controls">?<b class="kc" id="helpKey"></b></button><button id="tClip" hidden aria-label="Save a clip of the last 15 seconds">clip</button><button id="pauseBtn" aria-label="Pause"><svg viewBox="0 0 14 14"><rect x="2" y="1" width="3.5" height="12" rx="1"/><rect x="8.5" y="1" width="3.5" height="12" rx="1"/></svg><b class="kc" id="pauseKey"></b></button></div>
 <button id="menuBtn" aria-controls="panel" aria-expanded="false" aria-label="Sandbox tools"><svg viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h12"/></svg></button>

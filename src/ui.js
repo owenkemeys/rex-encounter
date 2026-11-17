@@ -4,6 +4,8 @@
 import * as THREE from 'three/webgpu';
 import { Achievements, ACHIEVEMENTS } from './achievements.js';
 import { clamp } from './math.js';
+import { placeThought, clearOf, damp } from './thoughtplace.js';
+import { touchLayout } from './touchlayout.js';
 import { tuneInstall, tuneOpen, tuneAvailable, tuneShowStrip } from './view/tune.js';      // tune
 
 const $ = (id) => document.getElementById(id);
@@ -267,6 +269,18 @@ export function createUI(o) {
     const live = B.items.filter((i) => !i.dead); while (live.length > 3) retire(live.shift());
   }
   const lookingAtMe = () => { const K = mind.know, v = mind.voice; return !!(K.seen && K.target && (K.target.id === 'you' || K.target.id === 'observer') && v && v.look === 'you'); };
+  // the keep-out rectangles for thought text: on touch every control and the top bar (from touchLayout); on desktop the corner buttons
+  let TV = null;
+  const probe = document.createElement('div'); probe.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)'; document.body.appendChild(probe);
+  function thoughtView(w, hh) {
+    const touch = document.body.classList.contains('touch'), cs = getComputedStyle(probe), ins = { top: parseFloat(cs.paddingTop) || 0, right: parseFloat(cs.paddingRight) || 0, bottom: parseFloat(cs.paddingBottom) || 0, left: parseFloat(cs.paddingLeft) || 0 };
+    const key = `${w}x${hh}|${touch}|${ins.top},${ins.right},${ins.bottom},${ins.left}`;
+    if (TV && TV.key === key) return TV;
+    let keep = [];
+    if (touch) { const L = touchLayout(w, hh, { top: Math.max(10, ins.top), right: Math.max(10, ins.right), bottom: Math.max(10, ins.bottom), left: Math.max(10, ins.left) }); keep = [...L.controls, L.pill, L.hint, L.topbar, L.mute]; }
+    else { const c = $('corner'); if (c) { const r = c.getBoundingClientRect(); if (r.width) keep.push({ x: r.left, y: r.top, w: r.width, h: r.height }); } }
+    return (TV = { key, w, h: hh, insets: ins, keep });
+  }
   function bubbleFrame(now, dt) {
     const mode = flags.thoughts, on = mode !== 'never' && !flags.bare && S.mindOn && S.started;
     const raw = on ? crude(voice().think) : '';
@@ -289,10 +303,7 @@ export function createUI(o) {
     pv.applyMatrix4(camera.matrixWorldInverse); const vx = pv.x, vz = pv.z, behind = vz > -0.3;
     pv.set(h.x, h.y + 1.3, h.z); pv.project(camera);
     const V = arena.victims && arena.victims.get('you'), held = S.mode === 'foot' && V && (V.state === 'held' || V.state === 'pinned');
-    const inView = !behind && Math.abs(pv.x) < 0.92 && pv.y < 0.92 && pv.y > -0.9;
-    if (inView && !held) { B.on += dt; B.off = 0; } else { B.off += dt; B.on = 0; }
-    if (B.docked && !held && B.on > 0.35) B.docked = false;
-    else if (!B.docked && (held || B.off > 0.25)) B.docked = true;
+    const inView = !behind && Math.abs(pv.x) < 0.92 && pv.y < 0.92 && pv.y > -0.9;      // (readability only; placement is placeThought's)
     const eyed = lookingAtMe();
     // how readable
     if (mode === 'watched' && d > 30 && !held) {
@@ -310,25 +321,27 @@ export function createUI(o) {
     bub.style.setProperty('--bs', clamp(1 - (d - 25) / 260, 0.84, 1).toFixed(3));
 
     const w = window.innerWidth, hh = window.innerHeight, bw = bub.offsetWidth, bh = bub.offsetHeight;
-    let x, y, cue = '', side = '';
-    if (!B.docked) {
-      x = clamp((pv.x * 0.5 + 0.5) * w, bw / 2 + 8, w - bw / 2 - 8); y = clamp((-pv.y * 0.5 + 0.5) * hh, bh + 8, hh - 8);
-    } else if (held) {
-      x = w / 2; y = Math.min(hh * 0.2 + bh, hh - 8);
+    const vp = thoughtView(w, hh);
+    let tx, ty, edge = false, side = 0, angle = 0;
+    if (held) {      // it has hold of you: top centre, kept clear of the top bar and controls
+      const p = clearOf(w / 2 - bw / 2, hh * 0.2, bw, bh, { x: vp.insets.left + 8, y: vp.insets.top + 8, w: w - vp.insets.left - vp.insets.right - 16, h: hh - vp.insets.top - vp.insets.bottom - 16 }, vp.keep);
+      tx = p.x; ty = p.y;
     } else {
-      // which side is it on? only change sides on a clear lead, so a target straight behind does not flip-flop
-      const m = Math.hypot(vx, vz) || 1; if (Math.abs(vx) / m > 0.2) B.side = vx < 0 ? -1 : 1;
-      side = B.side < 0 ? 'dock-left' : 'dock-right';
-      x = B.side < 0 ? bw / 2 + 12 : w - bw / 2 - 12; y = clamp(hh * 0.45, bh + 8, hh - 8);
-      cue = '1';
-      cueI.style.transform = `rotate(${Math.atan2(vx, -vz).toFixed(3)}rad)`;
+      const bearing = Math.atan2(vx, -vz);      // from where the camera faces to the animal; behind is near +-PI
+      const r = placeThought({ sx: (pv.x * 0.5 + 0.5) * w, sy: (-pv.y * 0.5 + 0.5) * hh, behind, depth: d, bearing }, vp, vp.keep, { w: bw, h: bh }, { wasEdge: B.docked, side: B.side });
+      tx = r.x; ty = r.y; edge = r.mode === 'edge'; side = r.side; angle = r.angle; if (r.side) B.side = r.side;
     }
-    cueI.style.display = B.docked && !held ? '' : 'none';
-    bub.classList.toggle('cue', !!cue); bub.classList.toggle('dock-left', side === 'dock-left'); bub.classList.toggle('dock-right', side === 'dock-right');
-    if (B.sx === undefined) { B.sx = x; B.sy = y; }
-    const k = 1 - Math.exp(-(dt || 0) * (B.docked ? 7 : 14));
-    B.sx += (x - B.sx) * k; B.sy += (y - B.sy) * k;
-    bub.style.transform = `translate(${Math.round(B.sx - bw / 2)}px, ${Math.round(B.sy - bh)}px)`;
+    // a switch between "on head" and "edge" fades out, jumps, fades in (0.15 s each way), rather than sliding across the screen
+    if (B.sx === undefined) { B.sx = tx; B.sy = ty; B.vx = { v: 0 }; B.vy = { v: 0 }; B.fade = 1; B.shown = edge; B.docked = edge; }
+    if (edge !== B.shown) { B.fade = Math.max(0, B.fade - (dt || 0) / 0.15); if (B.fade <= 0) { B.shown = edge; B.sx = tx; B.sy = ty; B.vx.v = B.vy.v = 0; } }
+    else B.fade = Math.min(1, B.fade + (dt || 0) / 0.15);
+    B.docked = B.shown;
+    const cue = B.shown && !held, sd = B.shown && !held ? (side < 0 ? 'dock-left' : side > 0 ? 'dock-right' : '') : '';
+    cueI.style.transform = `rotate(${angle.toFixed(3)}rad)`;
+    bub.classList.toggle('cue', cue); bub.classList.toggle('dock-left', sd === 'dock-left'); bub.classList.toggle('dock-right', sd === 'dock-right');
+    B.sx = damp(B.sx, tx, B.vx, dt || 0); B.sy = damp(B.sy, ty, B.vy, dt || 0);
+    bub.style.transform = `translate(${Math.round(B.sx)}px, ${Math.round(B.sy)}px)`;
+    bub.style.opacity = (parseFloat(bub.style.opacity || '1') * B.fade).toFixed(3);
     bub.classList.add('on'); B.vis = true;
   }
 
