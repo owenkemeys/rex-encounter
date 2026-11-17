@@ -32,7 +32,7 @@ export const KIT = { torch: true, flares: 3, stones: 0, meat: 0 };
 const KEYS = {
   kb: { move: 'W A S D', run: 'Shift', crouch: 'C', look: 'mouse', zoom: 'right mouse / Z', use: 'click', items: 'wheel / 1 2 3', call: 'Q', act: 'E', torch: 'F', note: 'T', pause: 'Esc', peek: 'Tab', again: 'Enter', struggle: 'W A S D' },
   pad: { move: 'left stick', run: 'L3', crouch: 'B', look: 'right stick', zoom: 'LT', use: 'RT', items: 'LB / RB', call: 'X', act: 'A', torch: 'Y', note: 'R3', pause: 'Start', peek: 'View', again: 'A', struggle: 'left stick' },
-  touch: { move: 'stick', run: 'stick to the rim', crouch: 'crouch', look: 'drag the view', zoom: 'zoom', use: 'flare', items: 'item', call: 'call', act: 'pop-up button', torch: 'torch', note: 'note', pause: '\u2016', peek: '?', again: '', struggle: 'the stick' },
+  touch: { move: 'stick', run: 'stick to the rim, or run', crouch: 'crouch', look: 'drag the view', zoom: 'zoom', use: 'flare', items: 'item', call: 'call', act: 'pop-up button', torch: 'torch', note: 'note', pause: '\u2016', peek: '?', again: '', struggle: 'the stick' },
 };
 const itemNames = () => [KIT.flares > 0 && 'flare', KIT.stones > 0 && 'stone', KIT.meat > 0 && 'meat'].filter(Boolean);
 const useName = () => (itemNames().length > 1 ? 'throw what is in hand' : 'throw a ' + itemNames()[0]);
@@ -49,7 +49,7 @@ const TEACH = {
   crouch: '{crouch} to crouch', zoom: 'hold {zoom} to zoom', run: 'hold {run} to run', torch: '{torch} for the torch', peek: 'hold {peek} for the controls',
   struggle: 'work {struggle} hard to get free',
 };
-const TEACH_TOUCH = { use: 'tap {use} to throw one', call: 'tap {call} to call. hold it to shout', zoom: 'tap {zoom} to look closer', crouch: 'tap {crouch} to crouch', torch: 'tap {torch} for the torch', run: 'push the stick to the rim to run', peek: 'tap {peek} for the controls', struggle: 'work the stick hard to get free' };
+const TEACH_TOUCH = { use: 'tap {use} to throw one', call: 'tap {call} to call. hold it to shout', zoom: 'tap {zoom} to look closer', crouch: 'tap {crouch} to crouch', torch: 'tap {torch} for the torch', run: 'push the stick to the rim to run, or tap run to lock it', peek: 'tap {peek} for the controls', struggle: 'work the stick hard to get free' };
 const DONE = 2, SHOW = 3;
 
 export function createUI(o) {
@@ -639,7 +639,7 @@ export function createUI(o) {
       g.textAlign = 'left'; g.textBaseline = 'alphabetic';
     }
     g.letterSpacing = '0px'; g.shadowColor = 'rgba(0,0,0,0.6)'; g.shadowBlur = 8; g.fillStyle = 'rgba(241,238,228,0.8)'; const f = Math.max(11, W / 90);
-    g.font = `500 ${f * 1.15}px "Barlow Condensed", "Arial Narrow", sans-serif`; g.letterSpacing = f * 0.38 + 'px'; g.textAlign = 'right'; g.fillText('DINO HUNTER', W - f * 1.8, H - f * 1.8);
+    g.font = `500 ${f * 1.15}px "Barlow Condensed", "Arial Narrow", sans-serif`; g.letterSpacing = f * 0.38 + 'px'; g.textAlign = 'right'; g.fillText('REX ENCOUNTER', W - f * 1.8, H - f * 1.8);
     return c;
   }
   let shotReq = false;
@@ -648,7 +648,7 @@ export function createUI(o) {
     if (!shotReq) return; shotReq = false;
     try {
       const c = compose(); o.lastShot = c;
-      c.toBlob((b) => { if (!b) return; const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `dino-hunter-${SEED}-${Date.now().toString(36)}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }, 'image/png');
+      c.toBlob((b) => { if (!b) return; const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `rex-encounter-${SEED}-${Date.now().toString(36)}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }, 'image/png');
       const H = $('hint'); H.textContent = 'Photo saved'; H.classList.add('on'); clearTimeout(hintT); hintT = setTimeout(() => H.classList.remove('on'), 1600);
     } catch (err) { console.warn('photo failed', err); }
   }

@@ -5,6 +5,7 @@
 // with a small caption bug; that canvas is captured at 30 fps. Sound: audio.clipStream() (audio.js, `// clip`) taps the same signal the speakers get,
 // after the camera-microphone filter. Nothing here throws into the game loop.
 export const CLIP_CAPTION = 'rex encounter · alpha';      // burned into a corner of every clip: change it here
+import { facts as cardFacts, pick as cardPick, incidentNo, makeTape, note as cardNote, LEN as CARD_LEN } from './closeout.js';      // closeout
 const MIMES = ['video/mp4;codecs=avc1,mp4a', 'video/webm;codecs=vp9,opus', 'video/webm'];
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -12,8 +13,9 @@ export function clipSupported() {
   try { return typeof MediaRecorder === 'function' && typeof HTMLCanvasElement !== 'undefined' && typeof HTMLCanvasElement.prototype.captureStream === 'function'; } catch { return false; }
 }
 
-export function createClip({ getCanvas, audio }) {
+export function createClip({ getCanvas, audio, tape, extra }) {      // closeout: `tape` the Replay, `extra` () => what the game knew at death (see closeout.js)
   const C = { active: false, state: 'idle', blob: null, name: '', mime: '', dl: null, error: '', frames: 0 };
+  let closing = false, ct = 0, tp = null, ov = null, overlayG = null, recent = [], cardInfo = null;
   let rec = null, cv = null, g = null, W = 1280, H = 720, chunks = [], stream = null, cancelled = false, done = null;
   C.supported = clipSupported();
   C.canShare = () => { try { return !!(C.file && navigator.canShare && navigator.canShare({ files: [C.file] })); } catch { return false; } };
@@ -45,6 +47,7 @@ export function createClip({ getCanvas, audio }) {
   /** Copy the game canvas onto the clip canvas. Call straight after the render call, every frame while active. */
   C.frame = () => {
     if (!C.active || !g) return;
+    if (closing) { drawClose(); return; }      // closeout
     try {
       const src = getCanvas(), sw = src.width, sh = src.height; if (!sw || !sh) return;
       const k = Math.min(W / sw, H / sh), dw = Math.round(sw * k), dh = Math.round(sh * k), dx = (W - dw) >> 1, dy = (H - dh) >> 1;
@@ -56,12 +59,47 @@ export function createClip({ getCanvas, audio }) {
       C.frames++;
     } catch (e) { C.error = String(e && e.message || e); }
   };
-  function teardown() { C.active = false; try { if (stream) for (const t of stream.getTracks()) t.stop(); } catch {} stream = null; cv = null; g = null; }
+
+  // ---- closeout: when the tape has ended, about 3.2 s of the closing card (src/view/closeout.js) are recorded and shown, then the file is finished
+  C.note = (kind) => { try { if (tape) cardNote(kind, tape.n + tape.acc * 30); } catch {} };      // whistles and shouts (noises, not taped events)
+  try { const r = JSON.parse(localStorage.getItem('rex.closeout.recent') || '[]'); if (Array.isArray(r)) recent = r.filter((x) => Number.isInteger(x)).slice(-8); } catch {}
+  function remember(i) { recent.push(i); if (recent.length > 8) recent.shift(); try { localStorage.setItem('rex.closeout.recent', JSON.stringify(recent)); } catch {} }
+  function chooseLine() {
+    let fx = {}; try { fx = cardFacts(tape, extra ? extra() : {}); } catch {}
+    let r; try { r = cardPick(fx, Math.random, recent); } catch { r = { text: 'Please enjoy the exhibit responsibly.', index: -1, id: 'x' }; }
+    if (r.index >= 0) remember(r.index);
+    return { text: r.text, id: r.id, no: incidentNo(fx.deaths || 1), facts: fx };
+  }
+  C.closing = () => closing;
+  /** Called every frame from main.js while the tape is over and a recording runs: true while the card is still on, false when it is time to finish. */
+  C.card = (dt) => {
+    if (!C.active || !g) return false;
+    if (!closing) {
+      closing = true; ct = 0; cardInfo = chooseLine(); C.cardInfo = cardInfo;
+      try { tp = makeTape(W, H, cardInfo.text, cardInfo.no); } catch (e) { C.error = String(e && e.message || e); closing = false; return false; }
+      try { ov = document.createElement('canvas'); ov.width = W; ov.height = H; ov.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;object-fit:contain;background:#000;z-index:40;pointer-events:none'; document.body.appendChild(ov); overlayG = ov.getContext('2d'); } catch { ov = null; }
+      try { const m = audio && audio._mic, c = audio && audio.ctx; if (m && c) m.g.gain.setTargetAtTime(0, c.currentTime, 0.3); } catch {}      // the taped ambience fades; the rest is silence
+    }
+    ct += Math.min(dt, 0.1);
+    return ct < CARD_LEN;
+  };
+  function drawClose() {
+    if (!tp) return;
+    try {
+      const stamp = (tape && tape.stampMs ? tape.stampMs : Date.now()) + ct * 1000;
+      tp.frame(g, ct, stamp);
+      if (overlayG) overlayG.drawImage(cv, 0, 0);
+      C.frames++;
+    } catch (e) { C.error = String(e && e.message || e); }
+  }
+  /** For checking the look without a death: the card as it is at tape time t, drawn on a fresh canvas of the given size. */
+  C.previewCard = (w, h, line, t = 2, no = '0047') => { const c = document.createElement('canvas'); c.width = w; c.height = h; makeTape(w, h, line, no).frame(c.getContext('2d'), t, Date.now()); return c; };
+  function teardown() { closing = false; tp = null; if (ov) { try { ov.remove(); } catch {} ov = null; overlayG = null; } C.active = false; try { if (stream) for (const t of stream.getTracks()) t.stop(); } catch {} stream = null; cv = null; g = null; }
   /** The tape ran out: finish the file. Resolves true when C.blob is ready. */
   C.finish = async () => {
     if (!C.active) return false;
     C.state = 'finishing';
-    try { C.frame(); if (rec.state !== 'inactive') rec.stop(); await Promise.race([done, new Promise((r) => setTimeout(r, 4000))]); } catch {}
+    try { if (!closing) C.frame(); if (rec.state !== 'inactive') rec.stop(); await Promise.race([done, new Promise((r) => setTimeout(r, 4000))]); } catch {}
     teardown();
     if (cancelled || !chunks.length) { C.state = 'idle'; return false; }
     const base = C.mime.split(';')[0] || 'video/webm', ext = /mp4/.test(base) ? 'mp4' : 'webm';

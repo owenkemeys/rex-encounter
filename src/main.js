@@ -112,7 +112,7 @@ async function boot() {
   // re-emitted through the usual audio calls with the listener at the camera, through a thin small-microphone filter (audio.mic). Dust, rain, the herd stay as now.
   const rpx = Object.create(sim); rpx.head = Object.create(sim.head); rpx.head.pos = new THREE.Vector3(); rpx.act = null; rpx.headTouch = null;      // what the audio sees of the animal while it plays: the recorded head
   let torchLive = false, micHeld = false;
-  const clip = createClip({ getCanvas: () => canvas, audio }); S.clip = clip;      // clip: "save clip" on the death card records the replay to a file
+  const clip = createClip({ getCanvas: () => canvas, audio, tape: rec, extra: () => { const V = arena.victims && arena.victims.get('you'); return { cause: V && V.cause, motive: V && V.lastHurt && V.lastHurt.motive, deaths: V ? V.lives : 1, crouch: !!S.you.crouch, label: rec.label, lasted: S.footSince && V ? (performance.now() - S.footSince) / 1000 - Math.max(0, (V.clock || 0) - (V.deadT || 0)) : 0 }; } }); S.clip = clip;      // closeout: the card's facts      // clip: "save clip" on the death card records the replay to a file
   function startClip() { if (!clip.supported || !S.dead || S.replay) return false; if (!startReplay()) return false; if (!clip.start()) { endReplay(); return false; } document.body.classList.add('clipping'); tagEl.textContent = '\u25CF RECORDING  \u00b7  esc to cancel'; tagEl.classList.add('rec'); return true; }
   const TAG = tagEl.textContent;
   function startReplay() {
@@ -560,13 +560,14 @@ async function boot() {
   let padRef = null, uiRef = null;
   document.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') setDev('touch'); else if (e.pointerType === 'mouse') setDev('kb'); }, true);
   document.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && S.dev !== 'kb' && Math.abs(e.movementX) + Math.abs(e.movementY) > 2) setDev('kb'); }, true);
-  S.stick = { x: 0, y: 0, id: null };
+  S.stick = { x: 0, y: 0, id: null, run: false }; S.runLock = false;      // run: the stick pushed to its rim (starts above 0.88, stops below 0.75); runLock: the RUN button, any stick movement runs
   const stick = $('stick'), nub = $('nub');
-  const stickAt = (e) => { const r = stick.getBoundingClientRect(); let x = (e.clientX - r.left - r.width / 2) / (r.width / 2), y = (e.clientY - r.top - r.height / 2) / (r.height / 2); const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } S.stick.x = x; S.stick.y = y; nub.style.transform = `translate(${x * 40}px, ${y * 40}px)`; };
+  const stickAt = (e) => { const r = stick.getBoundingClientRect(); let x = (e.clientX - r.left - r.width / 2) / (r.width / 2), y = (e.clientY - r.top - r.height / 2) / (r.height / 2); const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } S.stick.x = x; S.stick.y = y; if (!S.stick.run && l > 0.88) { S.stick.run = true; ui.taught('run'); } else if (S.stick.run && l < 0.75) S.stick.run = false; stick.classList.toggle('run', S.stick.run || (S.runLock && l > 0.15)); nub.style.transform = `translate(${x * 40}px, ${y * 40}px)`; };
   stick.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (!S.started || S.paused) return; audio.resume(); takeOver(); S.stick.id = e.pointerId; try { stick.setPointerCapture(e.pointerId); } catch {} stickAt(e); });
   stick.addEventListener('pointermove', (e) => { if (e.pointerId === S.stick.id) stickAt(e); });
-  const stickEnd = (e) => { if (e.pointerId === S.stick.id) { S.stick.id = null; S.stick.x = S.stick.y = 0; nub.style.transform = ''; } };
+  const stickEnd = (e) => { if (e.pointerId === S.stick.id) { S.stick.id = null; S.stick.x = S.stick.y = 0; S.stick.run = false; stick.classList.remove('run'); nub.style.transform = ''; } };
   stick.addEventListener('pointerup', stickEnd); stick.addEventListener('pointercancel', stickEnd);
+  $('tRun').addEventListener('click', () => { S.runLock = !S.runLock; $('tRun').setAttribute('aria-pressed', String(S.runLock)); if (!S.runLock) stick.classList.remove('run'); ui.taught('run'); });
   $('tCrouch').addEventListener('click', () => { setCrouch(!S.crouchToggle); ui.taught('crouch'); });
   $('tItem').addEventListener('click', () => { audio.resume(); takeOver(); act.use(); });      // the flare button throws
   $('tCycle').addEventListener('click', () => { audio.resume(); act.cycle(1); });
@@ -773,7 +774,7 @@ async function boot() {
       }
     }
     if (S.mode === 'foot' && V.free && !S.handled) {
-      const Y = S.you, sl = Math.hypot(S.stick.x, S.stick.y), sprint = K.has('shift') || sl > 0.92 || pad.sprint; Y.crouch = !!S.crouchToggle;
+      const Y = S.you, sl = Math.hypot(S.stick.x, S.stick.y), sprint = K.has('shift') || S.stick.run || (S.runLock && sl > 0.15) || pad.sprint; Y.crouch = !!S.crouchToggle;
       const AR = S.mindOn;      // with its own mind on, the arrow keys walk you too (with it directed they steer the animal)
       let f = (K.has('w') || (AR && K.has('arrowup')) ? 1 : 0) - (K.has('s') || (AR && K.has('arrowdown')) ? 1 : 0), r = (K.has('d') || (AR && K.has('arrowright')) ? 1 : 0) - (K.has('a') || (AR && K.has('arrowleft')) ? 1 : 0);
       if (sl > 0.15) { f = -S.stick.y; r = S.stick.x; }
@@ -861,6 +862,7 @@ async function boot() {
       prev.v.set(sim.pose.v); prev.s.set(sim.pose.s);
       if (S.mode === 'observe') { S.noises.push(...director.noises); director.noises.length = 0; }
       if (!aware() && S.noises.length) S.noises = S.noises.filter((q) => !q.you);
+      for (const q of S.noises) if (q.you && clip) clip.note(q.kind);      // closeout: whistles and shouts, for the closing card
       arena.step(DT, { agents: ag, noises: S.noises, light: world.light, flash: world.flash, wind }, S.mindOn ? null : directedIntent());
       S.noises.length = 0;
       S.legT = (S.legT || 0) - DT;
@@ -919,12 +921,13 @@ async function boot() {
     }
     let shown = blend;
     if (S.replay) {
-      if (rec.update(S.frozen ? 0 : dtReal, camera)) {
+      if (!clip.closing() && rec.update(S.frozen ? 0 : dtReal, camera)) {      // closeout: once the tape has ended a recording goes on into the closing card
         shown = rec.pose; rpx.head.pos.copy(rec.head); props.torchOn = rec.torchOn;
         for (const e of rec.fired) hear(e);
         if (S.frozen !== micHeld) { micHeld = S.frozen; if (audio.mic) audio.mic(true, micHeld); }      // paused: the sound is held (muted); T resumes it
         const I = post.cctvInfo; I.cam = rec.camNo; I.label = rec.label; I.stamp = rec.stampMs; I.clock = performance.now() / 1000; I.paused = !!S.frozen; post.cctvU.burst.value = S.frozen ? 0 : rec.burst;
-      } else endReplay(true);
+      } else if (clip.active && clip.card(dtReal)) { shown = rec.pose; }      // closeout
+      else endReplay(true);
     }
     { const ja = sim.act; body.voiceJaw = audio.mouthOpen;      /* (in the replay too: the taped sounds are re-emitted through the mouth bus) */ body.voiceFast = audio.mouthFast; body.jawHold = !!(sim.mouthHold > 0 || (ja && ja.forced && /^(strike|seize|snap|butt)$/.test(ja.kind))); }      // jaw-from-voice
     body.glareEye = mind.dazzle || null; body.update(shown); fx.breath(body.nostril, body.snout, shown.s[1], dtv); if (audio.breathCue) { fx.snort(body.nostril, body.snout, audio.breathCue); audio.breathCue = 0; }
@@ -974,7 +977,7 @@ async function boot() {
     if (on) {
       if (clip.active) return false;      // clip: no note box over a recording
       if (!S.started || S.paused || S.frozen || (S.dead && !S.replay && !document.body.classList.contains('dead'))) return false;      // (allowed in the death cam and on the card)
-      S.frozen = true; S.keys.clear(); drag = null; S.call = null; S.zoom.hold = false; S.stick.x = S.stick.y = 0; S.stick.id = null; nub.style.transform = '';
+      S.frozen = true; S.keys.clear(); drag = null; S.call = null; S.zoom.hold = false; S.stick.x = S.stick.y = 0; S.stick.id = null; S.stick.run = false; stick.classList.remove('run'); nub.style.transform = '';
       document.body.classList.add('frozen'); S.relockWas = locked(); releasePointer();
       try { if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend(); } catch {}
       return true;

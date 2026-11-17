@@ -127,3 +127,4 @@ Then, on the plan: "the doors currently are janky and i dont ever use them, we c
 "we dont need "rough alpha" in the name on the finish card. i guess rex encounter is the name of the fictional exhibit."
 "make this finishing card have some VHS like effect over it too so its not jarring after the game experience"
 Also: "yes you may flip the switch that lets testers export the clip" (done). On thoughts in closeouts: "its final thoughts are already shown [on the death screen], and they're rarely amusing to be honest, at least in that context."
+"ys, rex encounter is the game name." (owner, 2026-11-17; title screen, tab, photo stamp renamed from Dino Hunter / Rex Sandbox)
