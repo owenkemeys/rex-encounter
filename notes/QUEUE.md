@@ -134,3 +134,9 @@ Also: "yes you may flip the switch that lets testers export the clip" (done). On
 "where is the record a clip anytime function?"
 "I notice that the rex always starts out curious about you but stays on the sniffing you phase for what feels like far too long. we should make it do things to provoke you, because the default behaviour is to forget its an interactive game and that you can move, and so you end up just watching a rex politely sniff you for a long time. lets get the nose nudge behavior back and sometimes picking you up and throwing you, things like that."
 "re the ending card, have the headline scale down if needed so that the card always fits nicely on any res and ratio screen"
+
+## Owner, 2026-11-17, with a screenshot of the death card
+"no that section is fun, i just meant the label "crash tests" after "debug tools""
+"i really dislike the death page and have for some time. i also dislike the Enter box next to replay, which feels like its a tooltip to me or something."
+"for saving the clip, its not clear enough upfront that 1. pressing the button runs a replay THAT IS BEING RECORDED FOR YOU and that 2. clicking the apparent same button again afterward will give you the saveable clip"
+"please get some other agents working on the other items in the alpha release list, let's try and get this sucker posted online"
