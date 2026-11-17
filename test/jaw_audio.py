@@ -9,7 +9,7 @@ subprocess.run(['rm', '-rf', f'{out}/audio']); subprocess.run(['cp', '-r', f'{ro
 open(f'{out}/index.html', 'w').write('<!doctype html><script type="module" src="jaw.js"></script>')
 s = socket.socket(); s.bind(('127.0.0.1', 0)); PORT = s.getsockname()[1]; s.close()
 srv = subprocess.Popen(['python3', '-m', 'http.server', str(PORT), '-b', '127.0.0.1', '-d', out], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(0.7)
-SR = 48000; LEAD = 70
+SR = 48000; LEAD = 90
 def env(x, ts):  # 10 ms RMS of the output centred on each time
   return np.array([np.sqrt(np.mean(x[min(len(x) - 1, max(0, int((t - 0.005) * SR))):int((t + 0.005) * SR) + 1] ** 2)) if int((t - 0.005) * SR) < len(x) else 0.0 for t in ts])
 def cross(a, b, ts, t0):  # first time the series passes 10 % of its peak, after t0
@@ -19,19 +19,35 @@ try:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox', '--autoplay-policy=no-user-gesture-required']); pg = b.new_page()
     pg.on('pageerror', lambda e: print('PAGEERROR', e)); pg.on('console', lambda m: print('console', m.text) if m.type == 'error' else None)
     pg.goto(f'http://127.0.0.1:{PORT}/index.html'); pg.wait_for_function('window.renderJaw!==undefined', timeout=60000)
-    print('sound   | peak voice dB, hiss dB | peak mouth  peak nose | lead ms (10% rise)  lead ms (best lag) | corr(mouth, out env shifted)')
-    for name in sys.argv[2:] or ['roar', 'scream', 'growl', 'rumble', 'huff', 'snort', 'sniff', 'gulp', 'clack', 'crunch']:
-      r = pg.evaluate('(o)=>window.renderJaw(o)', {'name': name, 'dist': 6}); rec = r['rec']; ts = np.array(rec['t']); m = np.array(rec['m']); nz = np.array(rec['n'])
-      x = np.frombuffer(base64.b64decode(r['wav']), dtype=np.float32); eo = env(x, ts)
-      t0 = r['start'] - 0.01; ta = cross(eo, eo, ts, t0); tm = cross(m, m, ts, t0) if m.max() > 0.02 else None
-      lead = (ta - tm) * 1000 if (ta is not None and tm is not None) else float('nan')
-      # best lag: shift the output envelope earlier by L, maximise correlation with mouthOpen
+    print('sound seed | open peak mean | low dB high dB tilt dB | drawn rad  flutter rad | reversals/s | lead(best lag) corr')
+    def rev(j, ts):  # direction reversals larger than 15% of the peak, per second of the sound (drawn > 10% of peak)
+      pk = j.max()
+      if pk < 1e-3: return 0.0
+      act = ts[j > 0.1 * pk]; dur = max(0.2, act.max() - act.min()) if len(act) else 0.2
+      n = 0; lo = hi = j[0]; d = 0; th = 0.15 * pk
+      for v in j:
+        if d >= 0:
+          hi = max(hi, v)
+          if hi - v > th: n += d == 1; d = -1; lo = v
+        if d <= 0:
+          lo = min(lo, v)
+          if v - lo > th: n += d == -1; d = 1; hi = v
+      return n / dur
+    names = [a for a in sys.argv[2:] if not a.isdigit()] or ['roar', 'scream', 'shout', 'growl', 'rumble', 'huff', 'snort', 'sniff', 'gulp', 'clack', 'crunch']; seeds = [int(a) for a in sys.argv[2:] if a.isdigit()] or [12345, 777, 4242]
+    for name in names:
+     for seed in seeds:
+      r = pg.evaluate('(o)=>window.renderJaw(o)', {'name': name, 'dist': 6, 'seed': seed}); rec = r['rec']; ts = np.array(rec['t']); m = np.array(rec['m']); jw = np.array(rec['jaw'])
+      x = np.frombuffer(base64.b64decode(r['wav']), dtype=np.float32); sel = ts > r['start'] - 0.02
+      act = m > 0.5 * max(m.max(), 1e-6); dh = np.array(rec['dh']); br = np.array(rec['br'])[(dh > dh.max() - 10) & sel]; brm = br.mean() if len(br) else 0
+      fl = np.abs(jw - 0.75 * m).max()
+      if os.environ.get('BANDS'):
+        seg = x[int(r['start'] * SR):]; F = 4096; W = [np.abs(np.fft.rfft(seg[i:i + F] * np.hanning(F))) ** 2 for i in range(0, len(seg) - F, 2048)]; en = np.array([w.sum() for w in W]); fq = np.fft.rfftfreq(F, 1 / SR)
+        keep = [w for w, e in zip(W, en) if e > 0.1 * en.max()]; Pm = np.mean(keep, axis=0) if keep else np.zeros(len(fq)); tot = Pm[(fq >= 80) & (fq < 3500)].sum() or 1
+        print('     bands dB re 80-3.5k: ' + ' '.join('%s %.1f' % (n, 10 * np.log10(Pm[(fq >= a) & (fq < b)].sum() / tot + 1e-12)) for n, a, b in (('80-200', 80, 200), ('200-400', 200, 400), ('400-700', 400, 700), ('0.7-1k', 700, 1000), ('1-2k', 1000, 2000), ('2-3.5k', 2000, 3500))))
       best = (-9, 0)
       for L in range(0, 160, 5):
         e2 = env(x, ts + L / 1000); c = np.corrcoef(m, e2)[0, 1] if m.std() > 1e-6 and e2.std() > 1e-9 else float('nan')
         if c > best[0]: best = (c, L)
-      e70 = env(x, ts + LEAD / 1000); c70 = np.corrcoef(m, e70)[0, 1] if m.std() > 1e-6 else float('nan')
-      X = np.abs(np.fft.rfft(x[int(0.5 * SR):int(2.5 * SR)])) ** 2; fr = np.fft.rfftfreq(int(2.0 * SR), 1 / SR); sh = [X[(fr >= a) & (fr < b)].sum() / (X[(fr >= 80) & (fr < 3000)].sum() or 1) for a, b in ((80, 150), (150, 400), (400, 3000))]; print('        band share 80-150 / 150-400 / 400-3k: %.2f %.2f %.2f' % tuple(sh))
-      print(f'{name:7s} | {max(rec["dv"]):6.1f} {max(rec["dn"]):6.1f} | {m.max():6.2f} {nz.max():9.2f} | {lead:12.0f} {best[1]:18d} | {c70:6.2f}  (best {best[0]:.2f})')
+      print(f'{name:7s} {seed:5d} | {m.max():5.2f} {m[sel].mean():5.2f} | {max(rec["dl"]):6.1f} {max(rec["dh"]):6.1f} {brm:6.2f} | {jw.max():7.3f} {fl:10.3f} | {rev(0.75 * m, ts):6.1f} | {best[1]:4d} ms {best[0]:5.2f}')
     b.close()
 finally: srv.kill()

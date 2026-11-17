@@ -7,6 +7,7 @@ import { buildWorld } from './view/world.js';
 import { Effects, Audio } from './view/effects.js';
 import { Overlays } from './view/overlays.js';
 import { Replay } from './view/replay.js';
+import { createClip } from './view/clip.js';      // clip
 import { Director } from './director.js';
 import { Arena } from './sim/arena.js';
 import { Props } from './view/props.js';
@@ -111,6 +112,9 @@ async function boot() {
   // re-emitted through the usual audio calls with the listener at the camera, through a thin small-microphone filter (audio.mic). Dust, rain, the herd stay as now.
   const rpx = Object.create(sim); rpx.head = Object.create(sim.head); rpx.head.pos = new THREE.Vector3(); rpx.act = null; rpx.headTouch = null;      // what the audio sees of the animal while it plays: the recorded head
   let torchLive = false, micHeld = false;
+  const clip = createClip({ getCanvas: () => canvas, audio }); S.clip = clip;      // clip: "save clip" on the death card records the replay to a file
+  function startClip() { if (!clip.supported || !S.dead || S.replay) return false; if (!startReplay()) return false; if (!clip.start()) { endReplay(); return false; } document.body.classList.add('clipping'); tagEl.textContent = '\u25CF RECORDING  \u00b7  esc to cancel'; tagEl.classList.add('rec'); return true; }
+  const TAG = tagEl.textContent;
   function startReplay() {
     if (!S.dead || S.replay || !rec.play(camera.aspect)) return false;
     S.replay = true; document.body.classList.add('replay'); tagEl.hidden = false;
@@ -145,8 +149,9 @@ async function boot() {
   // owner: "pressing any key (except t) brings up the usual death/respawn menu, with restart replay button"
   // The key or click that ends it is swallowed (held key repeats, its keyup, the click after a tap) so it cannot press a button on the card.
   let eatKey = null, eatClick = 0;
-  function endReplay() {
+  function endReplay(natural) {
     if (!S.replay) return;
+    if (clip.active) { document.body.classList.remove('clipping'); tagEl.textContent = TAG; tagEl.classList.remove('rec'); if (natural === true) clip.finish().then(() => { try { ui.clipReady(); } catch {} }, () => {}); else { clip.cancel(); try { ui.clipReady(); } catch {} } }      // clip
     S.replay = false; rec.stop(); document.body.classList.remove('replay'); tagEl.hidden = true;
     if (post && post.setCCTV) post.setCCTV(false);      // the player's own VHS setting is back as it was
     props.torchOn = torchLive; audio.sim = sim; if (audio.mic) audio.mic(false, false); audio.hiss(0);
@@ -155,6 +160,7 @@ async function boot() {
   window.addEventListener('keydown', (e) => {
     if (S.frozen) return;      // the note box is open: typing there is its own
     if (eatKey && e.key === eatKey) { e.stopImmediatePropagation(); e.preventDefault(); return; }
+    if (S.replay && clip.active) { e.stopImmediatePropagation(); e.preventDefault(); if (e.key === 'Escape' && !e.repeat) { eatKey = e.key; endReplay(); } return; }      // clip: only Escape ends a recording, T does not open the note box
     if (!S.replay || (e.key.toLowerCase() === 't' && !e.ctrlKey && !e.metaKey && !e.altKey)) return;      // t is the note box: it passes through and the replay runs on
     e.stopImmediatePropagation(); e.preventDefault(); if (!e.repeat) { eatKey = e.key; endReplay(); }
   }, true);
@@ -164,6 +170,7 @@ async function boot() {
     if (S.dead && !S.replay) try { document.getElementById('xAgain').focus({ preventScroll: true }); } catch {}
   }, true);
   window.addEventListener('pointerdown', (e) => {
+    if (S.replay && clip.active) { e.stopImmediatePropagation(); e.preventDefault(); return; }      // clip
     if (!S.replay || S.frozen || (e.target.closest && e.target.closest('#noteBox, #noteBtn, #noteShield'))) return;
     e.stopImmediatePropagation(); e.preventDefault(); eatClick = performance.now() + 500; endReplay();
   }, true);
@@ -541,6 +548,7 @@ async function boot() {
   window.addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); S.keys.delete(k); if (k === 'z') S.zoom.hold = false; if (k === 'q') act.callUp(); });
   window.addEventListener('blur', () => { S.keys.clear(); S.zoom.hold = false; S.call = null; });
   document.addEventListener('visibilitychange', () => { if (document.hidden && !S.frozen) setPaused(true); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && clip.active) endReplay(); });      // clip: a hidden tab stops the picture
   // touch: a thumbstick to walk (push it to the rim to run), drag anywhere else to look, tap to throw what is in hand
   // the device in use, live: the last of keyboard/mouse ('kb'), touch, gamepad ('pad'). Every hint and control list follows it.
   function setDev(d) {
@@ -694,7 +702,7 @@ async function boot() {
     const any = bt.some(Boolean) || Math.hypot(pad.lx, pad.ly, pad.rx, pad.ry) > 0;
     if (any) { setDev('pad'); audio.resume(); }
     if (S.frozen) { pad.prev = bt; return; }      // the note box is open: the pad does nothing
-    if (S.replay) { if (bt.some((b, i) => b && !pad.prev[i])) endReplay(); pad.prev = bt; return; }      // death cam: any button skips
+    if (S.replay) { if (!clip.active && bt.some((b, i) => b && !pad.prev[i])) endReplay(); pad.prev = bt; return; }      // death cam: any button skips
     if (!S.started) { if (down(9)) start(false); else padMenu($('start'), down); pad.prev = bt; return; }   // Start: begin; A: the focused control (start, unless moved)
     if (down(9) && !S.dead) setPaused(!S.paused);                                                      // Start/Menu: pause
     if (S.paused) { if (down(1)) setPaused(false); else padMenu($('pause'), down); pad.prev = bt; return; }   // B: resume; d-pad and A work the card
@@ -916,7 +924,7 @@ async function boot() {
         for (const e of rec.fired) hear(e);
         if (S.frozen !== micHeld) { micHeld = S.frozen; if (audio.mic) audio.mic(true, micHeld); }      // paused: the sound is held (muted); T resumes it
         const I = post.cctvInfo; I.cam = rec.camNo; I.label = rec.label; I.stamp = rec.stampMs; I.clock = performance.now() / 1000; I.paused = !!S.frozen; post.cctvU.burst.value = S.frozen ? 0 : rec.burst;
-      } else endReplay();
+      } else endReplay(true);
     }
     { const ja = sim.act; body.voiceJaw = audio.mouthOpen;      /* (in the replay too: the taped sounds are re-emitted through the mouth bus) */ body.voiceFast = audio.mouthFast; body.jawHold = !!(sim.mouthHold > 0 || (ja && ja.forced && /^(strike|seize|snap|butt)$/.test(ja.kind))); }      // jaw-from-voice
     body.glareEye = mind.dazzle || null; body.update(shown); fx.breath(body.nostril, body.snout, shown.s[1], dtv); if (audio.breathCue) { fx.snort(body.nostril, body.snout, audio.breathCue); audio.breathCue = 0; }
@@ -947,7 +955,7 @@ async function boot() {
     ov.update(sim, blend, S.mindOn ? (mind.intent.goal && mind.intent.goal.kind === 'reach' ? mind.intent.goal : null) : S.goal, null, 9);
     ov.updateSenses(sim, mind);
     audio.breath(shown.s[1], camera.position.distanceTo(S.replay ? rpx.head.pos : sim.head.pos));
-    if (!S.noRender && !swapping) { try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); }
+    if (!S.noRender && !swapping) { try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (clip.active) clip.frame(); }      // clip: copy the picture right after the render
 
     S.fps += (1 / Math.max(dtReal, 1e-3) - S.fps) * 0.05;
     // hold the frame rate: resolution (fast) and the quality level (slow), from measured frame times (src/view/quality.js)
@@ -957,13 +965,14 @@ async function boot() {
   }
 
   const ui = createUI({ S, sim, mind, camera, canvas, arena, terrain, act, Q, audio, SEED, test: TEST, backend: () => backend, pad, post, props,
-    session: { replay: startReplay, canReplay: () => rec.length > 1 && rec.death >= 0, start, setPaused, releasePointer, lockPointer, setMode, takeOver, fullscreen, fsOk, locked } });
+    session: { replay: startReplay, clip: startClip, clipOK: () => clip.supported, canReplay: () => rec.length > 1 && rec.death >= 0, start, setPaused, releasePointer, lockPointer, setMode, takeOver, fullscreen, fsOk, locked } });
   uiRef = ui;
   // the note box (src/telemetry.js): freeze time where it stands, without the pause card, and come back from it. Freezing lets the
   // pointer go (so the box can be clicked) without pausing; unfreezing asks for it again from the same key press or click that
   // sent the note; if the pointer was in use and is refused, the pause card comes up instead.
   function freeze(on) {
     if (on) {
+      if (clip.active) return false;      // clip: no note box over a recording
       if (!S.started || S.paused || S.frozen || (S.dead && !S.replay && !document.body.classList.contains('dead'))) return false;      // (allowed in the death cam and on the card)
       S.frozen = true; S.keys.clear(); drag = null; S.call = null; S.zoom.hold = false; S.stick.x = S.stick.y = 0; S.stick.id = null; nub.style.transform = '';
       document.body.classList.add('frozen'); S.relockWas = locked(); releasePointer();
@@ -997,7 +1006,7 @@ async function boot() {
     if (!/start/.test(location.hash)) start(false);      // tests begin past the start card unless they ask to see it
     frame(1 / 30);
   } else {
-    window.__rex = { audio /* jaw-from-voice */, get sim() { return sim; }, rec, setMode, get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
+    window.__rex = { clip, audio /* jaw-from-voice */, get sim() { return sim; }, rec, setMode, get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
     let last = performance.now();
     // a rAF timestamp is when the frame began, which can be earlier than the performance.now() taken above (by seconds after a
     // long boot on a slow device): never hand the simulation a negative step (it ran the director's easing backwards, so its

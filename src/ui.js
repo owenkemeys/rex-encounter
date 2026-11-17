@@ -577,6 +577,7 @@ export function createUI(o) {
     $('xTime').textContent = dur(D.lasted);
     document.body.classList.add('dead');
     $('xReplay').hidden = !(session && session.canReplay && session.canReplay());
+    { const b = $('xClip'); if (b) { b.hidden = !(session && session.clipOK && session.clipOK() && session.canReplay && session.canReplay()); if (S.clip) S.clip.discard(); clipReady(); const n = $('xClipNote'); if (n) n.textContent = ''; } }      // clip
     try { $('xAgain').focus({ preventScroll: true }); } catch {}      // Enter, Space or A goes again
   }
   /** Go again: a new life (also "start over" on the pause card). */
@@ -592,6 +593,28 @@ export function createUI(o) {
   }
   $('xAgain').addEventListener('click', () => { audio.resume(); retry(false); });
   $('xReplay').addEventListener('click', () => { audio.resume(); playReplay(0.4); });
+  // clip: "save clip" plays the tape once more while recording it (main.js startClip, src/view/clip.js); when it has ended the same button hands the file over
+  let clipBusy = false;
+  function clipReady() {
+    try {
+      const b = $('xClip'), C = S.clip; if (!b || !C) return;
+      b.textContent = C.state === 'ready' && C.blob ? (!C.hasDownloads() && C.canShare() ? 'share clip' : 'save file') : 'save clip';
+    } catch {}
+  }
+  if ($('xClip')) $('xClip').addEventListener('click', async () => {
+    try {
+      const C = S.clip; if (!C || clipBusy) return; const b = $('xClip'), note = $('xClipNote'); audio.resume();
+      if (C.state === 'ready' && C.blob) {
+        clipBusy = true; b.disabled = true; let r = { ok: false };
+        try { r = await C.deliver(); } catch {}
+        clipBusy = false; b.disabled = false; C.discard();
+        if (note) note.textContent = r.ok || r.declined ? '' : 'saving is not available in this view';
+        clipReady(); return;
+      }
+      if (note) note.textContent = '';
+      if (session && session.clip && session.clip()) { D.fade = inv.clock; D.fadeLen = 0.4; }
+    } catch {}
+  });
   // ------------------------------------------------------------ photo: the frame, the bubble, a quiet wordmark
   function compose() {
     const W = canvas.width, H = canvas.height, c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -643,7 +666,7 @@ export function createUI(o) {
   let acc = 0, pausedOnce = false;
   apply(); devChanged();
   return {
-    flags, set, achv, photo, whistle, toggleAll: () => set('bare'), taught, peek, held, note, devChanged,
+    clipReady, flags, set, achv, photo, whistle, toggleAll: () => set('bare'), taught, peek, held, note, devChanged,
     get debug() { return debugOn; }, setDebug,
     /** The pause card's "start over": a new life, as after a death. */
     restart() { retry(false, true); },

@@ -3,6 +3,7 @@
 import * as THREE from 'three/webgpu';
 import { attribute, vertexColor, vec3, float, mix, uniform, positionView, normalView, cross, dot, normalize, abs, sign, mx_worley_noise_float, mx_worley_noise_vec2, mx_noise_float, smoothstep, clamp, length, fwidth, max, faceDirection, exp } from 'three/tsl';
 import { RexSim, PS } from '../sim/rex.js';
+import { jawFromVoice } from './jawvoice.js';
 import { WEATHER } from './world.js';
 import { positionWorld, cameraPosition, pow, normalWorld, normalLocal } from 'three/tsl';
 import { buildRexGeometry, paintRex, boneMatrices, BONE_COUNT, BONE, mouthY, EYE, EYE_AIM, eyeAim, WEB, WEBSHEET } from './rexgeo.js';
@@ -305,8 +306,6 @@ const LID_TAU = 0.1;          // s: time constant of the lids easing after the b
 const LID_YAW_MAX = 0.45, LID_PITCH_MAX = 0.4;     // rad: furthest the opening's centre may leave the resting gaze (no gap at brow or cheek)
 const LID_CANT = 0;           // rad: outer corner raised about the lid's own axis (the rim line is level in the skull at 0)
 
-/** The widest the voice alone opens the jaw (rad): a bit under the sim's roar gape (0.8). */
-const VOICE_GAPE = 0.75;
 export class RexBody {
   constructor(Q = { tier: 'high' }) {
     const lo = Q.tier === 'low';
@@ -416,7 +415,7 @@ export class RexBody {
     this.fix = null; this._sacT = 0; this._sacV = new THREE.Vector3(); this.nostril = new THREE.Vector3(); this.snout = new THREE.Vector3(0, 0, 1);
   }
 
-  /** Fed by main.js each frame (jaw-from-voice): voiceJaw = audio.mouthOpen (0..1), voiceFast = audio.mouthFast, jawHold = the sim is biting or holding something. */
+  /** Fed by main.js each frame (jaw-from-voice): voiceJaw = audio.mouthOpen (0..1), voiceFast = audio.mouthFast (open plus flutter), jawHold = the sim is biting or holding something. */
   voiceJaw = 0; voiceFast = 0; jawHold = false;
   setWet(k) { this.wet.value = k; }
 
@@ -428,7 +427,7 @@ export class RexBody {
     const closing = (sj - (this._jP ?? sj)) / jdt < -1.2; this._jP = sj;
     if (this.jawHold || closing) this._vk = 0; else this._vk = Math.min(1, (this._vk ?? 1) + jdt / 0.08);
     const vo = this.voiceJaw || 0; let ja = null;
-    if (vo > 0.004 && this._vk > 0) { const fl = Math.max(-0.4, Math.min(0.4, (this.voiceFast || 0) - vo)); ja = Math.max(sj, VOICE_GAPE * this._vk * Math.max(0, Math.min(1, vo + 0.6 * fl))); }
+    if (vo > 0.004 && this._vk > 0) ja = Math.max(sj, this._vk * jawFromVoice(vo, (this.voiceFast || 0) - vo));
     boneMatrices(pose, this.mats, ja);
     for (let i = 0; i < BONE_COUNT; i++) { const b = this.bones[i]; b.matrix.copy(this.mats[i]); b.matrixWorldNeedsUpdate = true; }
     const H = this.mats[BONE.SKULL], Jm = this.mats[BONE.JAW];
