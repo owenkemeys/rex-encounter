@@ -13,7 +13,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildFeatures } from './features.js';
 
 export const MOODS = {
-  storm: { name: 'Storm at dusk', top: 0x334458, hor: 0x9aa6b0, fog: 0x63707c, dens: 0.0066, low: 1.2, hemi: [0xb4c4da, 0x4c4a3e, 2.1], sun: [0xc8c4d4, 3.2], glow: 0xe0905a, dir: [-0.6, 0.3, 0.5], exp: 1.55, rim: [0xa8c0e4, 1.6], rain: 1, wet: 1, dust: 0x4a4740, cov: [0.0, 0.55], sunGlow: 0.8, env: 0.9, cloud: 0x5a6674 },
+  storm: { name: 'Storm at dusk', top: 0x0b1018, hor: 0x46525e, fog: 0x3a454f, dens: 0.0115, low: 1.6, hemi: [0x8ea2bd, 0x2c2e24, 1.0], sun: [0xc0b8c8, 2.3], glow: 0xd07a45, dir: [-0.6, 0.26, 0.5], exp: 1.45, rim: [0x9ab4dc, 0.8], rain: 1, wet: 1, dust: 0x3d3b36, cov: [0.0, 0.55], sunGlow: 0.6, env: 0.35, cloud: 0x2f3742 },      // dark and heavy: near-black sky, the last cold light low on the horizon, deep fog (the 2026-11-13 look, restored after it was lifted)
   dusk: { name: 'Last light', top: 0x1d2a44, hor: 0xe0915a, fog: 0x8a7366, dens: 0.0062, low: 1.2, hemi: [0x95a3c8, 0x4b4033, 0.55], sun: [0xffa860, 3.6], dir: [-0.8, 0.16, 0.32], exp: 1.0, rim: [0x8fa0d8, 1.0], rain: 0, wet: 0, dust: 0x5e4d3d, cov: [0.15, 0.7], sunGlow: 1.0, env: 0.7, cloud: 0x5a4a52 },
   day: { name: 'Overcast day', top: 0x5f7a93, hor: 0xc7c4b6, fog: 0xb3b4a8, dens: 0.0036, low: 0.8, hemi: [0xdfe6ee, 0x8a8468, 1.0], sun: [0xfff0d8, 3.0], dir: [-0.55, 0.62, 0.42], exp: 1.0, rim: [0xffffff, 0.3], rain: 0, wet: 0, dust: 0x9a8e74, cov: [0.05, 0.6], sunGlow: 0.35, env: 0.9, cloud: 0x9a9fa4 },
 };

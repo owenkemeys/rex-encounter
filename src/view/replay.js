@@ -6,7 +6,7 @@ import * as THREE from 'three/webgpu';
 import { Figure, ST } from './figure.js';
 import { planShots, Ptz, K as PK } from './ptz.js';
 
-const HZ = 30, N = 330, AFTER = 2.5, M = 20;      // frames in the ring, seconds kept after the death, floats of player data per frame
+const HZ = 30, N = 480, LIVE = 450, AFTER = 2.5, M = 20;      // frames in the ring, seconds kept after the death, floats of player data per frame
 const SHOW = 12, EVMAX = 500, BURST = 0.4;      // the footage is shown at 12 frames a second; a cut or the start is a burst of static this long
 const sstep = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
 const EVF = ['type', 'src', 'x', 'y', 'z', 'kind', 'first', 'loud', 'part', 'force', 'mat', 'surface', 'nx', 'nz', 'speed', 'id', 'intensity', 'yaw', 'amount'];
@@ -16,6 +16,7 @@ export class Replay {
     this.terrain = terrain; this.nv = nv; this.ns = ns;
     this.v = new Float32Array(N * nv); this.s = new Float32Array(N * ns); this.m = new Float32Array(N * M);
     this.pose = { v: new Float32Array(nv), s: new Float32Array(ns) };      // what is drawn during playback
+    this.N = N; this.live = false; this._dm = 0;      // closeout: ring length; live = a clip taken in play (no death in the tape)
     this.n = 0; this.acc = 0; this.death = -1; this.after = 0; this.on = false; this.t = 0; this.s0 = 0;
     this.th = new Array(N).fill(null);      // the things in the world, frame by frame: [{ id, kind, x, y, z, spin, burn, amount }]
     this.ev = [];      // timed sound events: { f (tape frame, fractional), e }
@@ -78,7 +79,8 @@ export class Replay {
     if (this.acc > 1 / HZ) this.acc = 0;
   }
   /** Begin playback; false if there is nothing worth showing. `aspect` the screen's. Chooses the camera mount(s) from the whole tape first. */
-  play(aspect = 16 / 9) {
+  play(aspect = 16 / 9, live = false) {
+    this.live = !!live; if (live) return this._playLive(aspect);      // closeout
     if (this.count < 10 || this.death < 0) return false;
     // The tape may still be growing (the tail after the death). Playback counts in absolute frames from s0 and reads up to the live end;
     // while the ring is full the oldest frames are still being overwritten, so start past the ones the tail will take.
@@ -89,13 +91,27 @@ export class Replay {
     // the footage as plain arrays for the camera planner (figure feet, animal's head, its torso), padded to the end of the tail by repeating the last frame
     const total = Math.max(this.n - this.s0, this.death - this.s0 + Math.ceil(AFTER * HZ) + 1);
     this.F = new Float32Array(total * PK); this.nF = total; this.copied = this.s0; this._fill();
-    const plan = planShots(this.terrain, this.F, total, this.death - this.s0, aspect);
+    this._dm = this.death - this.s0;
+    const plan = planShots(this.terrain, this.F, total, this._dm, aspect);
     this.shots = plan.shots; this.shot = 0; this.cuts = plan.shots.length - 1; this.pf = 0;
     this._mount(0);
     this.ei = 0; while (this.ei < this.ev.length && this.ev[this.ei].f < this.s0) this.ei++;
     this.fired.length = 0; this.cutT = 0; this._pose(0, 0); this.baseMs = Date.now() - (this.nF / HZ) * 1000;
     return true;
   }
+  /** closeout: a clip taken in play. The tape is not growing (the game is frozen), the last LIVE frames are played, and the camera is planned for the last 3 s instead of a death. */
+  _playLive(aspect) {
+    if (this.count < 90) return false;
+    this.s0 = this.n - Math.min(this.count, LIVE); const total = this.n - this.s0; if (total < 90) return false;
+    this.on = true; this.t = 0; this.hold = 0; this.fig.reset(); this.fig.visible = true; this.aspect = aspect;
+    this.F = new Float32Array(total * PK); this.nF = total; this.copied = this.s0; this._fill();
+    this._dm = total - 1; const plan = planShots(this.terrain, this.F, total, this._dm, aspect);
+    this.shots = plan.shots; this.shot = 0; this.cuts = plan.shots.length - 1; this.pf = 0; this._mount(0);
+    this.ei = 0; while (this.ei < this.ev.length && this.ev[this.ei].f < this.s0) this.ei++;
+    this.fired.length = 0; this.cutT = 0; this._pose(0, 0); this.baseMs = Date.now() - (this.nF / HZ) * 1000; return true;
+  }
+  /** Seconds the footage will run from its start, and how far it has got (for the recording banner). */
+  get duration() { return Math.max(0, (this.n - 1 - this.s0) / HZ); }
   /** Copy tape frames that have appeared since into F (and repeat the newest over the padding). */
   _fill() {
     const m = this.m, F = this.F, last = this.n - 1;
@@ -145,7 +161,7 @@ export class Replay {
     this.fired.length = 0; while (this.ei < this.ev.length && this.ev[this.ei].f <= f) { if (this.ev[this.ei].f > f0 - 1e-6 || step <= 0) this.fired.push(this.ev[this.ei].e); this.ei++; }
     this._pose(this.t, step);
     // the pan-tilt-zoom head, a tape frame at a time (so it behaves the same however fast the picture is shown); a cut at the frame the plan says
-    const death = this.death - this.s0;
+    const death = this._dm;
     for (let g = this.pf + 1, to = Math.floor(f - this.s0); g <= to; g++) {
       this.pf = g;
       const nx = this.shots[this.shot + 1];

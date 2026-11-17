@@ -105,6 +105,10 @@ export class Peril {
     // what it cannot get at, it cannot take: walled off, or out of any reach (besieging is another matter: besiege.js)
     if (c.walled && !(c.aff && c.aff.reach)) sum = Math.min(sum, this.fuse * 0.7);
     if (opening) sum = Math.min(sum, this.fuse * 0.5);
+    // PROVOKE (marked addition): a fed animal tests and plays but does not turn to the reach or the strike for want of anything else to do
+    // with a thing that sits there (curiosity wearing off, time spent close); only what it is actually provoked by (stones, light, being
+    // fled from, crowded, handled) can take it that far.
+    if (m.cfg.core && m.cfg.core.on && m.hunger < m.cfg.core.fed) { const react = Math.max(0, P.irk || 0) + Math.max(0, P.flight || 0) + Math.max(0, P.crowd || 0) + Math.max(0, P.handling || 0); sum = Math.min(sum, react + this.fuse * 0.78); }
     this.P = sum; this.r = sum / this.fuse;
     this._stage(d, c, a, dist);
   }

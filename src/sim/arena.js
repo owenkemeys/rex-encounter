@@ -220,8 +220,13 @@ export class Arena {
       if (tip < rad + 0.55) { act.hit = true; if (v.state === 'pinned') v.state = 'down'; if (v.seize({ by: 'jaws' })) { v.lastMotive = motive; v.hurt(motive === 'play' ? 0.02 : motive === 'prey' ? 0.12 : 0.08, 'bitten', motive); } }
     }
     // a snout pushed into someone lying there rolls them over (once per push)
+    // PROVOKE (marked addition): a snout pushed into someone standing rocks them: a stumble back, a stagger to the ground, no harm
+    if (intent && intent.poke && standing && !v.dead && v.poked !== intent.poke) {
+      const sn = (s) => toBody(h.pos.x + h.f.x * s, h.pos.y + h.f.y * s - 0.2, h.pos.z + h.f.z * s), d = Math.min(sn(L - 0.1), sn(L * 0.6));
+      if (d < rad + 0.45) { v.poked = intent.poke; const fl = Math.hypot(h.f.x, h.f.z) || 1; v.knock(h.f.x / fl * 2.0, 1.3, h.f.z / fl * 2.0, 'snout', 0.35); }
+    }
     if (intent && intent.poke && lying && v.poked !== intent.poke) {
-      const s = L - 0.1, d = toBody(h.pos.x + h.f.x * s, h.pos.y + h.f.y * s - 0.2, h.pos.z + h.f.z * s);
+      const sn = (s) => toBody(h.pos.x + h.f.x * s, h.pos.y + h.f.y * s - 0.2, h.pos.z + h.f.z * s), d = Math.min(sn(L - 0.1), sn(L * 0.6));
       if (d < rad + 0.35) { v.poked = intent.poke; const fl = Math.hypot(h.f.x, h.f.z) || 1; v.state = 'down'; v.knock(h.f.x / fl * 2.2, 1.6, h.f.z / fl * 2.2, 'snout', 0.5); }
     }
     if (intent && intent.plant && lying) for (let k = 0; k < 2; k++) {

@@ -264,7 +264,7 @@ function dressArena(scene, terrain, Q, U, out) {
   // ---- shells, from the colliders
   const roofHoles = [];      // [x, z, half-depth, eaves y, floor y] of the barn roof's missing sheets
   for (const th of T) {
-    if (th.of === 'fence' || th.kind === 'door' || th.kind === 'trunk') continue;
+    if (th.of === 'fence' || th.kind === 'door' || th.kind === 'trunk' || th.kind === 'pole') continue;
     const st = S[th.of]; district = DIST[th.of] || 'misc';
     const along = th.kind === 'wall' || th.kind === 'slab' ? th.l + th.w : th.l;
     if (th.of === 'barn') {      // built from the colliders: posts, girts and board-and-gap cladding, trimmed openings, open trusses
@@ -399,7 +399,7 @@ function dressArena(scene, terrain, Q, U, out) {
   }
   // ---- yard lamps: poles with sodium heads and warm pools on the wet ground (additive, no real lights: cheap on every tier)
   {
-    district = 'y'; const spots = [[-40, 55], [-67, 53], [-37, 80], [-20, 64], [-50, 84]], P = [], A = [], I = [];
+    district = 'y'; const spots = PD.things.filter((th) => th.kind === 'pole').map((th) => [th.x, th.z]), P = [], A = [], I = [];      // the poles are placed things (paddock.js), solid
     const headMat = new THREE.MeshBasicNodeMaterial({ fog: false }); headMat.colorNode = vec3(1.0, 0.62, 0.25).mul(mix(float(1.2), float(4.0), U.rain));
     const heads = [];
     for (const [x, z] of spots) {
@@ -596,16 +596,7 @@ function dressArena(scene, terrain, Q, U, out) {
     plant('tree.banana', lo ? 10 : 90, 0.8, 3.0, 0.6, 1.0);
     if (!lo) plant('tree.treefern', 50, 1.0, 3.5, 0.6, 0.9);
     if (lib.has('vine') && !lo) { const ms = []; for (const th of jt) if (R() < (lo ? 0.12 : 0.3)) { const a = R() * 6.28, sc = R.range(0.8, 1.4); ms.push(mat(th.x + Math.sin(a) * th.r * 0.9, Y(th.x, th.z) + R.range(0, 1.5), th.z + Math.cos(a) * th.r * 0.9, a, sc, sc * R.range(1.2, 2.2), sc)); } if (ms.length) inst('vine', ms, { shadow: false }); }
-    // fallen logs: lying where no stem stands and off the trail (visual only)
-    district = 'j'; const logs = [];
-    for (let k = 0; k < 400 && logs.length < (lo ? 10 : 26); k++) {
-      const x = R.range(-97, -16), z = R.range(-76, -14), a = R() * 6.28, L = R.range(3, 7), r = R.range(0.25, 0.5), ux = Math.sin(a), uz = Math.cos(a);
-      let ok = inJ(x, z) && trailD(x, z) > 3.5; for (let u = -L / 2; ok && u <= L / 2; u += 0.7) ok = clear(x + ux * u, z + uz * u, r + 0.3) && inJ(x + ux * u, z + uz * u);
-      if (!ok) continue; logs.push(1);
-      const g = new THREE.CylinderGeometry(r * 0.85, r, L, lo ? 6 : 9, 1); g.rotateX(Math.PI / 2); g.rotateY(a); g.translate(x, Math.min(Y(x - ux * L / 2, z - uz * L / 2), Y(x + ux * L / 2, z + uz * L / 2)) + r * 0.6, z);
-      logGeos.push(g);
-    }
-    if (logGeos.length) { const g = mergeGeometries(logGeos.map((g) => { g = worldUV(g); for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k); return g; })); const lm = new THREE.Mesh(g, M.deck); lm.castShadow = !lo; lm.receiveShadow = true; scene.add(lm); }
+    // fallen logs are placed in paddock.js (terrain.logs: part of the ground, solid) and drawn by world.js
     // canopy: broad leafy masses between 10 and 18 m, roughly one per pair of stems, darker beneath
     {
       const tex = canvasTex(256, (g, S2) => { const rr = makeRng(91); g.clearRect(0, 0, S2, S2); for (let i = 0; i < 260; i++) { const x = rr() * S2, y = rr() * S2, a = rr() * 6.28, l = 10 + rr() * 22, v = 0.6 + rr() * 0.5; g.fillStyle = `rgb(${46 * v | 0},${70 * v | 0},${34 * v | 0})`; g.beginPath(); g.ellipse(x, y, l * 0.38, l, a, 0, 7); g.fill(); } });
@@ -617,7 +608,6 @@ function dressArena(scene, terrain, Q, U, out) {
       const im = new THREE.InstancedMesh(geo, cm, Math.max(1, ms.length)); ms.forEach((m, i) => im.setMatrixAt(i, m)); im.castShadow = !lo; im.receiveShadow = false; im.computeBoundingSphere(); im.userData.feature = true; scene.add(im);
     }
   };
-  const logGeos = [];
 
   // ---- banks and berms: stones at the waterline and along the berm crests, so the water's edge and the mounds have form
   const banks = () => {

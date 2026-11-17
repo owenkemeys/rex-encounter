@@ -370,6 +370,19 @@ export const LEGSKIN = { thighOut: 0.3, thigh: [0.46, 0.46, 0.56], thighK: 0.07,
 export const CLAWTIP = { on: true, from: 0.3, y0: 0.034, r0: 0.05, c1: [0.09, 0.062], c2: [0.05, 0.03], tip: [0.035, 0.004], seg: [9, 6], ring: [9, 7] };
 export const FOOTSKIN = { width: [0.102, 0.114, 0.102], pad: 0.06, top: 0.062, padH: 0.05, knuckle: [0.054, 0.05], base: 0.1, phal: [1, 2, 3], claw: 0.21, clawOut: 0.09, clawFlat: 0.7, web: 0.17, webT: 0.034,
   meta: [0.165, 0.235, 0.16, 0.13], ankle: [0.225, 0.19, 0.18], hallux: { up: 0.26, len: 0.13 }, coarse: 1.25 };
+// The pubic boot (owner, 2026-11-17: "the rex model is missing a pubic bone hump between the legs I think?", then "you can surely
+// make the keel be in the right exact place ... there are skeletons of this animal to look at for reference"). Placed from
+// tyrannosaurid osteology, in fractions of the femur: the pubis is a rod ~0.9 of the femur long, running subvertically down from
+// the hip socket and tilted `tilt` forward, ending in a boot ~0.62 of the pubis long, mostly behind the shaft's end (a short toe
+// ahead of it), its lower edge near horizontal, a narrow blade (the pubes are fused on the midline); the ischium runs down and back,
+// ~0.75 of the femur, to a small tip under the tail base. All distances below are measured from the hip joint's mid point, along the
+// pelvis' frame: `fwd` ahead (+) or behind, `drop` below. `soft`: flesh under the bone. `toe`, `heel`: the boot's flat bottom from its
+// front toe to its back end, relative to the shaft's end. `w`, `h`: half width and half height of the keel's section.
+// `front`, `back`: the distance over which it runs into the belly ahead and up to the tail base behind.
+const FEMUR = TYRANNOSAURUS.dims.femur, PUBIS_LEN = 0.9 * FEMUR, PUBIS_TILT = 12 * Math.PI / 180;
+export const PUBIS = { len: PUBIS_LEN, shaftFwd: PUBIS_LEN * Math.sin(PUBIS_TILT), drop: PUBIS_LEN * Math.cos(PUBIS_TILT) + 0.06 + 0.0, boot: 0.62 * PUBIS_LEN, toe: 0.2, heel: 0.59,
+  w: 0.06, h: 0.15, front: 0.8, back: 0.35, k: 0.15, sag: 0.05, belly: 0.8,
+  isch: { len: 0.75 * FEMUR, ang: 50 * Math.PI / 180, w: 0.09, h: 0.09 } };
 export const CHESTF = { f0: 0.1, u0: -0.62, r: [0.34, 0.6, 0.5], k: 0.2 };
 
 // ------------------------------------------------------------------ build the primitive set in the bind pose
@@ -418,6 +431,22 @@ function buildPrims(pose, B, coarse = false, cell = 0.04) {
       const at = i + t, fd = ss(IDX.NECK0 - 0.4, IDX.NECK0 + 1.2, at) * ss(IDX.HEAD + 0.2, IDX.HEAD - 1.2, at);
       if (i >= IDX.NECK0 - 1 && fd > 0) add('ell', frame(V().copy(pt).addScaledVector(up, yo - h * 0.42), lf, up, tg), [w * 0.62, h * (0.3 + 0.18 * fd), len], bones, { k: 0.18, sigma: 0.09 });
     }
+  }
+  // the pubic boot and the ischial bump (PUBIS): midline lobes in the pelvis' frame, hung from the hip joints (their mid point)
+  {
+    const PB = PUBIS, pu = Uv[IDX.PELVIS], pf = V().subVectors(J[IDX.PELVIS + 1], J[IDX.PELVIS - 1]).normalize(), pl = V().crossVectors(pu, pf).normalize();
+    const hm = V().fromArray(v, PV.LEG * 3).add(V().fromArray(v, (PV.LEG + 6) * 3)).multiplyScalar(0.5);
+    const pb = [[IDX.PELVIS, 1.6]], tilt = V().copy(pf).addScaledVector(pu, -pf.dot(pu)).normalize();
+    const lobe = (fwd, bottom, w, h, len, k, sg) => add('ell', frame(V().copy(hm).addScaledVector(tilt, fwd).addScaledVector(pu, bottom + h), pl, pu, tilt), [w, h, len], pb, { k, sigma: sg });
+    const f1 = PB.shaftFwd + PB.toe, b1 = PB.shaftFwd - PB.heel, step = 0.08, bot = -(PB.drop - PB.sag);   // the flat bottom runs from b1 to f1
+    for (let f = b1 - PB.back; f <= f1 + PB.front + 1e-6; f += step) {
+      const tf = ss(0, PB.front, f - f1), tb = ss(0, PB.back, b1 - f), t = Math.max(tf, tb), e = 1 - t;
+      const up = tf > 0 ? tf * (PB.drop - PB.belly) : tb * 0.55;           // ahead it rises into the belly; behind it rises steeply to the tail base
+      lobe(f, bot + up, PB.w * (0.5 + 0.5 * e), PB.h * (0.3 + 0.7 * e), step * 1.1, PB.k, 0.14);
+    }
+    // the ischium: down and back from the socket, a small tip under the tail base (two lobes along its line)
+    const I = PB.isch;
+    for (const q of [0.8, 1]) lobe(-I.len * q * Math.cos(I.ang), -I.len * q * Math.sin(I.ang) * 0.9 + 0.02, I.w, I.h, 0.2, PB.k, 0.12);
   }
   // anatomical landmarks: the hip shelf over the ilium, shoulders, throat
   {

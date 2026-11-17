@@ -11,7 +11,7 @@
 //   derived with the terrain: inside / next to / far from named structures, at a window (inside, with the animal's body outside and its head close), on top.
 // NOT available: the animal's thoughts (the owner does not want them), the "through the gap" reason string (derived from geometry instead), day or night
 // (the arena is always at dusk: "torch on" stands for it), the player's facing relative to the animal (yaw convention not read; not used).
-const HZ = 30, N = 330, M = 20;      // the tape's rate, ring length and floats per frame (replay.js)
+const HZ = 30, NN = 480, M = 20;      // the tape's rate, ring length and floats per frame (replay.js)
 const FREE = 0, AIR = 1, PINNED = 4, HELD = 5;      // figure.js ST codes
 
 // ------------------------------------------------------------------ whistles and shouts (noises, not taped events)
@@ -36,17 +36,17 @@ const plain = (S) => String((S && (S.name || S.kind)) || '').replace(/^the\s+/i,
 export function facts(tape, extra = {}) {
   const f = { cause: '', motive: '', used: [] }, ex = extra || {};
   f.cause = String(ex.cause || '').toLowerCase(); f.motive = String(ex.motive || '').toLowerCase();
-  f.deaths = Math.max(1, ex.deaths | 0 || 1); f.lasted = +ex.lasted || 0; f.crouch = !!ex.crouch; f.mount = String(ex.label || (tape && tape.label) || '');
-  f.early = f.lasted > 0 && f.lasted < 20; f.long = f.lasted > 240; f.repeat = f.deaths >= 2; f.many = f.deaths >= 5; f.first = f.deaths === 1;
+  f.live = !!ex.live; f.deaths = f.live ? Math.max(0, ex.deaths | 0) : Math.max(1, ex.deaths | 0 || 1);      // (live: a clip taken in play, deaths so far) f.lasted = +ex.lasted || 0; f.crouch = !!ex.crouch; f.mount = String(ex.label || (tape && tape.label) || '');
+  f.early = f.lasted > 0 && f.lasted < 20; f.long = f.lasted > 240; f.repeat = f.deaths >= (f.live ? 1 : 2); f.many = f.deaths >= 5; f.first = f.deaths === (f.live ? 0 : 1);
   f.used.push('cause', 'motive', 'deaths', 'lasted', 'crouch', 'mount');
   f.thrown = /thrown|tossed|fall|landed/.test(f.cause); f.pinned = /pin/.test(f.cause); f.tail = /tail|swipe/.test(f.cause); f.butt = /butt/.test(f.cause);
   f.held = /crush|bit|shak|eat|seiz/.test(f.cause); f.stamped = /stamp/.test(f.cause);
-  let wh = 0, sh = 0; const cutoff = (tape && tape.death >= 0 ? tape.death : markLast) - 300;
+  let wh = 0, sh = 0; const cutoff = (tape && tape.death >= 0 ? tape.death : tape && f.live ? tape.n - 1 : markLast) - 300;
   for (const k of marks) if (k.f >= cutoff) (k.kind === 'whistle' ? wh++ : sh++);
   f.whistleLast10 = wh; f.shoutLast10 = sh; f.whistleLife = lifeCalls.whistle; f.shoutLife = lifeCalls.shout; f.callsLife = lifeCalls.whistle + lifeCalls.shout;
   f.used.push('whistles/shouts (noted live)');
-  if (!tape || !(tape.n > 20) || !(tape.death >= 0) || !tape.m) return f;
-  const m = tape.m, T = tape.terrain, D = tape.death, lo = Math.max(tape.n - N, D - 300, 0), at = (i) => (((i % N) + N) % N) * M;
+  if (!tape || !(tape.n > 20) || !(tape.death >= 0 || f.live) || !tape.m) return f;
+  const N = tape.N || NN, m = tape.m, T = tape.terrain, D = tape.death >= 0 ? tape.death : tape.n - 1, lo = Math.max(tape.n - N, D - 300, 0), at = (i) => (((i % N) + N) % N) * M;
   const st = (i) => Math.round(m[at(i) + 5]);
   let L = -1; for (let i = D; i >= lo; i--) if (st(i) === FREE) { L = i; break; }      // the last frame on foot
   const P = (i) => ({ x: m[at(i)], y: m[at(i) + 1], z: m[at(i) + 2] }), A = (i) => ({ x: m[at(i) + 17], y: m[at(i) + 18], z: m[at(i) + 19] }), Hd = (i) => ({ x: m[at(i) + 6], y: m[at(i) + 7], z: m[at(i) + 8] });
@@ -157,6 +157,10 @@ add('early', 8, (f) => f.early, ['The exhibit is open on arrival. Guests are not
 add('long', 6, (f) => f.long, ['Guests are thanked for their patience. It has been noted.', 'Extended visits are welcome. The exhibit also keeps long hours.']);
 add('repeat', 6, (f) => f.repeat, ['Guests who have visited before are asked to recall what happened last time.', 'Returning guests are thanked. Previous advice still applies.', 'Guests are reminded that last time was also instructive.']);
 add('many', 9, (f) => f.many, ['The management admires your commitment. The exhibit has not changed.', 'No loyalty programme exists. It is felt that none is needed.', 'Frequent visitors are reminded that the exhibit is equally keen every time.']);
+// a living visitor (a clip taken in play): nobody has died, so these say nothing of it
+add('live-pet', 3, (f) => f.live, ['Guests are reminded that the exhibit is not a petting attraction.', 'Visitors still on the premises are asked to reconsider.', 'The management notes that you are still with us, and thanks you for your continued attendance.']);
+add('live-leave', 3, (f) => f.live, ['Guests are encouraged to leave while the visit is still going well.', 'Please do not become complacent.', 'Guests who have not yet been noticed are asked to remain unnoticed.']);
+add('live-stay', 3, (f) => f.live, ['A pleasant visit is not the same as a safe one.', 'The exhibit is currently between guests. The management would like to keep it that way.', 'Guests are advised that the exit is behind them, and that so, in due course, is the exhibit.']);
 add('first', 3, (f) => f.first, ['First-time visitors are encouraged to read these notices. This is one.', 'First-time guests are welcomed, and asked to read the rest of the signs.']);
 // generic fallbacks, always eligible
 const GEN = [
@@ -202,50 +206,76 @@ function wrap(g, text, maxW) {
   for (const w of words) { const t = cur ? cur + ' ' + w : w; if (cur && g.measureText(t).width > maxW) { lines.push(cur); cur = w; } else cur = t; }
   if (cur) lines.push(cur); return lines;
 }
-function fit(g, text, maxW, maxH, maxPx, minPx, lh = 1.04) {      // the biggest heavy size at which the headline fits the box, and its lines
-  for (let px = maxPx; px >= minPx; px -= 2) { g.font = `900 ${px}px ${SANS}`; const ls = wrap(g, text, maxW); if (ls.length * px * lh <= maxH && ls.every((l) => g.measureText(l).width <= maxW)) return { px, ls }; }
-  g.font = `900 ${minPx}px ${SANS}`; return { px: minPx, ls: wrap(g, text, maxW) };
+const SANS_PLAIN = SANS.replace('"Arial Black", ', '');
+/** The biggest heavy size at which the headline fits its box: at most `maxLines` lines, every line inside the width, all lines inside the height. Steps down 2% at a time to `minPx`. */
+function fit(g, text, maxW, maxH, maxPx, minPx, maxLines, lh = 1.04) {
+  for (let px = Math.round(maxPx); ; px = Math.min(px - 1, Math.round(px * 0.98))) {
+    px = Math.max(px, minPx); g.font = `900 ${px}px ${SANS}`; const ls = wrap(g, text, maxW);
+    if (ls.length <= maxLines && ls.length * px * lh <= maxH && ls.every((l) => g.measureText(l).width <= maxW)) return { px, ls };
+    if (px <= minPx) break;
+  }
+  g.font = `900 ${minPx}px ${SANS}`; return { px: minPx, ls: wrap(g, text, maxW) };      // (a box too small even for the smallest size: it still draws, at that size)
 }
 function balance(g, text, maxW, k) {      // the narrowest width that still wraps to k lines: even lines, no stranded word
   let lo = maxW * 0.45, hi = maxW, best = wrap(g, text, maxW);
   for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2, ls = wrap(g, text, mid); if (ls.length <= k && ls.every((l) => g.measureText(l).width <= mid + 0.5)) { best = ls; hi = mid; } else lo = mid; }
   return best;
 }
-/** Draw the flat card, W x H (1280x720 or 720x1280 are the designed sizes), with the headline `line` and incident number `no`. */
-export function drawCard(g, W, H, line, no, link = CLIP_LINK) {
-  const tall = H > W, mg = tall ? 34 : 40, x0 = mg, x1 = W - mg, iw = x1 - x0, pad = tall ? 38 : 52, ix0 = x0 + pad, ix1 = x1 - pad, cw = ix1 - ix0;
+const shrinkTo = (g, txt, weight, fam, px, maxW, minPx) => { let p = px; g.font = `${weight} ${p}px ${fam}`; while (p > minPx && g.measureText(txt).width > maxW) { p -= 1; g.font = `${weight} ${p}px ${fam}`; } return p; };
+/** The margin of black round the card, enough for the tape's lettering (shared with makeTape). */
+export const cardMargin = (W, H) => Math.round(Math.max(11, 20 * Math.min(W, H) / 720) * 2.1);
+/** Draw the flat card on any canvas size. Everything is proportional: `s` is the scale of the designed size (1280x720 wide, 720x1000-ish tall); the headline is fitted by measuring (3 lines wide, 5 tall). Returns { px, ls, tall, s }. */
+export function drawCard(g, W, H, line, no, link = CLIP_LINK, live = false) {
+  const tall = W / H < 1.15, s = Math.max(0.2, tall ? Math.min(W / 720, H / 1000) : Math.min(W / 1280, H / 720));
+  const mg = cardMargin(W, H), x0 = mg, x1 = W - mg, iw = x1 - x0, ch = H - 2 * mg, pad = (tall ? 38 : 52) * s, ix0 = x0 + pad, ix1 = x1 - pad, cw = ix1 - ix0;
+  const top = mg + pad * 0.9, bot = H - mg - pad * 0.9;      // the writing area, top to bottom
   g.save(); g.textBaseline = 'alphabetic'; g.fillStyle = '#0c120e'; g.fillRect(0, 0, W, H);
-  g.fillStyle = CREAM; g.fillRect(x0, mg, iw, H - 2 * mg);
-  g.strokeStyle = INK; g.lineWidth = 3; g.strokeRect(x0 + 14, mg + 14, iw - 28, H - 2 * mg - 28);
+  g.fillStyle = CREAM; g.fillRect(x0, mg, iw, ch);
+  g.strokeStyle = INK; g.lineWidth = Math.max(1.5, 3 * s); const ib = 14 * s; g.strokeRect(x0 + ib, mg + ib, iw - 2 * ib, ch - 2 * ib);
   g.fillStyle = INK; g.textAlign = 'left';
-  let y = mg + pad + (tall ? 14 : 18);
-  const tpx = tall ? 40 : 46; g.font = `900 ${tpx}px ${SANS}`; g.fillText('VISITOR SAFETY NOTICE', ix0, y + tpx * 0.5);
-  const mono = tall ? 17 : 18; g.font = `500 ${mono}px ${MONO}`; const posted = `posted after incident No. ${no}`;
-  if (tall) { g.textAlign = 'left'; g.fillText(posted, ix0, y + tpx * 0.5 + mono * 1.9); y += mono * 1.9; } else { g.textAlign = 'right'; g.fillText(posted, ix1, y + tpx * 0.5); g.textAlign = 'left'; }
-  y += tpx * 0.5 + (tall ? 22 : 24); g.fillRect(ix0, y, cw, tall ? 8 : 9); y += (tall ? 8 : 9);
-  let spx = tall ? 29 : 31; { const sf = SANS.replace('"Arial Black", ', ''); g.font = `500 ${spx}px ${sf}`; while (spx > 20 && g.measureText('The management kindly reminds all guests:').width > cw) { spx--; g.font = `500 ${spx}px ${sf}`; } } y += spx + (tall ? 22 : 18); g.font = `500 ${spx}px ${SANS.replace('"Arial Black", ', '')}`; g.fillText('The management kindly reminds all guests:', ix0, y); y += tall ? 30 : 22;
-  // bottom block first, so the headline gets what is left
-  let by0;
+  // ---- top: title, the incident line, the rule, the lead-in
+  const posted = `posted ${live ? 'ahead of' : 'after'} incident No. ${no}`, mono = Math.max(9, (tall ? 17 : 18) * s);
+  const tpx = shrinkTo(g, 'VISITOR SAFETY NOTICE', 900, SANS, (tall ? 40 : 46) * s, cw, 12);
+  let y = top + tpx * 0.9; g.font = `900 ${tpx}px ${SANS}`; g.fillText('VISITOR SAFETY NOTICE', ix0, y);
+  const titleW = g.measureText('VISITOR SAFETY NOTICE').width; g.font = `500 ${mono}px ${MONO}`;
+  if (!tall && titleW + g.measureText(posted).width + 30 * s < cw) { g.textAlign = 'right'; g.fillText(posted, ix1, y); g.textAlign = 'left'; }
+  else { const mp = shrinkTo(g, posted, 500, MONO, mono, cw, 8); y += mp * 1.9; g.font = `500 ${mp}px ${MONO}`; g.fillText(posted, ix0, y); }
+  y += 22 * s; const rule = Math.max(3, (tall ? 8 : 9) * s); g.fillRect(ix0, y, cw, rule); y += rule;
+  const spx = shrinkTo(g, 'The management kindly reminds all guests:', 500, SANS_PLAIN, (tall ? 29 : 31) * s, cw, 11);
+  y += spx * 1.15 + 14 * s; g.font = `500 ${spx}px ${SANS_PLAIN}`; g.fillText('The management kindly reminds all guests:', ix0, y);
+  const headTop = y + 16 * s;
+  // ---- bottom block (measured from the bottom up)
+  const sign = 'Thank you for visiting. We hope to see most of you again.';
+  let by0;      // top of the bottom block
   if (tall) {
-    const bh = 168, nameY = H - mg - pad - 6; by0 = nameY - 330;
-    g.font = `900 ${58}px ${SANS}`; g.fillText('REX ENCOUNTER', ix0, nameY); let ly = nameY;
-    if (link) { g.font = `500 17px ${MONO}`; ly += 28; g.fillText(link, ix0, ly); }
-    g.font = `500 25px ${SANS.replace('"Arial Black", ', '')}`; const so = wrap(g, 'Thank you for visiting. We hope to see most of you again.', cw); let sy = nameY - 58 - 8 - (so.length - 1) * 31; so.forEach((s, i) => g.fillText(s, ix0, sy + i * 31 + 0));
-    const bt = sy - 31 - 24 - bh; by0 = bt; g.fillStyle = BOX; g.fillRect(ix0, bt, cw, bh);
-    g.fillStyle = '#d9cfa8'; g.font = `500 17px ${MONO}`; g.fillText('DAYS SINCE LAST INCIDENT', ix0 + 24, bt + 38);
-    g.fillStyle = AMBER; g.font = `900 150px ${SANS}`; g.textAlign = 'right'; g.fillText('0', ix1 - 28, bt + bh - 14); g.textAlign = 'left';
+    const bh = 168 * s, npx = shrinkTo(g, 'REX ENCOUNTER', 900, SANS, 58 * s, cw, 14), spx2 = Math.max(10, 25 * s), lh = spx2 * 1.24;
+    g.font = `500 ${spx2}px ${SANS_PLAIN}`; const so = wrap(g, sign, cw);
+    let yy = bot;
+    if (link) { const lp = Math.max(9, 17 * s); g.font = `500 ${lp}px ${MONO}`; g.fillText(link, ix0, yy); yy -= lp * 1.5; }
+    g.font = `900 ${npx}px ${SANS}`; g.fillText('REX ENCOUNTER', ix0, yy); yy -= npx * 1.0 + 8 * s;
+    g.font = `500 ${spx2}px ${SANS_PLAIN}`; for (let i = so.length - 1; i >= 0; i--) { g.fillText(so[i], ix0, yy); yy -= lh; }
+    yy += lh - spx2; const bt = yy - 22 * s - bh; by0 = bt; g.fillStyle = BOX; g.fillRect(ix0, bt, cw, bh);
+    const lab = live ? 'INCIDENT STATUS' : 'DAYS SINCE LAST INCIDENT', big = live ? 'PENDING' : '0';
+    const lp = shrinkTo(g, lab, 500, MONO, 17 * s, cw * 0.5, 8); g.fillStyle = '#d9cfa8'; g.font = `500 ${lp}px ${MONO}`; g.fillText(lab, ix0 + 24 * s, bt + lp * 2.0);
+    const bp = shrinkTo(g, big, 900, SANS, 150 * s, cw - 56 * s, 20); g.fillStyle = AMBER; g.font = `900 ${bp}px ${SANS}`; g.textAlign = 'right'; g.fillText(big, ix1 - 28 * s, bt + bh - 14 * s); g.textAlign = 'left';
   } else {
-    const bh = 150, bw = 380, bt = H - mg - pad - bh + 6; by0 = bt; g.fillStyle = BOX; g.fillRect(ix0, bt, bw, bh);
-    g.fillStyle = '#d9cfa8'; g.font = `500 16px ${MONO}`; g.fillText('DAYS SINCE LAST INCIDENT', ix0 + 22, bt + 34);
-    g.fillStyle = AMBER; g.font = `900 118px ${SANS}`; g.fillText('0', ix0 + 22, bt + bh - 16);
-    const rx = ix0 + bw + 48; g.fillStyle = INK; g.font = `500 22px ${SANS.replace('"Arial Black", ', '')}`; const so = wrap(g, 'Thank you for visiting. We hope to see most of you again.', ix1 - rx);
-    so.forEach((s, i) => g.fillText(s, rx, bt + 30 + i * 28)); g.font = `900 58px ${SANS}`; g.fillText('REX ENCOUNTER', rx, bt + bh - (link ? 34 : 6));
-    if (link) { g.font = `500 17px ${MONO}`; g.fillText(link, rx, bt + bh - 4); }
+    const bh = 150 * s, bw = Math.min(380 * s, cw * 0.42), bt = bot - bh; by0 = bt; g.fillStyle = BOX; g.fillRect(ix0, bt, bw, bh);
+    const lab = live ? 'INCIDENT STATUS' : 'DAYS SINCE LAST INCIDENT', big = live ? 'PENDING' : '0';
+    const lp = shrinkTo(g, lab, 500, MONO, 16 * s, bw - 36 * s, 8); g.fillStyle = '#d9cfa8'; g.font = `500 ${lp}px ${MONO}`; g.fillText(lab, ix0 + 20 * s, bt + lp * 2.1);
+    const bp = shrinkTo(g, big, 900, SANS, 118 * s, bw - 40 * s, 14); g.fillStyle = AMBER; g.font = `900 ${bp}px ${SANS}`; g.fillText(big, ix0 + 20 * s, bt + bh - 16 * s);
+    const rx = ix0 + bw + 48 * s, rw = ix1 - rx; g.fillStyle = INK;
+    const spx2 = Math.max(10, 22 * s); g.font = `500 ${spx2}px ${SANS_PLAIN}`; const so = wrap(g, sign, rw);
+    so.forEach((t, i) => g.fillText(t, rx, bt + spx2 * 1.1 + i * spx2 * 1.28));
+    const npx = shrinkTo(g, 'REX ENCOUNTER', 900, SANS, 58 * s, rw, 14); g.font = `900 ${npx}px ${SANS}`; g.fillText('REX ENCOUNTER', rx, bt + bh - (link ? 26 * s : 4 * s));
+    if (link) { const lp2 = Math.max(9, 17 * s); g.font = `500 ${lp2}px ${MONO}`; g.fillText(link, rx, bt + bh); }
   }
-  g.fillStyle = INK; const hy0 = y, avail = by0 - 26 - hy0, r = fit(g, line, cw, avail, tall ? 108 : 108, tall ? 48 : 44);
-  g.font = `900 ${r.px}px ${SANS}`; r.ls = balance(g, line, cw, r.ls.length); g.textAlign = 'left'; const th = r.ls.length * r.px * 1.04, top = hy0 + Math.max(0, (avail - th) / 2);
-  r.ls.forEach((s, i) => g.fillText(s, ix0, top + r.px * 0.88 + i * r.px * 1.04));
-  g.restore(); return r;
+  // ---- the headline: the middle, as big as it will go
+  g.fillStyle = INK; const hb = by0 - 24 * s, avail = hb - headTop, maxLines = tall ? 5 : 3;
+  const r = fit(g, line, cw, Math.max(10, avail), (tall ? 112 : 108) * s, Math.max(12, 26 * s), maxLines);
+  g.font = `900 ${r.px}px ${SANS}`; r.ls = balance(g, line, cw, r.ls.length); g.textAlign = 'left';
+  const th = r.ls.length * r.px * 1.04, ty = headTop + Math.max(0, (avail - th) / 2);
+  r.ls.forEach((t, i) => g.fillText(t, ix0, ty + r.px * 0.88 + i * r.px * 1.04));
+  g.restore(); r.tall = tall; r.s = s; return r;
 }
 
 const p2 = (n) => String(n).padStart(2, '0');
@@ -255,15 +285,16 @@ function noiseInto(g, nc, ng, W, H, a, rng) {      // a small noise canvas, scal
   g.save(); g.globalAlpha = a; g.imageSmoothingEnabled = true; g.drawImage(nc, 0, 0, W, H); g.restore();
 }
 /** The tape treatment: makes a drawer for a W x H canvas. `ctx.frame(g, t, stampMs, rng)`: t seconds into the closeout (0 to LEN). Legibility first. */
-export const LEN = 3.2, STATIC = 0.25;
-export function makeTape(W, H, line, no, link = CLIP_LINK) {
+export const CARD_SECONDS = 6.4, STATIC = 0.25;      // the closing card is held for CARD_SECONDS in the recording (the owner: twice the first 3.2 s)
+export const LEN = CARD_SECONDS;
+export function makeTape(W, H, line, no, link = CLIP_LINK, live = false) {
   const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
-  const card = mk(), cg = card.getContext('2d'); drawCard(cg, W, H, line, no, link);
+  const card = mk(), cg = card.getContext('2d'); drawCard(cg, W, H, line, no, link, live);
   const tint = (col) => { const c = mk(), g = c.getContext('2d'); g.drawImage(card, 0, 0); g.globalCompositeOperation = 'multiply'; g.fillStyle = col; g.fillRect(0, 0, W, H); return c; };
   const red = tint('#ff4a4a'), cyan = tint('#4affff');
   const scan = mk(), sg = scan.getContext('2d'); sg.fillStyle = 'rgba(0,0,0,0.16)'; for (let y = 0; y < H; y += 3) sg.fillRect(0, y, W, 1);
   const nc = document.createElement('canvas'); nc.width = Math.round(W / 6); nc.height = Math.round(H / 6); const ng = nc.getContext('2d');
-  const sc = Math.min(W, H) / 720, fs = Math.round(Math.max(14, 20 * sc)), mg = Math.round(Math.max(14, 28 * sc));
+  const sc = Math.min(W, H) / 720, fs = Math.round(Math.max(11, 20 * sc)), cm = cardMargin(W, H);
   const BAND = 0.9, B0 = 1.25;      // the tracking band passes once, from B0 over BAND seconds
   return {
     card, line, no,
@@ -294,7 +325,7 @@ export function makeTape(W, H, line, no, link = CLIP_LINK) {
       const d = new Date(stampMs || Date.now()), blink = Math.floor(T * 2) % 2 === 0, ts = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}  ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
       const tag = (blink ? '▶' : ' ') + ' PLAYBACK  ·  END OF RECORDING';
       const plate = (s, x, y, al) => { g.textAlign = al; const w = g.measureText(s).width, px = al === 'left' ? x : al === 'right' ? x - w : x - w / 2; g.fillStyle = 'rgba(12,18,14,0.78)'; g.fillRect(px - 8, y - 4, w + 16, fs + 8); g.fillStyle = 'rgba(236,244,236,1)'; g.fillText(s, x, y); };
-      if (T >= STATIC * 0.5) { plate(tag, W / 2, mg * 0.5 + 2, 'center'); plate(ts, mg * 0.55, H - mg * 0.5 - fs - 2, 'left'); }
+      if (T >= STATIC * 0.5) { plate(tag, W / 2, (cm - fs) / 2, 'center'); plate(ts, Math.max(10, cm * 0.4), H - (cm + fs) / 2, 'left'); }
       g.restore();
     },
   };

@@ -66,11 +66,14 @@ function make(o) {
 
   // ------------------------------------------------------------ host capabilities (all optional, never awaited by the game)
   let db = null, dbState = 'pending';
+  // the developer's notes (the T box, the corner button, the pause card's note line and "copy session") are only for the page that has the database, or with #debug
+  const DEBUG = /debug/.test(location.hash), noteOK = () => DEBUG || dbState === 'ok';
+  function noteVis() { try { document.body.classList.toggle('notes-on', noteOK()); copyVis(); } catch {} }
   const host = safe(() => window.claude && typeof window.claude.use === 'function' ? window.claude : null);
   const use = (name) => { try { return Promise.resolve(host.use(name)).catch(() => null); } catch { return Promise.resolve(null); } };
   const timed = (p, ms) => Promise.race([p, new Promise((res) => setTimeout(() => res(null), ms))]);
   if (host) {
-    timed(use('db'), 12000).then((d) => { db = d || null; dbState = db ? 'ok' : 'none'; log('tel', 'db', dbState); copyVis(); if (db) flush('db'); });
+    timed(use('db'), 12000).then((d) => { db = d || null; dbState = db ? 'ok' : 'none'; log('tel', 'db', dbState); noteVis(); if (db) flush('db'); });
   } else { dbState = 'none'; }
 
   // ------------------------------------------------------------ the record
@@ -380,6 +383,7 @@ function make(o) {
   const box = $('noteBox'), ta = $('noteTa'), send = $('noteSend'), shield = $('noteShield');
   let open = null;
   function openBox(why) {
+    if (!noteOK()) return;
     if (open || !box || !ta) { if (!box || !ta) mark(why); return; }
     const n = newNote('typed'); n.why = why;      // the context, first: before anything else changes
     if (!o.freeze || !o.freeze(true)) { mark(why); return; }
@@ -418,7 +422,7 @@ function make(o) {
     try {
       if (!S.started || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
       if (e.target && e.target.closest && e.target.closest('input, select, textarea')) return;
-      if (e.key.toLowerCase() !== NOTE_KEY || S.paused || S.frozen) return;      // (open while dead too: the death cam and the card)
+      if (e.key.toLowerCase() !== NOTE_KEY || S.paused || S.frozen || !noteOK()) return;      // (open while dead too: the death cam and the card)
       e.preventDefault();      // the letter must not land in the box it opens
       openBox('key');
     } catch {}
@@ -433,7 +437,7 @@ function make(o) {
   let padPrev = false;
   function padPoll() {
     const gp = navigator.getGamepads ? [...navigator.getGamepads()].find((g) => g && g.connected) : null; if (!gp) { padPrev = false; return; }
-    const b = !!(gp.buttons[11] && gp.buttons[11].pressed); if (b && !padPrev && S.started && !S.paused && !S.dead && !S.frozen) mark('pad'); padPrev = b;
+    const b = !!(gp.buttons[11] && gp.buttons[11].pressed); if (b && !padPrev && S.started && !S.paused && !S.dead && !S.frozen && noteOK()) mark('pad'); padPrev = b;
   }
   // the pause card: a one-line note, the count, and (only when the data cannot leave the page) "copy session"
   const pIn = $('pNote'), pCount = $('pNotes'), pCopy = $('pCopy');
@@ -441,13 +445,13 @@ function make(o) {
   function saveTyped() { if (pIn && pIn.value.trim()) { typed(pIn.value); pIn.value = ''; } }
   function pauseCard() { countLine(); copyVis(); }
   if (pIn) pIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveTyped(); if (pCount) pCount.textContent = 'saved'; setTimeout(countLine, 1400); } });
-  function copyVis() { if (pCopy) pCopy.hidden = !(dbState === 'none' || dbFail > 0); }
+  function copyVis() { if (pCopy) pCopy.hidden = !noteOK(); }
   if (pCopy) pCopy.addEventListener('click', () => {
     const txt = summary(); const done = (m) => { pCopy.textContent = m; setTimeout(() => { pCopy.textContent = 'copy session'; }, 2000); };
     const fallback = () => { try { const ta = document.createElement('textarea'); ta.value = txt; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); done(ok ? 'copied' : 'copy refused'); } catch { done('copy refused'); } };
     try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => done('copied'), fallback); else fallback(); } catch { fallback(); }
   });
-  copyVis(); countLine();
+  noteVis(); countLine();
   /** The session as one pasteable line: header, every event (death rings left out), a coarse timeline, the notes without rings. */
   function summary() {
     try {

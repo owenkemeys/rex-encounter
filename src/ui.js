@@ -30,13 +30,13 @@ export const KIT = { torch: true, flares: 3, stones: 0, meat: 0 };
 // is taught once, by a short prompt, the first time it matters (see teach).
 // One name per verb, used on every device: walk, run, crouch, look, zoom, flare, call, torch, the contextual verb itself, pause, controls.
 const KEYS = {
-  kb: { move: 'W A S D', run: 'Shift', crouch: 'C', look: 'mouse', zoom: 'right mouse / Z', use: 'click', items: 'wheel / 1 2 3', call: 'Q', act: 'E', torch: 'F', note: 'T', pause: 'Esc', peek: 'Tab', again: 'Enter', struggle: 'W A S D' },
-  pad: { move: 'left stick', run: 'L3', crouch: 'B', look: 'right stick', zoom: 'LT', use: 'RT', items: 'LB / RB', call: 'X', act: 'A', torch: 'Y', note: 'R3', pause: 'Start', peek: 'View', again: 'A', struggle: 'left stick' },
-  touch: { move: 'stick', run: 'stick to the rim, or run', crouch: 'crouch', look: 'drag the view', zoom: 'zoom', use: 'flare', items: 'item', call: 'call', act: 'pop-up button', torch: 'torch', note: 'note', pause: '\u2016', peek: '?', again: '', struggle: 'the stick' },
+  kb: { move: 'W A S D', run: 'Shift', crouch: 'C', look: 'mouse', zoom: 'right mouse / Z', use: 'click', items: 'wheel / 1 2 3', call: 'Q', act: 'E', torch: 'F', note: 'T', clip: 'R', pause: 'Esc', peek: 'Tab', again: 'Enter', struggle: 'W A S D' },
+  pad: { move: 'left stick', run: 'L3', crouch: 'B', look: 'right stick', zoom: 'LT', use: 'RT', items: 'LB / RB', call: 'X', act: 'A', torch: 'Y', note: 'R3', clip: 'pause card', pause: 'Start', peek: 'View', again: 'A', struggle: 'left stick' },
+  touch: { move: 'stick', run: 'stick to the rim, or run', crouch: 'crouch', look: 'drag the view', zoom: 'zoom', use: 'flare', items: 'item', call: 'call', act: 'pop-up button', torch: 'torch', note: 'note', clip: 'clip', pause: '\u2016', peek: '?', again: '', struggle: 'the stick' },
 };
 const itemNames = () => [KIT.flares > 0 && 'flare', KIT.stones > 0 && 'stone', KIT.meat > 0 && 'meat'].filter(Boolean);
 const useName = () => (itemNames().length > 1 ? 'throw what is in hand' : 'throw a ' + itemNames()[0]);
-const CTL = () => [['move', 'walk'], ['run', 'run'], ['crouch', 'crouch'], ['look', 'look'], ['zoom', 'zoom'], itemNames().length && ['use', useName()], itemNames().length > 1 && ['items', 'change item'], ['call', 'call <i>(hold: shout)</i>'], ['act', 'climb, doors <i>(when shown)</i>'], KIT.torch && ['torch', 'torch'], ['note', 'note'], ['pause', 'pause']].filter(Boolean);
+const CTL = () => [['move', 'walk'], ['run', 'run'], ['crouch', 'crouch'], ['look', 'look'], ['zoom', 'zoom'], itemNames().length && ['use', useName()], itemNames().length > 1 && ['items', 'change item'], ['call', 'call <i>(hold: shout)</i>'], ['act', 'climb, doors <i>(when shown)</i>'], KIT.torch && ['torch', 'torch'], ['note', 'note'], ['clip', 'save a clip of the last 15 s'], ['pause', 'pause']].filter(Boolean);
 // the start card: only what a first-time player needs
 const CTL_START = () => [['move', 'walk'], ['look', 'look'], itemNames().length && ['use', useName()], ['call', 'call <i>(hold: shout)</i>'], KIT.torch && ['torch', 'torch'], ['pause', 'pause']].filter(Boolean);
 // achievements that cannot be earned while the player carries no stones or meat: hidden from the lists and the counts
@@ -61,6 +61,7 @@ export function createUI(o) {
   const fmtB = (t) => String(t || '').replace(/\{(\w+)\}/g, (_, k) => kb(k));
   // on touch a button named for its verb (crouch, zoom, torch) needs no line of its own: they share one
   const ctlHTML = (list = CTL()) => {
+    list = list.filter(([k]) => (k !== 'clip' || (S.clip && S.clip.supported)) && (k !== 'note' || document.body.classList.contains('notes-on')));
     const d = dev(), K = KEYS[d], same = d === 'touch' ? list.filter(([k, t]) => K[k] === t) : [];
     const rows = list.filter((r) => !same.includes(r)).map(([k, t]) => `<b>${esc(K[k])}</b><span>${t}</span>`);
     if (same.length) rows.splice(rows.length - 1, 0, `<b>${same.map(([k]) => esc(K[k])).join(' ')}</b><span>as named</span>`);
@@ -120,7 +121,7 @@ export function createUI(o) {
   window.addEventListener('keydown', (e) => {
     if (e.target.closest && e.target.closest('input, select, textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
-    if (S.dead) { if (D.shown && (k === 'enter' || k === ' ')) { e.preventDefault(); retry(); } return; }
+    if (S.dead) { if (D.shown && (k === 'enter' || k === ' ') && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('#dead button:not(#xAgain)'))) { e.preventDefault(); retry(); } return; }      // (closeout: Enter on a focused WATCH AGAIN or SAVE CLIP presses that button)
     if (!S.started || S.paused) return;
     if (k === 'tab') { e.preventDefault(); if (!e.repeat) { tabHeld = true; peek(true); } } else if (k === '`') { if (!debugOn) setDebug(true); set('panel'); } else if (k === 'escape' && flags.panel) set('panel', false);
     else if (k === 'shift') taught('run');
@@ -509,7 +510,7 @@ export function createUI(o) {
     $('sKeys').innerHTML = ctlHTML(CTL_START());
     if (S.paused) $('pKeys').innerHTML = ctlHTML();
     if (peeking) $('peekKeys').innerHTML = ctlHTML();
-    $('helpKey').textContent = d === 'touch' ? '' : K.peek; $('pauseKey').textContent = d === 'touch' ? '' : K.pause; $('xKey').textContent = K.again;
+    $('helpKey').textContent = d === 'touch' ? '' : K.peek; $('pauseKey').textContent = d === 'touch' ? '' : K.pause; try { $('xKeys').textContent = D.shown ? keysLine() : ''; } catch {}
     inv.html = ''; prWhat = null; hudKey = '';
   }
   function note(t) { const H = $('hint'); H.textContent = t; H.classList.add('on'); clearTimeout(hintT); hintT = setTimeout(() => H.classList.remove('on'), 1300); }
@@ -541,7 +542,7 @@ export function createUI(o) {
       CUT.style.display = k < 1 ? 'block' : 'none'; CUT.style.opacity = String(Math.max(0, 1 - k)); CC.style.visibility = 'hidden'; return;
     }
     CUT.style.opacity = '1';
-    const on = S.dead && inv.clock - D.at > 0.18;
+    const on = S.dead && !D.shown && inv.clock - D.at > 0.18;      // (closeout: with the death menu up the scene shows behind it, dimmed)
     CUT.style.display = on ? 'block' : 'none'; if (!on) return;
     const k = inv.clock - D.at - 0.18, snow = vhs() && k < 0.7;
     CC.style.visibility = snow ? 'visible' : 'hidden'; if (!snow) return;
@@ -569,15 +570,23 @@ export function createUI(o) {
     if (!(session && session.canReplay && session.canReplay() && session.replay())) return false;
     D.fade = inv.clock; D.fadeLen = fade; return true;
   }
+  // closeout: the death menu. A slim panel in the security system's own lettering over the (dimmed) last frame of the footage: one line of facts, one deadpan line of
+  // advice (the very sentence the closing card of a saved clip shows: clip.js caches it for this death), and three ranked actions.
+  const WORDS = { bite: 'BITTEN', bitten: 'BITTEN', jaws: 'BITTEN', seize: 'BITTEN', shake: 'SHAKEN', shaken: 'SHAKEN', crush: 'CRUSHED', crushed: 'CRUSHED', stamp: 'STAMPED ON', stamped: 'STAMPED ON', pin: 'PINNED', pinned: 'PINNED', toss: 'THROWN', tossed: 'THROWN', thrown: 'THROWN', fall: 'A FALL', landed: 'A FALL', butt: 'HEADBUTTED', swipe: 'TAIL STRIKE', tail: 'TAIL STRIKE', eaten: 'EATEN', eat: 'EATEN', fed: 'EATEN' };
+  function keysLine() {
+    const d = dev(), a = [['go again', d === 'pad' ? 'A' : 'Enter']]; if (!$('xReplay').hidden) a.push(['watch again', d === 'pad' ? 'X' : 'R']); if (!$('xClip').hidden) a.push(['save clip', d === 'pad' ? 'Y' : 'C']);
+    return d === 'touch' ? '' : a.map(([n, k]) => `${k} ${n}`).join(' \u00b7 ');
+  }
   function showDeath() {
     D.shown = true; peek(false);
-    $('xCause').textContent = typeof D.cause === 'string' && D.cause ? (CAUSE[D.cause.toLowerCase()] || D.cause.toLowerCase()) : 'it killed you';
-    const st = (mind.voice && mind.voice.stream) || [], words = st.slice(-4).map((x) => x.text).filter(Boolean);
-    $('xWords').innerHTML = words.length ? '<span class="lab">what it was thinking</span>' + words.map((w) => `<div class="pill">${esc(w.toLowerCase())}</div>`).join('') : '';
-    $('xTime').textContent = dur(D.lasted);
+    let L = null; try { L = S.clip && S.clip.lineFor ? S.clip.lineFor() : null; } catch {}
+    const cause = typeof D.cause === 'string' && D.cause ? (WORDS[D.cause.toLowerCase()] || D.cause.toUpperCase()) : '';
+    $('xFacts').textContent = ['INCIDENT No. ' + (L ? L.no : '0000'), 'VISITOR LASTED ' + dur(D.lasted).toUpperCase(), cause].filter(Boolean).join(' \u00b7 ');
+    $('xAdvice').textContent = L ? L.text : '';
+    const tape = !!(session && session.canReplay && session.canReplay());
+    $('xReplay').hidden = !tape; { const b = $('xClip'); b.hidden = !(tape && session && session.clipOK && session.clipOK()); if (S.clip) S.clip.discard(); }
+    $('xKeys').textContent = keysLine(); $('xClipSub').hidden = $('xClip').hidden;
     document.body.classList.add('dead');
-    $('xReplay').hidden = !(session && session.canReplay && session.canReplay());
-    { const b = $('xClip'); if (b) { b.hidden = !(session && session.clipOK && session.clipOK() && session.canReplay && session.canReplay()); if (S.clip) S.clip.discard(); clipReady(); const n = $('xClipNote'); if (n) n.textContent = ''; } }      // clip
     try { $('xAgain').focus({ preventScroll: true }); } catch {}      // Enter, Space or A goes again
   }
   /** Go again: a new life (also "start over" on the pause card). */
@@ -586,35 +595,17 @@ export function createUI(o) {
     act.respawn();
     const V = arena.victims && arena.victims.get('you');
     if (V) { if (V.dead) V.dead = false; if (typeof V.health === 'number' && V.health <= 0) V.health = V.health > 1 ? 100 : 1; }
-    D.evt = null; D.shown = false; D.auto = false; S.dead = false; lifeEarned = []; document.body.classList.remove('dead');
+    D.evt = null; D.shown = false; D.auto = false; S.dead = false; lifeEarned = []; if (S.clip && S.clip.resetLine) S.clip.resetLine(); document.body.classList.remove('dead');
     if (S.zoom) { S.zoom.toggle = false; S.zoom.hold = false; const z = $('tZoom'); if (z) z.setAttribute('aria-pressed', 'false'); }      // a new life starts unzoomed
     if (watch && session) session.setMode('observe');
     if (session) session.lockPointer();
   }
   $('xAgain').addEventListener('click', () => { audio.resume(); retry(false); });
   $('xReplay').addEventListener('click', () => { audio.resume(); playReplay(0.4); });
-  // clip: "save clip" plays the tape once more while recording it (main.js startClip, src/view/clip.js); when it has ended the same button hands the file over
-  let clipBusy = false;
-  function clipReady() {
-    try {
-      const b = $('xClip'), C = S.clip; if (!b || !C) return;
-      b.textContent = C.state === 'ready' && C.blob ? (!C.hasDownloads() && C.canShare() ? 'share clip' : 'save file') : 'save clip';
-    } catch {}
-  }
-  if ($('xClip')) $('xClip').addEventListener('click', async () => {
-    try {
-      const C = S.clip; if (!C || clipBusy) return; const b = $('xClip'), note = $('xClipNote'); audio.resume();
-      if (C.state === 'ready' && C.blob) {
-        clipBusy = true; b.disabled = true; let r = { ok: false };
-        try { r = await C.deliver(); } catch {}
-        clipBusy = false; b.disabled = false; C.discard();
-        if (note) note.textContent = r.ok || r.declined ? '' : 'saving is not available in this view';
-        clipReady(); return;
-      }
-      if (note) note.textContent = '';
-      if (session && session.clip && session.clip()) { D.fade = inv.clock; D.fadeLen = 0.4; }
-    } catch {}
-  });
+  // clip: "save clip" plays the tape once more while it is recorded (main.js startClip, src/view/clip.js); the file is handed over from the "ready" panel there
+  function clipReady() {}
+  if ($('xClip')) $('xClip').addEventListener('click', () => { try { audio.resume(); if (session && session.clip && session.clip()) { D.fade = inv.clock; D.fadeLen = 0.4; } } catch {} });
+  const deathFocus = () => { try { $('xAgain').focus({ preventScroll: true }); } catch {} };
   // ------------------------------------------------------------ photo: the frame, the bubble, a quiet wordmark
   function compose() {
     const W = canvas.width, H = canvas.height, c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -666,7 +657,7 @@ export function createUI(o) {
   let acc = 0, pausedOnce = false;
   apply(); devChanged();
   return {
-    clipReady, flags, set, achv, photo, whistle, toggleAll: () => set('bare'), taught, peek, held, note, devChanged,
+    clipReady, deathMenu: showDeath, deathFocus, flags, set, achv, photo, whistle, toggleAll: () => set('bare'), taught, peek, held, note, devChanged,
     get debug() { return debugOn; }, setDebug,
     /** The pause card's "start over": a new life, as after a death. */
     restart() { retry(false, true); },

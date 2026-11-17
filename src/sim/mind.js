@@ -159,6 +159,10 @@ MIND_DEFAULT.core = {
   pause: [2.5, 4.5],  // s reading the answer to a probe (x1.4 watched, x0.7 not)
   shoveF: 0.2,        // force of the shove (knocks a person down, no harm)
   fed: 0.4,           // hunger under which it toys: probes up to the shove, never the reach
+  // PROVOKE: a small, still thing that has been looked at and has not reacted is something to test. One probe at a time, a few seconds
+  // apart, each waiting briefly for a reaction (a reaction is the reward: it resets the climb). Not about any one thing: any still small creature.
+  prov: { on: true, hungerMax: 0.75, stillT: 1.2, sniff: [2.4, 3.8], pause: [1.5, 2.6], quick: [0.8, 1.6], huffFirst: 0.2, fearMax: 0.35,
+    reachS: 3.9, reachL: 3.4, tooClose: 2.9, w: { nudge: 0.5, shove: 0.7, foot: 0.8, bluff: 0.6, drop: 0.9, toss: 0.6, roll: 1.4, huff: 0.3 }, tossForce: 0.85 },
   reachT: [3.5, 5],   // s: the open-mouthed reach, from its start to the bite (readable, counterable)
   reachFrom: 30,      // m: the pressure on a thing that is not running inside this ends in the reach (not the rush)
   reachPace: 0.9,     // m/s while reaching
@@ -1406,6 +1410,7 @@ export class Mind {
       case 'answer': b.dur = R.range(4, 6); b.at = { ...this.thunder }; b.roared = false; break;
       case 'butt': case 'swipe': case 'pin': case 'seize': case 'toy': {
         if (this.ov.force === name || !this.motiveNext) { const Mo = this._motives(c); this.motiveNext = name === 'toy' ? 'play' : Mo.prey > Mo.anger && Mo.prey > Mo.play ? 'prey' : Mo.play > Mo.anger ? 'play' : 'anger'; }
+        b.pickup = this.pickupNext || null; this.pickupNext = null;
         b.motive = this.motiveNext; this.motive = b.motive; this.motiveNext = null; b.phase = name === 'swipe' ? 'set' : 'close'; b.dur = name === 'toy' ? 30 : name === 'seize' ? 60 : 25; b.next = 0; b.tries = 0;
         b.force = b.motive === 'play' ? 0.2 : b.motive === 'anger' ? clamp(0.55 + 0.45 * this.grudge + 0.15 * this.attacks, 0, 1) : 0.75;
         b.lethal = !!(this.lethalNext && b.motive === 'anger' && this.ap.verdict === 'threat'); this.lethalNext = false;      // to end it, not to make a point
@@ -2301,18 +2306,19 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
     const back = !!(ap.cues && ap.cues.back), turned = !c.watched && (K.unwT > C.glanceT || back);
     // (watched, it comes on slowly, but only as slowly as the pressure lets it: being watched does not stop hunger)
     const pW = lerp(C.paceW, Math.max(C.paceW, C.paceFar ?? C.paceW), ss(C.farD ? C.farD[0] : 99, C.farD ? C.farD[1] : 100, c.d));      // (watched from far, an ordinary walk)
-    const pace = (c.watched ? pW + (C.paceU - pW) * 0.8 * clamp(this.peril.r, 0, 1) : turned ? Math.max(C.paceU, pW) : Math.max(C.paceG, pW)) * (1 + (C.hungryPace - 1) * ss(0.4, 0.95, this.hunger));
+    const pace0 = (c.watched ? pW + (C.paceU - pW) * 0.8 * clamp(this.peril.r, 0, 1) : turned ? Math.max(C.paceU, pW) : Math.max(C.paceG, pW)) * (1 + (C.hungryPace - 1) * ss(0.4, 0.95, this.hunger));
+    const pace = pace0 * (K.prov && K.prov.n && this.t - (K.prov.t || -99) < 25 && this._provOK(a) ? Math.max(1, 1.9 / Math.max(pace0, 0.3)) : 1);      // (it has been testing it: it comes straight back to it)
     const head = { x: a.x, y: lying ? gy + 0.4 : a.y - 0.25, z: a.z }, torso = { x: a.x, y: lying ? gy + 0.3 : a.y - 0.65, z: a.z };
     I.look = { ...eye, lock: true }; I.noIdle = true; I.quickTurn = true;
     K.unwGo = turned && c.d > C.inspectD + 1.5 && b.phase === 'come';
     const log = (kind) => { K.probes.push({ t: +this.t.toFixed(1), kind, r: +this.peril.r.toFixed(2) }); K.lastProbeT = this.t; if (K.probes.length > 60) K.probes.shift(); };
-    const pauseLen = () => R.range(...C.pause) * (c.watched ? 1.4 : turned ? 0.6 : 0.9);
+    const pauseLen = () => b.prov ? R.range(...C.prov.pause) : R.range(...C.pause) * (c.watched ? 1.4 : turned ? 0.6 : 0.9);
     const read = () => { b.phase = 'read'; b.at = b.t; b.len = pauseLen(); b.d0 = c.d; b.ans = { came: false, backed: false, light: false, fire: false, loud: false, down: false }; b.f0 = ap.firedT ?? -99; b.s0 = ap.shoutT ?? -99; };
     switch (b.phase) {
       case 'come': {
         const off = b.side ? { x: Math.cos(sim.psi) * 4 * b.side, z: -Math.sin(sim.psi) * 4 * b.side } : { x: 0, z: 0 };
         I.goal = { kind: 'approach', id: b.gen + (b.side ? 7 : 0), x: a.x + off.x, z: a.z + off.z, stop: C.inspectD, hold: 30 }; I.pace = pace; I.low = c.d < 20 ? 0.55 : 0.25;
-        if (c.d < C.inspectD + 1.0) { b.phase = 'sniff'; b.at = b.t; b.len = pauseLen() + 1.5; b.side = 0; log('sniff'); }
+        if (c.d < C.inspectD + 1.0) { b.phase = 'sniff'; b.at = b.t; b.len = this._provOK(a) ? (K.prov && K.prov.n ? R.range(...C.prov.quick) : R.range(...C.prov.sniff)) : pauseLen() + 1.5; b.side = 0; log('sniff'); }
         this.thought = c.watched ? 'Coming on slowly while you watch it.' : 'You looked away: it comes on.';
         break;
       }
@@ -2327,9 +2333,9 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
         break;
       }
       case 'nudge': {
-        I.goal = { kind: 'approach', id: b.gen, x: a.x, z: a.z, stop: this.sp.spacing.nudge, hold: 30 }; I.pace = 0.9;
-        I.probe = { ...torso, k: 1, standoff: -0.15 }; I.low = 0.6;
-        if (c.dHead < 2.6 || b.t - b.at > 5) { this.events.push({ type: 'nudge', x: a.x, z: a.z, dx: Math.sin(sim.head.yaw), dz: Math.cos(sim.head.yaw) }); sim.gesture('huff'); log('nudge'); read(); }
+        I.goal = { kind: 'approach', id: b.gen, x: a.x, z: a.z, stop: b.prov ? (lying ? C.prov.reachL : C.prov.reachS) : this.sp.spacing.nudge, hold: 30 }; I.pace = b.prov ? 1.1 : 0.9;
+        I.probe = { ...torso, k: 1, standoff: -0.15 }; I.low = 0.6; if (b.prov) { I.poke = b.gen * 10 + 3 + (K.prov ? K.prov.n : 0); b.motive = 'play'; this.motive = 'play'; }      // (the snout into you: rocks a person standing, rolls one lying: arena.js)
+        if (c.dHead < (b.prov ? 0.9 : 2.6) || b.t - b.at > 5 || (b.prov && st !== b.st0 && b.t - b.at > 0.4) || (b.prov && b.t - b.at > 3.5)) { this.events.push({ type: 'nudge', x: a.x, z: a.z, dx: Math.sin(sim.head.yaw), dz: Math.cos(sim.head.yaw) }); sim.gesture('huff'); log('nudge'); read(); }
         this.thought = 'Pushing its snout into you.';
         break;
       }
@@ -2341,13 +2347,30 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
         this.thought = 'Shoving you with its head, to see what you do.';
         break;
       }
+      case 'back': {
+        I.goal = { kind: 'drive', throttle: -0.5, steer: 0 }; I.pace = 1.2; I.alert = 0.6; I.probe = { ...torso, k: 0.5, standoff: 1.5 };
+        if (c.d > C.prov.tooClose + 1.5 || b.t - b.at > 2.5) this._provGo(b, c, b.then);
+        this.thought = 'Stepping back a little to get at you.';
+        break;
+      }
+      case 'huff': case 'bluff': case 'roll': {
+        // PROVOKE: right up at it, then a huff in the face / a roar or snap beside it / the snout rolling it over
+        I.goal = { kind: 'approach', id: b.gen, x: a.x, z: a.z, stop: b.phase === 'roll' ? C.prov.reachL : b.phase === 'huff' ? C.prov.reachS + 0.4 : this.sp.spacing.nudge - 1.5, hold: 30 }; I.pace = 1.1; I.probe = { ...(b.phase === 'huff' ? head : torso), k: 1, standoff: b.phase === 'roll' ? -0.15 : 0.5 }; I.low = 0.6;
+        if (b.phase === 'roll') { I.poke = b.gen * 10 + 3 + (K.prov ? K.prov.n : 0); b.motive = 'play'; this.motive = 'play'; }
+        const near = c.dHead < 2.6 || b.t - b.at > 4.5;
+        if (b.phase === 'roll') { if ((st !== b.st0 && b.t - b.at > 0.4) || b.t - b.at > 3.5) { log('roll'); read(); } }
+        else if (near && !b.fired) { b.fired = true; b.firedAt = b.t; if (b.phase === 'huff') { sim.gesture('huff'); log('huff'); } else { const sd = b.fs || (b.fs = R() < 0.5 ? -1 : 1), ux = (sim.x - a.x) / (c.d || 1), uz = (sim.z - a.z) / (c.d || 1); if (R() < 0.5) sim.roar(); else sim.gesture('snap', { x: a.x - uz * sd * 1.1, y: a.y - 0.3, z: a.z + ux * sd * 1.1 }, { over: true, force: 0.4 }); log('bluff'); } }
+        if (b.fired && b.t - b.firedAt > (b.phase === 'bluff' ? 1.2 : 0.5)) { b.fired = false; read(); }
+        this.thought = b.phase === 'roll' ? 'Rolling you over with its snout.' : b.phase === 'huff' ? 'Breathing in your face to see what you do.' : 'Roaring right beside you to see what you do.';
+        break;
+      }
       case 'foot': {
         // a foot raised and set down beside it, on its own side
         const ux = (sim.x - a.x) / (c.d || 1), uz = (sim.z - a.z) / (c.d || 1), sd = b.fs || (b.fs = R() < 0.5 ? -1 : 1);
         const px = a.x + ux * 1.1 - uz * sd * 0.9, pz = a.z + uz * 1.1 + ux * sd * 0.9;
         I.goal = { kind: 'approach', id: b.gen, x: px, z: pz, stop: 1.8, hold: 30 }; I.pace = 0.8; I.plant = { x: px, z: pz }; I.probe = { ...head, k: 0.8, standoff: 1.2 }; I.low = 0.5;
-        if (!b.logged) { b.logged = true; log('foot'); }
-        if (b.t - b.at > 4) read();
+        if (!b.logged) { b.logged = true; log('foot'); if (b.prov) sim.gesture('stomp'); }
+        if (b.t - b.at > (b.prov ? 2.6 : 4)) read();
         this.thought = 'Setting a foot down right beside you.';
         break;
       }
@@ -2378,6 +2401,33 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
     }
     if (b.t > 85) b.done = true;
   }
+  /** A small thing that is not reacting, which an animal that is not too hungry (hunger has its own way) and not afraid tests. */
+  _provOK(a) {
+    const P = this.cfg.core.prov; if (!P || !P.on || !a || a.dead || a.id === 'observer' || a.ghost) return false;
+    const st = a.state || 'free'; if (st === 'held' || st === 'air' || st === 'pinned') return false;
+    return this.hunger < P.hungerMax && this.ap.fear < P.fearMax && (a.still || 0) >= P.stillT && !(this.ctx && this.ctx.running);
+  }
+  /** The next probe of a still thing, varied: the nose, a shove, then by temperament and hunger a foot, a roar beside it, rolling it,
+   *  picking it up to drop it or toss it. Never the same twice running. A reaction (see _answer) starts the climb again. */
+  _provoke(b, c, K, a, lying) {
+    const P = this.cfg.core.prov, R = this.R, bold = clamp(this.temper.bold ?? 0.6, 0.1, 1), hun = this.hunger, p = K.prov || (K.prov = { n: 0, last: null, done: {} });
+    const W = { ...P.w }; W.toss *= 0.5 + bold; W.bluff *= 0.5 + bold; W.drop *= 1.2 - 0.6 * bold; if (lying) { W.shove = 0; W.nudge = 0.2; } else W.roll = 0;
+    let kind;
+    if (!p.done.nudge && !lying) kind = p.n === 0 && R() < P.huffFirst ? 'huff' : 'nudge';
+    else if (!p.done.shove && !lying && R() < 0.8) kind = 'shove';
+    else { const ks = Object.keys(W).filter((k) => k !== p.last && W[k] > 0), tot = ks.reduce((x, k) => x + W[k] * (k === 'toss' || k === 'drop' ? 1 - 0.5 * clamp((hun - 0.4) / 0.35, 0, 1) : 1), 0); let u = R() * tot; kind = ks[0]; for (const k of ks) { u -= W[k] * (k === 'toss' || k === 'drop' ? 1 - 0.5 * clamp((hun - 0.4) / 0.35, 0, 1) : 1); if (u <= 0) { kind = k; break; } } }
+    p.n++; p.last = kind; p.done[kind] = 1; p.t = this.t; b.prov = kind; b.st0 = a.state || 'free'; b.at = b.t; b.fs = 0; b.logged = false; b.fired = false;
+    const say = { nudge: ['it not move. poke it', 'poke it. see', 'still. poke it'], shove: ['still not move?', 'push it harder', 'still. push it'], foot: ['scratch at it', 'paw it. see', 'still. paw it'], bluff: ['roar. see it jump', 'scare it. see', 'still not move. roar'], huff: ['breathe on it. see', 'huff in face. see'], roll: ['roll it. see', 'nose it over'], drop: ['pick it up. drop it', 'lift it. see', 'pick it up. see'], toss: ['throw it. see', 'throw it. far', 'pick it up. throw'] }[kind];
+    this._say('provoke', say, 1.8);
+    if ((kind === 'nudge' || kind === 'roll' || kind === 'drop' || kind === 'toss') && c.d < (lying ? P.tooClose + 0.4 : P.tooClose)) { b.phase = 'back'; b.then = kind; b.len = R.range(...P.pause); return; }      // too close for the head to work: a few steps back first
+    this._provGo(b, c, kind);
+  }
+  _provGo(b, c, kind) {
+    const P = this.cfg.core.prov;
+    b.at = b.t; b.fired = false;
+    if (kind === 'drop' || kind === 'toss') { this.motiveNext = 'play'; this.pickupNext = kind; b.done = true; this._start('seize', c, 'play with it'); return; }
+    b.phase = kind; b.len = this.R.range(...P.pause);
+  }
   /** The next question: as far up the steps as the pressure goes (`core.rungs` against peril.r), one step at a time; fed, no
    *  further than the shove; lying there, no shove or foot. The last step is the reach (peril.js). */
   _ask(b, c, K) {
@@ -2385,6 +2435,7 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
     const want = C.rungs.filter((x) => r >= x).length, cap = this.hunger < C.fed ? 2 : 4;
     let next = Math.min(want, K.rung + 1, cap); if (next < K.rung) next = Math.max(want, K.rung - 1);
     if (lying && (next === 2 || next === 3)) next = 1;
+    if (next <= K.rung && this._provOK(a)) { this._provoke(b, c, K, a, lying); return; }      // the pressure is not asking anything more: it tests the still thing itself
     K.rung = next; b.at = b.t; b.fs = 0; b.logged = false;
     if (next === 4) { if (this.peril.reachReady() && this.peril.beginReach(a, c)) { b.done = true; return; } next = 3; K.rung = 3; }
     b.phase = ['sniff', 'nudge', 'shove', 'foot'][next]; b.len = R_(this.R, C.pause);
@@ -2393,10 +2444,17 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
   /** What the answer was, what it now believes and what it does about it. An answer other than the one it got at this step
    *  before stops it (and is itself new: curiosity); the same one is what it expected. */
   _answer(b, c, K) {
-    const ap = this.ap, A = b.ans, R = this.R;
+    const ap = this.ap, A = b.ans, R = this.R, C0 = this.cfg.core;
     // (what it has had enough of is no answer: a light, a fire or a noise it is used to reads as doing nothing)
     const used = (k) => (ap.hab[k] || 0) > 0.6, A2 = { fire: A.fire && !used('fire'), light: A.light && !used('light'), loud: A.loud && !used('loud') };
     const ans = A2.fire ? 'fire' : A2.light ? 'light' : A2.loud ? 'loud' : A.came ? 'came' : A.down ? 'fell' : c.d > b.d0 + 1.0 ? 'backed' : 'still';
+    if (b.prov) {
+      // a probe it chose itself: still / knocked over is the answer it expected, so it goes on; a reaction is the reward: interest jumps, the climb starts again
+      const a2 = this.know.target, reacted = ans === 'came' || ans === 'backed' || ans === 'loud' || ans === 'light' || ans === 'fire' || (a2 && (a2.state || 'free') === 'free' && (a2.speed || 0) > 1.0) || (a2 && a2.struggle > 0.3);
+      b.prov = null; ap.outcome('probe-' + ans);
+      if (reacted) { K.prov = { n: 0, last: K.prov && K.prov.last, done: {} }; this.mood.interest = Math.min(1, this.mood.interest + 0.3); this._say('provreact', ['it move!', 'it move. again?', 'it move. good']); if (ans === 'came') { b.phase = 'wary'; b.at = b.t; return; } if (ans === 'backed') { b.phase = 'come'; return; } b.phase = c.d > C0.inspectD + 1.5 ? 'come' : 'sniff'; b.at = b.t; b.len = R.range(...C0.prov.quick); return; }
+      this._ask(b, c, K); return;
+    }
     const prev = K.answers[K.rung];
     K.answers[K.rung] = ans; K.lastAns = { ans, t: this.t, rung: K.rung };
     ap.outcome('probe-' + ans);
@@ -2657,6 +2715,7 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
             // or afraid, it still lets go, and says why.
             const known = (a.handled || 0) > 1, resolute = b.lethal || (!play && this.ap.fear < 0.35 && (prey && this.hunger > 0.75 || known && this.hunger > 0.5));
             if (resolute) nx = b.shakes < 1 ? 'worry' : 'kill';
+            else if (b.pickup && play && held > 0.8) nx = b.pickup;      // PROVOKE: picked up to be dropped or thrown (never to be eaten)
             else if (prey && b.sub === 'taste' && !b.tasted) {
               // what it found in its mouth: worth keeping, or not meat after all
               const ap = this.ap, ovv = this.ov.verdict;
@@ -2679,7 +2738,7 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
             if (angry && fight && b.shakes < 3 && this.attacks >= 3 && nx === 'toss') nx = 'worry';      // it has had enough of you
             b.sub = nx; b.subAt = b.t; b.next = { worry: 2.0, toss: 1.6, kill: 1.0, drop: 0.6, carry: lognormal(R, 7, 0.3), hold: lognormal(R, 1.8, 0.4), lift: 1.2, taste: 1.8 }[nx];
             if (nx === 'worry') { gest('worry', null, { force: angry ? 1 : 0.8, over: true }); b.shakes++; }
-            if (nx === 'toss') gest('toss', null, { sgn: R() < 0.5 ? 1 : -1, force: angry ? 1 : 0.55, over: true });
+            if (nx === 'toss') gest('toss', null, { sgn: R() < 0.5 ? 1 : -1, force: angry ? 1 : b.pickup === 'toss' ? this.cfg.core.prov.tossForce : 0.55, over: true });
             if (nx === 'carry') { b.carried = true; b.route = null; }
             if (nx === 'kill') gest('strike', { x: a.x, y: a.y, z: a.z }, { over: true });      // the jaws close for good (arena.js: a strike on a held person kills)
             if (nx === 'drop') {
@@ -2698,7 +2757,7 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
           // after: what is left of you, on the ground
           I.goal = { kind: 'face', x: a.x, z: a.z }; I.alert = 0.6; I.probe = lying ? { ...torso, k: 0.5, standoff: 1.8 } : undefined;
           if (b.spat && !b.shook && b.t - b.at > 0.3) { b.shook = true; gest('shake', null, { over: true }); }      // the taste of you, shaken out of its mouth
-          if (b.t - b.at > (b.missed ? 1.4 : 2.6)) { if (b.spat) { end('leave'); } else if (b.lethal && lying && (b.again || 0) < 2) { b.done = true; this._vent(b); this.motiveNext = 'anger'; this.lethalNext = true; const again = (b.again || 0) + 1; this._start('seize', c, 'to end it'); this.beh.again = again; } else if (lying && a.still > 1.5 && !angry && R() < 0.6) { b.done = true; this._vent(b); this.motiveNext = 'play'; this._start('toy', c, 'after'); } else end(); }
+          if (b.t - b.at > (b.missed ? 1.4 : 2.6)) { if (b.spat) { end('leave'); } else if (b.lethal && lying && (b.again || 0) < 2) { b.done = true; this._vent(b); this.motiveNext = 'anger'; this.lethalNext = true; const again = (b.again || 0) + 1; this._start('seize', c, 'to end it'); this.beh.again = again; } else if (b.pickup && this._provOK(a)) { b.done = true; this._start('probe', c, 'again'); } else if (lying && a.still > 1.5 && !angry && R() < 0.6) { b.done = true; this._vent(b); this.motiveNext = 'play'; this._start('toy', c, 'after'); } else end(); }
         }
         break;
       }

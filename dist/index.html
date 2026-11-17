@@ -167,6 +167,7 @@ body.touch #kitHud, body:not(.started) #kitHud, body[data-mode="observe"] #kitHu
 #corner .kc { border: 0; background: none; padding: 0; color: var(--ink-dim); }
 body.locked #corner button { pointer-events: none; }
 /* notes for the developer (src/telemetry.js): the corner button, the listening line, the typed line, the pause card field */
+body:not(.notes-on) #noteBtn, body:not(.notes-on) #pNote, body:not(.notes-on) #pNotes, body:not(.notes-on) #pCopy, body:not(.notes-on) #noteBox, body:not(.notes-on) #noteShield { display: none !important; }      /* developer notes: only where the telemetry store exists (or #debug) */
 #corner #noteBtn.held { opacity: 1; background: rgba(240,90,60,0.35); }
 body:not([data-dev="kb"]) #noteKey { display: none; }
 #noteShield { position: fixed; inset: 0; z-index: 9; background: transparent; cursor: default; touch-action: none; }
@@ -274,12 +275,28 @@ body.pad .card :focus, body.pad .card :focus-visible { outline: 3px solid var(--
 body.touch .card button, body.touch .card select, body.touch #pause details > summary, body.touch .card .chk, body.touch #pause .vol, body.touch .card .prow { min-height: 44px; }
 body.touch .card input[type="checkbox"] { width: 22px; height: 22px; }
 body.touch .card input[type="range"] { height: 32px; }
-#dead { background: radial-gradient(ellipse at 50% 50%, rgba(30,6,4,0.35), rgba(8,4,3,0.82)); }
-body.dead #dead { display: grid; animation: fadein 1.2s ease; }
+/* the death menu: a slim panel in the security system's own lettering over the dimmed last frame of the footage */
+#dead { position: fixed; inset: 0; z-index: 12; display: none; align-items: flex-end; background: linear-gradient(to top, rgba(4,6,5,0.5) 0%, rgba(4,6,5,0.28) 45%, rgba(4,6,5,0.18) 100%); --mono: "IBM Plex Mono", "Lucida Console", "Courier New", monospace; }
+body.dead #dead { display: flex; animation: fadein .6s ease; }
+.dm { width: 100%; box-sizing: border-box; padding: 16px max(20px, var(--sl)) calc(16px + var(--sb)) max(20px, var(--sl)); background: rgba(8,12,9,0.8); border-top: 1px solid rgba(236,244,236,0.22); color: #ecf4ec; text-shadow: 0 1px 2px #000; font-family: var(--mono); }
+.dm-in { max-width: 940px; display: grid; gap: 8px; }
+.dm p { margin: 0; }
+#xFacts { font: 700 clamp(12px, 1.5vw, 15px)/1.3 var(--mono); letter-spacing: 0.08em; }
+#xAdvice { font: 400 clamp(12px, 1.4vw, 15px)/1.4 var(--mono); opacity: 0.74; }
+.dm-btns { display: flex; gap: 10px; margin-top: 6px; }
+.dm-btns button { min-height: 46px; padding: 0 18px; font: 700 14px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; border-radius: 2px; cursor: pointer; }
+#xAgain { flex: 1.7; background: var(--accent); color: #1b1410; border: 2px solid var(--accent); }
+#xReplay, #xClip { flex: 1; background: transparent; color: #ecf4ec; border: 1px solid rgba(236,244,236,0.5); }
+#xReplay:hover, #xClip:hover { background: rgba(236,244,236,0.1); }
+#xClipSub { display: none; font: 400 12px var(--mono); opacity: 0.65; }
+body.touch #xClipSub:not([hidden]), .dm:has(#xClip:hover) #xClipSub:not([hidden]), .dm:has(#xClip:focus-visible) #xClipSub:not([hidden]) { display: block; }
+#xKeys { font: 400 11px var(--mono); opacity: 0.5; letter-spacing: 0.06em; min-height: 1em; }
+#dead :focus-visible { outline: 3px solid var(--warn); outline-offset: 2px; }
+@media (max-width: 640px) { .dm-btns { flex-direction: column; } #xAgain { order: -1; min-height: 58px; } .dm-btns button { min-height: 50px; } }
 body.replay #dead { display: none; }
 .card .btns { display: flex; gap: 10px; }
 .card .btns button { flex: 1; }
-.card .btns { flex-wrap: wrap; } #xClip { flex: 1 0 100%; } .clipnote { margin: 8px 0 0; min-height: 1em; font-size: 12px; color: var(--ink-faint); text-align: center; }
+.clipnote { margin: 8px 0 0; min-height: 1em; font-size: 12px; color: var(--ink-faint); text-align: center; }
 #replayTag.rec { opacity: 0.95; color: #ff8a80; font-weight: bold; } body.clipping #noteBtn { display: none !important; }
 #replayTag { position: fixed; bottom: calc(var(--sb) + 10px); left: 50%; transform: translateX(-50%); z-index: 12; pointer-events: none; font: 11px "Lucida Console", "Courier New", monospace; letter-spacing: 0.08em; color: #cfdacf; opacity: 0.5; text-shadow: 0 1px 2px #000; white-space: nowrap; }
 body.replay #bubble, body.replay #osd { display: none !important; }
@@ -330,7 +347,7 @@ body.touch #hint { bottom: calc(var(--sb) + 64px); }
   <div id="stick"><div id="nub"></div></div>
   <button id="tRun" aria-pressed="false" aria-label="run lock">run</button>
   <button id="tAct" hidden></button>
-  <div id="tbtns"><button id="tItem" aria-label="flare"><span class="nm">flare</span><span class="pips"></span></button><button id="tCall">call</button><button id="tTorch" data-torch aria-pressed="false">torch</button><button id="tCycle" hidden>item</button><button id="tCrouch" data-crouch aria-pressed="false">crouch</button><button id="tZoom" aria-pressed="false">zoom</button></div>
+  <div id="tbtns"><button id="tItem" aria-label="flare"><span class="nm">flare</span><span class="pips"></span></button><button id="tCall">call</button><button id="tClip" hidden aria-label="Save a clip of the last 15 seconds">clip</button><button id="tTorch" data-torch aria-pressed="false">torch</button><button id="tCycle" hidden>item</button><button id="tCrouch" data-crouch aria-pressed="false">crouch</button><button id="tZoom" aria-pressed="false">zoom</button></div>
 </div>
 <div id="boot">Waking the animal</div>
 <div id="hurt"></div>
@@ -373,22 +390,22 @@ body.touch #hint { bottom: calc(var(--sb) + 64px); }
     <input id="pNote" type="text" maxlength="1000" placeholder="note for the developer" enterkeyhint="done" autocomplete="off" aria-label="Note for the developer">
     <p id="pNotes"></p>
     <button id="pCopy" hidden>copy session</button>
-    <button id="pDebug" style="width:100%;margin-top:6px">debug tools (crash tests)</button>
+    <button id="pDebug" style="width:100%;margin-top:6px">debug tools</button>
+    <button id="pClip" hidden style="width:100%;margin-top:6px">save a clip of the last 15 seconds</button>
     <button id="pAgain">start over</button>
     <button id="pSandbox" class="dbg-only" style="width:100%;margin-top:6px">sandbox tools</button>
     <details id="pLogBox"><summary>found<span id="pCount" class="val"></span></summary><ul id="pLog" class="tries"></ul></details>
   </div>
 </section>
 <div id="replayTag" hidden>any key for menu</div>
-<section id="dead" class="cardwrap" role="dialog" aria-label="You died">
-  <div class="card">
-    <p class="k">you did not make it</p>
-    <h2 id="xCause"></h2>
-    <div id="xWords"></div>
-    <p class="lasted">you lasted <span id="xTime"></span></p>
-    <div class="btns"><button id="xAgain" class="big">go again <b class="kc" id="xKey"></b></button><button id="xReplay" class="big">restart replay</button><button id="xClip" class="big" hidden>save clip</button></div>
-    <p id="xClipNote" class="clipnote"></p>
-  </div>
+<section id="dead" role="dialog" aria-label="Incident report">
+  <div class="dm"><div class="dm-in">
+    <p id="xFacts"></p>
+    <p id="xAdvice"></p>
+    <div class="dm-btns"><button id="xAgain">go again</button><button id="xReplay">watch again</button><button id="xClip" hidden>save clip</button></div>
+    <p id="xClipSub" hidden>replays it once while recording a video for you</p>
+    <p id="xKeys"></p>
+  </div></div>
 </section>
 
 <section id="mindcard" aria-live="off">

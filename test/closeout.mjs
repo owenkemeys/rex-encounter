@@ -16,6 +16,8 @@ const sets = {
   'dining when approached': { dining: true, nearMeat: true, slowApproach: true },
   'it crashed into a wall first': { crashed: true, inside: true, insideName: 'containers' },
   'died within seconds of spawning': { early: true, deaths: 1, first: true },
+  'LIVE clip, still in the open': { live: true, still: true, openField: true },
+  'LIVE clip, visited before, whistled': { live: true, repeat: true, deaths: 3, whistleLast10: 1 },
   'twelfth visit, long life': { many: true, repeat: true, deaths: 12, long: true, runLong: true, zig: true },
 };
 let bad = 0;

@@ -29,7 +29,11 @@
 //           'door'    a moveable leaf (see door below)
 //           'roof'    a roof over a whole shell (visual; sight lines stop at its plane)
 //           'deck'    walkable boardwalk / platform surface (visual + ground; not a collider)
-//           'mast', 'catwalk', 'ladder'   visual-only parts (no collider)
+//           'pole'    upright cylinder that belongs to no structure (a yard lamp): radius r, height h; a collider like a post
+//           'mast', 'catwalk', 'ladder'   drawn parts; a collider only where the entry says `collide`: 'upright' (a thin wall run: a
+//                     ladder) or 'overhead' (a slab chain from its underside to its top + `rail`: the catwalk, the tower's deck; also
+//                     kept clear by the route planner when lower than the animal is tall: terrain.navBlocks)
+//           (fallen logs are not things: makePaddock(seed).logs, low ridges in the ground that the feet step over)
 //     mat:  material tag: 'timber' (barn), 'concrete', 'block', 'steel' (warehouse, silo, racks, roller door), 'container',
 //           'fence', 'rock', 'wood' (tower, jetty, ladders), 'bamboo', 'jungle', 'pipe', 'hay'
 //     x, y, z: centre of the box's base (world m); y is absolute (ground height already added)
@@ -218,8 +222,8 @@ export function makePaddock(seed = 7) {
     const LH = 3.0, S = frame('loft', 'tower', 'the Loft', 45.2, 70, 0, 2.6, 6.4, LH, { mat: 'hay', base: structures.find((s) => s.id === 'barn').base });
     for (let lz = -6.3; lz <= 6.31; lz += 0.7) slabL(S, -2.6, lz, 2.6, lz, 0.5, LH - 0.25, LH, 'timber');
     S.ladder = { x: 41.8, z: 72 }; S.ladders = [{ x: 41.8, z: 72, at: [-2.2, 2] }, { x: 61.5, z: 74.5, at: [2.2, 4.5] }];
-    T0('loft.ladder.0', { of: 'loft', kind: 'ladder', mat: 'wood', x: 42.4, y: S.base, z: 72, yaw: Math.PI / 2, w: 0.1, h: LH + 1, l: 0.6 });
-    T0('loft.catwalk', { of: 'loft', kind: 'catwalk', mat: 'steel', x: 50.85, y: S.base + LH + 0.2, z: 74.5, yaw: Math.PI / 2, w: 1.0, h: 0.1, l: 5.7 });
+    T0('loft.ladder.0', { of: 'loft', kind: 'ladder', mat: 'wood', x: 42.4, y: S.base, z: 72, yaw: Math.PI / 2, w: 0.1, h: LH + 1, l: 0.6, collide: 'upright' });
+    T0('loft.catwalk', { of: 'loft', kind: 'catwalk', mat: 'steel', x: 50.85, y: S.base + LH + 0.2, z: 74.5, yaw: Math.PI / 2, w: 1.0, h: 0.1, l: 5.7, collide: 'overhead', rail: 1.0 });   // the bridge to the silo: a deck at 3.2 m with rails to 4.3 m, solid for anything taller than the gap under it (not walkable: you are clamped to the loft)
     for (const [lx, lz, nx, nz] of [[0, 6.4, 0, 1], [0, -6.4, 0, -1], [2.6, -4, 1, 0], [2.6, 1, 1, 0]]) opening(S, lx, lz, nx, nz, 3.0, LH + 0.8, true);      // the hay hatches
     opening(S, -2.6, 0, -1, 0, 8, LH + 0.8, true);          // the open west edge over the barn floor
     S.hide = { x: 44, z: 73.5 }; S.roofPanel = true;
@@ -229,7 +233,7 @@ export function makePaddock(seed = 7) {
   {
     const S = frame('silo', 'silo', 'the Silo', 57, 74.5, 0, 3.3, 3.3, 14, { mat: 'steel', walkIn: true });
     for (let k = 0; k < 14; k++) { const a0 = k / 14 * 6.283, a1 = (k + 1) / 14 * 6.283; wallL(S, Math.sin(a0) * 3.1, Math.cos(a0) * 3.1, Math.sin(a1) * 3.1, Math.cos(a1) * 3.1, 0.4, 14, 'steel'); }
-    T0('silo.ladder', { of: 'silo', kind: 'ladder', mat: 'steel', x: 60.6, y: S.base, z: 74.5, yaw: Math.PI / 2, w: 0.1, h: 13, l: 0.6 });
+    T0('silo.ladder', { of: 'silo', kind: 'ladder', mat: 'steel', x: 60.6, y: S.base, z: 74.5, yaw: Math.PI / 2, w: 0.1, h: 13, l: 0.6, collide: 'upright' });
   }
   // ---- the Service Yard: the Warehouse and the Containers
   {
@@ -273,10 +277,15 @@ export function makePaddock(seed = 7) {
     for (const [i, j] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) post(S, i * 1.6, j * 1.6, 0.22, 12, 'wood');
     const [lx, lz] = S.local(0, 2.1); S.ladder = { x: lx, z: lz }; S.ladders = [{ x: lx, z: lz, at: [0, 1.2] }];
     for (const [i, j] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) opening(S, i * 1.6, j * 1.6, i, j, 3, 4.4 + 0.8, true);
-    T0('tower.mast', { of: 'tower', kind: 'mast', mat: 'wood', x: S.cx, y: S.base + 4.4, z: S.cz, yaw: 0.25, w: 3.7, h: 0.18, l: 3.7 });
+    T0('tower.mast', { of: 'tower', kind: 'mast', mat: 'wood', x: S.cx, y: S.base + 4.4, z: S.cz, yaw: 0.25, w: 3.7, h: 0.18, l: 3.7, collide: 'overhead' });
     T0('tower.arm', { of: 'tower', kind: 'mast', mat: 'steel', ...(([x, z]) => ({ x, z }))(S.local(0, -3)), y: S.base + 11.6, yaw: 0.25, w: 0.25, h: 0.25, l: 6 });
     refuges.push({ name: 'feeding tower', of: 'tower', rect: null, pts: [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => S.local(a * 1.2, b * 1.2)), y: S.base + 4.4, up: true });
   }
+  // ---- the yard lamps: five poles with sodium heads round the Service Yard (a concrete foot 0.5 m square, a 6.2 m steel pole).
+  // Solid: a thin cylinder of the foot's width, so the body knocks against and shoulders past one as it does a tower leg.
+  // (the fourth stood at x -20, 4.7 m off the Containers' east face: a solid pole in that lane made the corner chase clip it and take 16 s, not 9.5; it is at -17 now)
+  // (no structure: `of` is 'lamps'; terrain.js makes a pole of every 'pole' thing; src/view/features.js draws them)
+  [[-40, 55], [-67, 53], [-37, 80], [-17, 64], [-50, 84]].forEach(([x, z], i) => T0(`lamp.pole.${i}`, { of: 'lamps', kind: 'pole', mat: 'steel', x, y: ground(x, z), z, yaw: 0, r: 0.25, h: 6.2 }));
   // ---- the Culvert: a concrete pipe across the river bed, dry inside, open at both ends
   {
     const cv = L.culvert, S = frame('culvert', 'culvert', 'the Culvert', cv.x, cv.z, 0, 1.0, cv.hd, 2.3, { mat: 'pipe', base: RV.wl + 0.35 });
@@ -333,6 +342,16 @@ export function makePaddock(seed = 7) {
   const bm = stems(inBamboo, 2.2, 0.35, 0.55, 7, 10, 'bamboo', 'bamboo', 600, (x, z) => Math.hypot(x + 92, z - 72) < 5 && false);
   jt.forEach((o, i) => T0(`jungle.trunk.${i}`, { of: 'jungle', kind: 'trunk', mat: 'jungle', x: o.x, y: 0, z: o.z, yaw: 0, r: o.r, h: o.h }));
   bm.forEach((o, i) => T0(`bamboo.trunk.${i}`, { of: 'bamboo', kind: 'trunk', mat: 'bamboo', x: o.x, y: 0, z: o.z, yaw: 0, r: o.r, h: o.h }));
+  // fallen logs on the jungle floor (low things: part of the ground, like terrain.js's `logs` says: the feet step onto and over a
+  // ridge 0.4 to 0.8 m high, a person cannot climb it, the route planner reads it as steep ground). Off the trail and the clearing,
+  // clear of every stem. Own rng so nothing else's random draws move. src/view/world.js draws terrain.logs.
+  { const RL = makeRng(seed * 4099 + 77), tr = J.trail, td = (x, z) => { let m = 1e9; for (let i = 0; i < tr.length - 1; i++) { const [ax, az] = tr[i], [bx, bz] = tr[i + 1], dx = bx - ax, dz = bz - az, t = clamp(((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz), 0, 1); m = Math.min(m, Math.hypot(x - ax - dx * t, z - az - dz * t)); } return m; };
+    for (let k = 0; k < 600 && logs.length < 26; k++) {
+      const x = RL.range(-97, -16), z = RL.range(-76, -14), a = RL() * 6.283, Ln = RL.range(3, 7), r = RL.range(0.25, 0.5), ux = Math.sin(a), uz = Math.cos(a);
+      let ok = inJungle(x, z) && td(x, z) > 3.5 && Math.hypot(x - J.clearing.x, z - J.clearing.z) > J.clearing.r + Ln / 2 + 1;
+      for (let u = -Ln / 2; ok && u <= Ln / 2; u += 0.7) { const px = x + ux * u, pz = z + uz * u; ok = inJungle(px, pz) && !jt.some((o) => Math.hypot(o.x - px, o.z - pz) < o.r + r + 0.3); }
+      if (ok) logs.push({ x, z, yaw: a, cx: ux, cz: uz, half: Ln / 2 - 0.7 * r, r, lift: 0.58 * r });
+    } }
   refuges.push({ name: 'jungle', of: 'jungle', fn: inJungle, rect: [-98, -76, -15, -12], y: null });
   refuges.push({ name: 'bamboo screen', of: 'bamboo', fn: inBamboo, rect: [-99, -6, -83, 93], y: null });
   refuges.push({ name: 'bluff ledge', of: 'bluff', ledge: true, rect: [72.5, 34, 76, 86], y: null });

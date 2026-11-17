@@ -95,9 +95,26 @@ export function makeTerrain(seed = 7) {
     byKey.set(D.id, S);
   }
   for (const S of structures) S.id = structures.indexOf(S) + 1;
-  const doors = [];
+  const doors = [], navBlocks = [];
+  // props: solid things that are not walls of a structure. A pole is an upright cylinder (r, h) on the obstacle list like a tower leg
+  // (kind 'wall', no seg: the body knocks against it and shoulders past); an 'upright' thin box (a ladder) is a short wall run; an
+  // 'overhead' box (a catwalk, a platform deck) is a slab chain solid from its underside (th.y - 0.1) to its top plus `rail`, and, being
+  // lower than the animal is tall (NAV_HEAD), also a pillar the route planner keeps clear (navBlocks, read by nav.js).
+  const NAV_HEAD = 3.6;
+  const run = (th, sid) => { const hl = th.l / 2, ax = th.x - Math.sin(th.yaw) * hl, az = th.z - Math.cos(th.yaw) * hl, bx = th.x + Math.sin(th.yaw) * hl, bz = th.z + Math.cos(th.yaw) * hl, r = th.w / 2, n = Math.max(1, Math.round(th.l / PIL)), seg = { ax, az, bx, bz };
+    for (let i = 0; i <= n; i++) obstacles.push({ x: ax + (bx - ax) * i / n, z: az + (bz - az) * i / n, r, h: th.h, top: th.y + th.h, kind: 'wall', sid, seed: 0, seg }); };
+  const overheadBox = (th, S) => {      // overhead box: runs along local z across its width, each as wide as its spacing
+    const nw = Math.max(1, Math.ceil(th.w / (2 * PIL))), r = th.w / nw / 2, y0 = th.y - 0.1, y1 = th.y + th.h + (th.rail || 0), c = Math.cos(th.yaw), s = Math.sin(th.yaw);
+    for (let k = 0; k < nw; k++) {
+      const off = -th.w / 2 + r + k * 2 * r, ox = off * c, oz = -off * s, hl = Math.max(0, th.l / 2 - r), ax = th.x + ox - s * hl, az = th.z + oz - c * hl, bx = th.x + ox + s * hl, bz = th.z + oz + c * hl, L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(L / PIL)), seg = { ax, az, bx, bz };
+      for (let i = 0; i <= n; i++) { const x = ax + (bx - ax) * i / n, z = az + (bz - az) * i / n; slabCols.push({ x, z, r, bot: y0, top: y1, kind: 'wall', sid: S.id, seg }); if (y0 - height(x, z) < NAV_HEAD) navBlocks.push({ x, z, r }); }
+    }
+  };
   for (const th of PD.things) {
+    if (th.kind === 'pole' && !th.visualOnly) { obstacles.push({ x: th.x, z: th.z, r: th.r, h: th.h, top: th.y + th.h, kind: 'wall', sid: byKey.get(th.of)?.id ?? 0, seed: 0 }); continue; }
     const S = byKey.get(th.of); if (!S || th.visualOnly) continue;
+    if (th.collide === 'upright') { run(th, S.id); continue; }
+    if (th.collide === 'overhead') { overheadBox(th, S); continue; }
     if (th.kind === 'wall') { const r = th.w / 2, top = th.y + th.h; S.base0 = S.base; const n0 = obstacles.length; wall(S, th.ax, th.az, th.bx, th.bz, r, th.h, th.mat); for (const o of obstacles.slice(n0)) o.top = top; }
     else if (th.kind === 'slab') slab(S, th.ax, th.az, th.bx, th.bz, th.w / 2, th.y - S.base, th.y + th.h - S.base, th.mat);
     else if (th.kind === 'post') obstacles.push({ x: th.x, z: th.z, r: th.r, h: th.h, top: th.y + th.h, kind: 'wall', sid: S.id, seed: 0 });
@@ -264,7 +281,7 @@ export function makeTerrain(seed = 7) {
   // the place's own data and queries (see paddock.js): water, wetness, cover height, wind, ground kind, place names
   const slopeAt = (x, z) => { const e = 0.5; return Math.hypot(height(x + e, z) - height(x - e, z), height(x, z + e) - height(x, z - e)) / (2 * e); };
   const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
-  Object.assign(T, { ver: 0, addStructure, height, base, normal, addBump, bumps, obstacles, logs, cover, coverAt, structures, insideStructure, roofBlocks, colliders, near, pushOut, segClear, size: 420, arena: 96, bound: PD.LAYOUT.fence - 0.5, doors, doorNear, useDoor, stepDoors, solids, things: PD.things,
+  Object.assign(T, { ver: 0, addStructure, height, base, normal, addBump, bumps, obstacles, logs, cover, coverAt, structures, insideStructure, roofBlocks, colliders, near, pushOut, segClear, size: 420, arena: 96, bound: PD.LAYOUT.fence - 0.5, doors, navBlocks, doorNear, useDoor, stepDoors, solids, things: PD.things,
     grass: PD.grass, landmarks: PD.landmarks, grazing: PD.grazing, paddock: PD, slopeAt, obstaclesNear,
     waterY: PD.waterY, depthAt: PD.depthAt, wetAt: PD.wetAt, wetness: PD.wetAt, coverHeight: PD.coverHeight, windAt: PD.windAt, surfaceAt: PD.surfaceAt, placeName: PD.placeName, speedFactor: PD.speedFactor });
   return T;

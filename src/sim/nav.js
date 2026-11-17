@@ -61,7 +61,7 @@ export class Nav {
     const T = this.T, n = this.n, R = this.R, ox = this.ox, oz = this.oz, BODY = this.body, ROOM = this.room, SQ = ROOM - BODY, RING = this.ring, cost = this.cost = new Float32Array(n * n), clr = new Float32Array(n * n).fill(3 + SQ);
     // rock, trunks and walls, stamped: blocked inside the trunk's half-width; between that and its turning room a squeeze (steep
     // cost); a clearance cost within 3 m beyond the turning room (clr: free distance past the trunk's half-width)
-    for (const o of T.obstacles) {
+    for (const o of T.navBlocks ? T.obstacles.concat(T.navBlocks) : T.obstacles) {      // props: overhead things the body cannot pass under count as solid
       const reach = o.r + ROOM + 3, i0 = Math.max(0, Math.floor((o.x - ox - reach + R) / CELL)), i1 = Math.min(n - 1, Math.floor((o.x - ox + reach + R) / CELL)), j0 = Math.max(0, Math.floor((o.z - oz - reach + R) / CELL)), j1 = Math.min(n - 1, Math.floor((o.z - oz + reach + R) / CELL));
       for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const d = Math.hypot(ox - R + (i + 0.5) * CELL - o.x, oz - R + (j + 0.5) * CELL - o.z) - o.r - BODY, k = i + n * j; if (d < clr[k]) clr[k] = d; }
     }

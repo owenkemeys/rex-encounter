@@ -112,14 +112,39 @@ async function boot() {
   // re-emitted through the usual audio calls with the listener at the camera, through a thin small-microphone filter (audio.mic). Dust, rain, the herd stay as now.
   const rpx = Object.create(sim); rpx.head = Object.create(sim.head); rpx.head.pos = new THREE.Vector3(); rpx.act = null; rpx.headTouch = null;      // what the audio sees of the animal while it plays: the recorded head
   let torchLive = false, micHeld = false;
-  const clip = createClip({ getCanvas: () => canvas, audio, tape: rec, extra: () => { const V = arena.victims && arena.victims.get('you'); return { cause: V && V.cause, motive: V && V.lastHurt && V.lastHurt.motive, deaths: V ? V.lives : 1, crouch: !!S.you.crouch, label: rec.label, lasted: S.footSince && V ? (performance.now() - S.footSince) / 1000 - Math.max(0, (V.clock || 0) - (V.deadT || 0)) : 0 }; } }); S.clip = clip;      // closeout: the card's facts      // clip: "save clip" on the death card records the replay to a file
-  function startClip() { if (!clip.supported || !S.dead || S.replay) return false; if (!startReplay()) return false; if (!clip.start()) { endReplay(); return false; } document.body.classList.add('clipping'); tagEl.textContent = '\u25CF RECORDING  \u00b7  esc to cancel'; tagEl.classList.add('rec'); return true; }
-  const TAG = tagEl.textContent;
-  function startReplay() {
-    if (!S.dead || S.replay || !rec.play(camera.aspect)) return false;
-    S.replay = true; document.body.classList.add('replay'); tagEl.hidden = false;
+  const clip = createClip({ getCanvas: () => canvas, audio, tape: rec, extra: () => { const V = arena.victims && arena.victims.get('you'); return { cause: V && V.cause, motive: V && V.lastHurt && V.lastHurt.motive, deaths: V ? V.lives : 1, crouch: !!S.you.crouch, label: rec.label, lasted: S.footSince && V ? (performance.now() - S.footSince) / 1000 - (V.dead ? Math.max(0, (V.clock || 0) - (V.deadT || 0)) : 0) : 0 }; } }); S.clip = clip;      // closeout: the card's facts      // clip: "save clip" on the death card records the replay to a file
+  function startClip() {      // closeout: "save clip" on the death menu
+    if (!clip.supported || !S.dead || (S.replay && !S.replayHold)) return false;
+    if (!startReplay()) return false; if (!clip.start(false)) { holdReplay(); return false; }
+    document.body.classList.add('clipping'); tagEl.hidden = true; return true;      // (the recording banner is drawn by clip.js, on screen only)
+  }
+  // closeout: a clip taken in play. The game is frozen (S.clipLive: the sim, the animal and you do not advance), the last 15 s of the tape play through the same camera and recorder, and the game comes back as it was.
+  let liveSaved = null;
+  function startLiveClip() {
+    if (!clip.supported || !S.started || S.dead || S.replay || S.paused || S.frozen || S.clipLive || clip.active || S.mode !== 'foot' || rec.count < 90 || rec.death >= 0) return false;
+    liveSaved = { p: camera.position.clone(), q: camera.quaternion.clone(), fov: camera.fov, torch: props.torchOn, locked: locked() };
+    S.clipLive = true; S.keys.clear(); drag = null; S.call = null; S.zoom.hold = false; S.stick.x = S.stick.y = 0; S.stick.id = null; S.stick.run = false; stick.classList.remove('run'); nub.style.transform = '';
+    if (!rec.play(camera.aspect, true)) { S.clipLive = false; liveSaved = null; return false; }
+    S.replay = true; document.body.classList.add('replay'); tagEl.hidden = true;
     if (post && post.setCCTV) post.setCCTV(true);
     torchLive = props.torchOn; audio.sim = rpx; if (audio.mic) audio.mic(true, false); micHeld = false;
+    if (!clip.start(true)) { endReplay(); return false; }
+    document.body.classList.add('clipping'); return true;
+  }
+  function endLiveClip(relock = true) {
+    if (!S.clipLive) return; S.clipLive = false; document.body.classList.remove('clipping');
+    const L = liveSaved; liveSaved = null;
+    if (L) { camera.position.copy(L.p); camera.quaternion.copy(L.q); if (camera.fov !== L.fov) { camera.fov = L.fov; camera.updateProjectionMatrix(); } props.torchOn = L.torch; }
+    S.keys.clear(); audio.resume();
+    if (relock && L && L.locked && S.started && !S.paused) { S.relock = performance.now(); lockPointer(); setTimeout(() => { if (S.relock && !locked() && !S.paused && !S.frozen && !S.dead) setPaused(true); S.relock = 0; }, 1200); }
+  }
+  const TAG = tagEl.textContent;
+  function startReplay() {
+    if (!S.dead || (S.replay && !S.replayHold) || !rec.play(camera.aspect)) return false;
+    const was = S.replayHold; S.replayHold = false; document.body.classList.remove('hold');
+    S.replay = true; document.body.classList.add('replay'); tagEl.hidden = false;
+    if (post && post.setCCTV) post.setCCTV(true);
+    if (!was) torchLive = props.torchOn; audio.sim = rpx; if (audio.mic) audio.mic(true, false); micHeld = false;
     return true;
   }
   // one recorded sound event, as the camera's microphone catches it: placed by its own position, heard from the camera
@@ -149,20 +174,46 @@ async function boot() {
   // owner: "pressing any key (except t) brings up the usual death/respawn menu, with restart replay button"
   // The key or click that ends it is swallowed (held key repeats, its keyup, the click after a tap) so it cannot press a button on the card.
   let eatKey = null, eatClick = 0;
+  // closeout: what happens to a recording when the footage stops: it is finished (then the "ready" panel) or thrown away
+  function clipStop(natural) {
+    if (!clip.active) return false;
+    document.body.classList.remove('clipping');
+    if (natural === true) { clip.finish().then((ok) => { if (ok) clipReadyPanel(); else if (S.clipLive) endLiveClip(); }, () => { if (S.clipLive) endLiveClip(); }); return true; }
+    clip.cancel(); return false;
+  }
+  function clipReadyPanel() {
+    if (S.clipLive && locked()) { S.unlockOk = true; document.exitPointerLock(); }      // the panel is clicked: the pointer comes back for it
+    clip.openReady(() => { if (S.clipLive) endLiveClip(); else try { ui.deathFocus(); } catch {} });
+  }
+  // The footage is over (it ran out, a key or click, Escape). After a death: the death menu over the last frame, still with the camera look, dimmed. A clip taken in play: back to the game.
+  function stopReplay(natural) { if (!S.replay) return; if (S.dead && !S.clipLive) holdReplay(natural); else endReplay(natural); }
+  function holdReplay(natural) {
+    if (!S.replay) return;
+    clipStop(natural);
+    S.replayHold = true; document.body.classList.remove('replay'); document.body.classList.add('hold'); tagEl.hidden = true;
+    if (audio.mic) audio.mic(true, true); audio.hiss(0); post.cctvU.burst.value = 0;
+    try { ui.deathMenu(); } catch {}
+  }
   function endReplay(natural) {
     if (!S.replay) return;
-    if (clip.active) { document.body.classList.remove('clipping'); tagEl.textContent = TAG; tagEl.classList.remove('rec'); if (natural === true) clip.finish().then(() => { try { ui.clipReady(); } catch {} }, () => {}); else { clip.cancel(); try { ui.clipReady(); } catch {} } }      // clip
+    const fin = clipStop(natural); S.replayHold = false; document.body.classList.remove('hold');
     S.replay = false; rec.stop(); document.body.classList.remove('replay'); tagEl.hidden = true;
     if (post && post.setCCTV) post.setCCTV(false);      // the player's own VHS setting is back as it was
     props.torchOn = torchLive; audio.sim = sim; if (audio.mic) audio.mic(false, false); audio.hiss(0);
-    if (!eatKey) try { document.getElementById('xAgain').focus({ preventScroll: true }); } catch {}      // after the keyup when a key ended it
+    if (!eatKey && !S.clipLive) try { document.getElementById('xAgain').focus({ preventScroll: true }); } catch {}      // after the keyup when a key ended it
+    if (S.clipLive && !fin) endLiveClip(!S.noRelock);      // closeout
   }
   window.addEventListener('keydown', (e) => {
     if (S.frozen) return;      // the note box is open: typing there is its own
     if (eatKey && e.key === eatKey) { e.stopImmediatePropagation(); e.preventDefault(); return; }
-    if (S.replay && clip.active) { e.stopImmediatePropagation(); e.preventDefault(); if (e.key === 'Escape' && !e.repeat) { eatKey = e.key; endReplay(); } return; }      // clip: only Escape ends a recording, T does not open the note box
-    if (!S.replay || (e.key.toLowerCase() === 't' && !e.ctrlKey && !e.metaKey && !e.altKey)) return;      // t is the note box: it passes through and the replay runs on
-    e.stopImmediatePropagation(); e.preventDefault(); if (!e.repeat) { eatKey = e.key; endReplay(); }
+    if (S.replay && clip.active) { e.stopImmediatePropagation(); e.preventDefault(); if (e.key === 'Escape' && !e.repeat) { eatKey = e.key; stopReplay(); } return; }      // clip: only Escape ends a recording, T does not open the note box
+    if (S.dead && (S.replayHold || !S.replay) && document.body.classList.contains('dead') && !e.ctrlKey && !e.metaKey && !e.altKey) {      // closeout: the death menu's keys
+      const k = e.key.toLowerCase(), clickIf = (id) => { const b = $(id); if (b && !b.hidden && !e.repeat) { e.stopImmediatePropagation(); e.preventDefault(); b.click(); } };
+      if (k === 'r') clickIf('xReplay'); else if (k === 'c') clickIf('xClip'); else if (k === 'enter' && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('#dead button'))) clickIf('xAgain');
+      return;
+    }
+    if (!S.replay || S.replayHold || (e.key.toLowerCase() === 't' && !e.ctrlKey && !e.metaKey && !e.altKey)) return;      // t is the note box: it passes through and the replay runs on
+    e.stopImmediatePropagation(); e.preventDefault(); if (!e.repeat) { eatKey = e.key; stopReplay(); }
   }, true);
   window.addEventListener('keyup', (e) => {
     if (!eatKey || e.key !== eatKey) return;
@@ -171,8 +222,8 @@ async function boot() {
   }, true);
   window.addEventListener('pointerdown', (e) => {
     if (S.replay && clip.active) { e.stopImmediatePropagation(); e.preventDefault(); return; }      // clip
-    if (!S.replay || S.frozen || (e.target.closest && e.target.closest('#noteBox, #noteBtn, #noteShield'))) return;
-    e.stopImmediatePropagation(); e.preventDefault(); eatClick = performance.now() + 500; endReplay();
+    if (!S.replay || S.replayHold || S.frozen || (e.target.closest && e.target.closest('#noteBox, #noteBtn, #noteShield'))) return;
+    e.stopImmediatePropagation(); e.preventDefault(); eatClick = performance.now() + 500; stopReplay();
   }, true);
   window.addEventListener('click', (e) => { if (performance.now() < eatClick) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
 
@@ -423,7 +474,8 @@ async function boot() {
   document.addEventListener('pointerlockchange', () => {
     const on = locked(); document.body.classList.toggle('locked', on);
     if (on) { S.lock.fail = false; S.lock.ok++; document.body.classList.remove('hover'); }
-    if (!on && S.started && !S.paused && !S.unlockOk && !S.dead && !S.frozen) setPaused(true);      // Esc (or anything else) took the pointer away: pause
+    if (!on && S.clipLive && S.replay && !S.unlockOk) { S.noRelock = true; endReplay(); S.noRelock = false; setPaused(true); }      // closeout: Esc during a clip in play: the clip is dropped and the pause card comes up
+    else if (!on && S.started && !S.paused && !S.unlockOk && !S.dead && !S.frozen && !S.clipLive) setPaused(true);      // Esc (or anything else) took the pointer away: pause
     S.unlockOk = false;
   });
   document.addEventListener('pointerlockerror', () => { S.unlockOk = false; lockRefused('pointerlockerror event'); });
@@ -442,10 +494,10 @@ async function boot() {
   S.sens = (() => { try { const v = +localStorage.getItem('dh.sens'); return v > 0.1 && v < 5 ? v : 1; } catch { return 1; } })();
   S.zoom = { toggle: false, hold: false, padHold: false, cur: 1 };
   S.invert = (() => { try { return localStorage.getItem('dh.invert') === '1'; } catch { return false; } })();
-  const look = (dx, dy, k = 0.0042) => { const c = S.mode === 'foot' ? S.you : S.fly; k *= S.sens / S.zoom.cur; c.yaw -= dx * k; c.pitch = clamp(c.pitch - dy * k * (S.invert ? -1 : 1), -1.4, 1.4); };
+  const look = (dx, dy, k = 0.0042) => { if (S.clipLive) return; const c = S.mode === 'foot' ? S.you : S.fly; k *= S.sens / S.zoom.cur; c.yaw -= dx * k; c.pitch = clamp(c.pitch - dy * k * (S.invert ? -1 : 1), -1.4, 1.4); };
   const ZOOM = 3;      // the one zoomed state: a fixed magnification over the lens, off or on
   document.addEventListener('mousemove', (e) => {
-    if (!locked() || S.paused) return;
+    if (!locked() || S.paused || S.clipLive) return;
     const dx = e.movementX || 0, dy = e.movementY || 0; if (Math.abs(dx) > 300 || Math.abs(dy) > 300) return;      // a browser's jump on lock
     if (S.mode === 'observe') { S.lookAcc = (S.lookAcc || 0) + Math.abs(dx) + Math.abs(dy); if (S.lookAcc > 12) takeOver(); return; }
     look(dx, dy, 0.0024);
@@ -536,6 +588,7 @@ async function boot() {
     else if (k === 'q' && S.mode !== 'fly' && !e.repeat) act.callDown();
     else if (k === 'f' && !e.repeat) { act.torch(); ui.taught('torch'); }
     else if (k === 'c' && S.mode === 'foot' && !e.repeat) { setCrouch(!S.crouchToggle); ui.taught('crouch'); }
+    else if (k === 'r' && !e.repeat) startLiveClip();      // closeout: record the last 15 s
     else if (k === 'z') { S.zoom.hold = true; ui.taught('zoom'); }
     // sandbox and diagnostic keys: only once debug is on (backtick, or #debug); listed in the sandbox drawer
     else if (!ui.debug) return;
@@ -586,6 +639,9 @@ async function boot() {
   if (!KIT_START.torch) $('tTorch').hidden = true;
   $('tTorch').addEventListener('click', () => { act.torch(); ui.taught('torch'); });
   $('tZoom').addEventListener('click', () => ui.taught('zoom'));
+  // closeout: save a clip of the last 15 s (key R, the touch button, the pause card)
+  { const tc = $('tClip'), pc = $('pClip'); if (tc) { tc.hidden = !clip.supported; tc.addEventListener('click', () => { if (!startLiveClip()) ui.note('nothing to record yet'); }); }
+    if (pc) { pc.hidden = !clip.supported; pc.addEventListener('click', () => { setPaused(false); setTimeout(() => { if (!startLiveClip()) ui.note('nothing to record yet'); }, 80); }); } }
   for (const [id, fn] of [['bFlare', () => act.throwFlare(true)], ['bMeat', () => act.throwMeat(true)], ['bTorch', () => act.torch()], ['bHerd', () => act.herdHere()]]) $(id).addEventListener('click', () => { audio.resume(); fn(); });
   $('tp').addEventListener('change', (e) => { if (e.target.value) act.teleport(e.target.value); e.target.value = ''; e.target.blur(); });
   $('herdOn').addEventListener('change', (e) => { herd.disabled = !e.target.checked; });
@@ -703,11 +759,12 @@ async function boot() {
     const any = bt.some(Boolean) || Math.hypot(pad.lx, pad.ly, pad.rx, pad.ry) > 0;
     if (any) { setDev('pad'); audio.resume(); }
     if (S.frozen) { pad.prev = bt; return; }      // the note box is open: the pad does nothing
-    if (S.replay) { if (!clip.active && bt.some((b, i) => b && !pad.prev[i])) endReplay(); pad.prev = bt; return; }      // death cam: any button skips
+    if (clip.panelOpen()) { clip.panelPad(down(0), down(1)); pad.prev = bt; return; }      // closeout: the clip-ready panel
+    if (S.replay && !S.replayHold) { if (!clip.active && bt.some((b, i) => b && !pad.prev[i])) stopReplay(); pad.prev = bt; return; }      // death cam: any button skips
     if (!S.started) { if (down(9)) start(false); else padMenu($('start'), down); pad.prev = bt; return; }   // Start: begin; A: the focused control (start, unless moved)
     if (down(9) && !S.dead) setPaused(!S.paused);                                                      // Start/Menu: pause
     if (S.paused) { if (down(1)) setPaused(false); else padMenu($('pause'), down); pad.prev = bt; return; }   // B: resume; d-pad and A work the card
-    if (S.dead) { if (document.body.classList.contains('dead')) padMenu($('dead'), down); pad.prev = bt; return; }
+    if (S.dead) { if (document.body.classList.contains('dead')) { if (down(2) && !$('xReplay').hidden) $('xReplay').click(); else if (down(3) && !$('xClip').hidden) $('xClip').click(); else padMenu($('dead'), down); } pad.prev = bt; return; }      // (closeout: X watch again, Y save clip)
     if (S.mode === 'observe' && (Math.hypot(pad.lx, pad.ly, pad.rx, pad.ry) > 0.3)) takeOver();          // a stick: step in
     if (!!bt[8] !== !!pad.prev[8]) ui.peek(!!bt[8]);                                                     // View/Back held: peek at the controls
     if (S.mode !== 'observe') {
@@ -849,7 +906,7 @@ async function boot() {
     dtReal = Number.isFinite(dtReal) && dtReal > 0 ? dtReal : 0;      // never a negative or NaN step (see the loop below)
     qc.begin();
     readPad(); act.callTick(); crashTick();
-    const run = S.paused || S.frozen ? 0 : 1, dts = dtReal * S.timeScale * run, dtv = dtReal * Math.min(S.timeScale, 1) * run;      // paused: the world holds still
+    const run = S.paused || S.frozen || S.clipLive ? 0 : 1, dts = dtReal * S.timeScale * run, dtv = dtReal * Math.min(S.timeScale, 1) * run;      // paused: the world holds still
     S.wind.a += (wr() - 0.5) * dts * 0.02; S.wind.s = 2.5 + 1.5 * Math.sin(sim.t * 0.05);
     const wind = { x: Math.sin(S.wind.a) * S.wind.s, z: Math.cos(S.wind.a) * S.wind.s };
     world.setWind(wind); fx.wind = wind; props.wind = wind;      // the world shows the wind the animal smells by
@@ -913,7 +970,7 @@ async function boot() {
     for (let i = 0; i < bv.length; i++) bv[i] = pv[i] + (cv[i] - pv[i]) * a;
     for (let i = 0; i < blend.s.length; i++) blend.s[i] = prev.s[i] + (sim.pose.s[i] - prev.s[i]) * a;
     // the tape: the pose as drawn, with the player's body and the head (while the death cam plays, the tape is shown instead)
-    if (S.replay && !S.dead) endReplay();
+    if (S.replay && !S.dead && !S.clipLive) endReplay();
     {      // (keeps appending the tail after the death while the replay already plays)
       if (S.mode === 'foot' && S.started) {
         rec.tick(dts, S.dead, blend, rec.body(S.you, arena.victim('you'), sim, terrain, S.replay ? torchLive : props.torchOn), things.list);
@@ -921,13 +978,14 @@ async function boot() {
     }
     let shown = blend;
     if (S.replay) {
-      if (!clip.closing() && rec.update(S.frozen ? 0 : dtReal, camera)) {      // closeout: once the tape has ended a recording goes on into the closing card
+      if (S.replayHold) { shown = rec.pose; rpx.head.pos.copy(rec.head); props.torchOn = rec.torchOn; const I = post.cctvInfo; I.cam = rec.camNo; I.label = rec.label; I.stamp = rec.stampMs; I.clock = performance.now() / 1000; I.paused = true; post.cctvU.burst.value = 0; }      // closeout: the death menu over the last frame of the footage
+      else if (!clip.closing() && rec.update(S.frozen ? 0 : dtReal, camera)) {      // closeout: once the tape has ended a recording goes on into the closing card
         shown = rec.pose; rpx.head.pos.copy(rec.head); props.torchOn = rec.torchOn;
         for (const e of rec.fired) hear(e);
         if (S.frozen !== micHeld) { micHeld = S.frozen; if (audio.mic) audio.mic(true, micHeld); }      // paused: the sound is held (muted); T resumes it
         const I = post.cctvInfo; I.cam = rec.camNo; I.label = rec.label; I.stamp = rec.stampMs; I.clock = performance.now() / 1000; I.paused = !!S.frozen; post.cctvU.burst.value = S.frozen ? 0 : rec.burst;
       } else if (clip.active && clip.card(dtReal)) { shown = rec.pose; }      // closeout
-      else endReplay(true);
+      else stopReplay(true);
     }
     { const ja = sim.act; body.voiceJaw = audio.mouthOpen;      /* (in the replay too: the taped sounds are re-emitted through the mouth bus) */ body.voiceFast = audio.mouthFast; body.jawHold = !!(sim.mouthHold > 0 || (ja && ja.forced && /^(strike|seize|snap|butt)$/.test(ja.kind))); }      // jaw-from-voice
     body.glareEye = mind.dazzle || null; body.update(shown); fx.breath(body.nostril, body.snout, shown.s[1], dtv); if (audio.breathCue) { fx.snort(body.nostril, body.snout, audio.breathCue); audio.breathCue = 0; }
@@ -968,7 +1026,7 @@ async function boot() {
   }
 
   const ui = createUI({ S, sim, mind, camera, canvas, arena, terrain, act, Q, audio, SEED, test: TEST, backend: () => backend, pad, post, props,
-    session: { replay: startReplay, clip: startClip, clipOK: () => clip.supported, canReplay: () => rec.length > 1 && rec.death >= 0, start, setPaused, releasePointer, lockPointer, setMode, takeOver, fullscreen, fsOk, locked } });
+    session: { replay: startReplay, clip: startClip, liveClip: startLiveClip, clipOK: () => clip.supported, canReplay: () => rec.length > 1 && rec.death >= 0, start, setPaused, releasePointer, lockPointer, setMode, takeOver, fullscreen, fsOk, locked } });
   uiRef = ui;
   // the note box (src/telemetry.js): freeze time where it stands, without the pause card, and come back from it. Freezing lets the
   // pointer go (so the box can be clicked) without pausing; unfreezing asks for it again from the same key press or click that

@@ -17,9 +17,9 @@ import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 
 /** Grades per weather: lift (shadow tint), gain (highlight tint), saturation, contrast, vignette, bloom. */
 const GRADE = {
-  storm: { lift: [0.012, 0.018, 0.028], gain: [0.98, 1.0, 1.05], sat: 0.85, con: 1.06, vig: 0.32, bloom: 0.34, thr: 0.85 },
-  dusk: { lift: [0.018, 0.008, 0.02], gain: [1.06, 0.99, 0.9], sat: 0.98, con: 1.08, vig: 0.38, bloom: 0.3, thr: 0.8 },
-  day: { lift: [0.01, 0.012, 0.016], gain: [1.02, 1.0, 0.97], sat: 0.9, con: 1.05, vig: 0.28, bloom: 0.16, thr: 0.95 },
+  storm: { lift: [0.004, 0.012, 0.022], gain: [0.96, 1.0, 1.06], sat: 0.78, con: 1.1, vig: 0.45, bloom: 0.32, thr: 0.9, tape: 0 },      // tape: how much the camcorder look lifts the blacks and gain (0 in the storm: it must be as dark with VHS on)
+  dusk: { lift: [0.018, 0.008, 0.02], gain: [1.06, 0.99, 0.9], sat: 0.98, con: 1.08, vig: 0.38, bloom: 0.3, thr: 0.8, tape: 1 },
+  day: { lift: [0.01, 0.012, 0.016], gain: [1.02, 1.0, 0.97], sat: 0.9, con: 1.05, vig: 0.28, bloom: 0.16, thr: 0.95, tape: 1 },
 };
 
 const h1 = (x) => fract(sin(x.mul(12.9898)).mul(43758.5453));
@@ -99,7 +99,7 @@ export function makePost(renderer, scene, camera, Q) {
   const scenePass = pass(scene, camera);
   const color = scenePass.getTextureNode('output');
   P.outputColorTransform = false;
-  const U = { lift: uniform(new THREE.Vector3()), gain: uniform(new THREE.Vector3(1, 1, 1)), sat: uniform(1), con: uniform(1), vig: uniform(0.35), flash: uniform(0) };
+  const U = { lift: uniform(new THREE.Vector3()), gain: uniform(new THREE.Vector3(1, 1, 1)), sat: uniform(1), con: uniform(1), vig: uniform(0.35), flash: uniform(0), tape: uniform(1) };
   let B = null, graded;
   // the full build's chains, by quality level (src/view/quality.js): high = bloom + grade, medium = grade, low = tone map only.
   // Built when first used; switching costs one shader build, and the level changes rarely.
@@ -164,7 +164,7 @@ export function makePost(renderer, scene, camera, Q) {
     Y = mix(Y, float(0.85).add(snow.mul(0.3)), drop.mul(0.85));
     let c = vec3(Y.add(I.mul(0.956)).add(Qc.mul(0.621)), Y.sub(I.mul(0.272)).sub(Qc.mul(0.647)), Y.sub(I.mul(1.106)).add(Qc.mul(1.703)));
     // the tape's tone: blown highlights, lifted milky blacks, a little warm
-    c = clamp(c.mul(1.16).add(0.012), 0, 1).mul(vec3(1.02, 1.0, 0.95)).mul(0.93).add(0.04);
+    c = clamp(c.mul(U.tape.mul(0.16).add(1)).add(U.tape.mul(0.012)), 0, 1).mul(vec3(1.02, 1.0, 0.95)).mul(float(1).sub(U.tape.mul(0.07))).add(U.tape.mul(0.04));      // (tape 0 in the storm: no lift, no extra gain)
     // interlaced fields: alternate lines dim, the pair swapping every frame; a faint soft vignette
     const fl = q.y.mul(viewportSize.y).add(step(0.5, fract(time.mul(30))));
     c = c.mul(float(0.94).add(sin(fl.mul(Math.PI)).mul(sin(fl.mul(Math.PI))).mul(0.06)));
@@ -261,7 +261,7 @@ export function makePost(renderer, scene, camera, Q) {
       moodKey = key;
       if (!B) return;
       const G = GRADE[key] || GRADE.storm;
-      U.lift.value.set(...G.lift); U.gain.value.set(...G.gain); U.sat.value = G.sat; U.con.value = G.con; U.vig.value = G.vig;
+      U.lift.value.set(...G.lift); U.gain.value.set(...G.gain); U.sat.value = G.sat; U.con.value = G.con; U.vig.value = G.vig; U.tape.value = G.tape ?? 1;
       B.strength.value = G.bloom; B.threshold.value = G.thr;
     },
     render() {
