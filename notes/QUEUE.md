@@ -115,3 +115,9 @@ Then, on the plan: "the doors currently are janky and i dont ever use them, we c
 ## Owner, 2026-11-17
 "the growl noises are getting fully-open flapping jaws, which isnt right at all. i would expect that to be closed and barely twitching. need to refine the procedural animator."
 "please help me stay on track that its best to release things janky and let people see iteration over time, rather than striving to perfect before launch"
+
+## Owner, 2026-11-17
+"touch controls players need a way to run, dont have one currently."
+"save video clip is okay and maybe helpful, but shareable link is good in other ways."
+"the link is only shared to trusted playtesters currently. im happy to host it somewhere else or in some other way for the public alpha release as you advise. i dont know anything about that stuff though."
+"youve given me two very long messages that i cant reply to everything in. come to me with clear decisions i need to make"
