@@ -121,3 +121,9 @@ Then, on the plan: "the doors currently are janky and i dont ever use them, we c
 "save video clip is okay and maybe helpful, but shareable link is good in other ways."
 "the link is only shared to trusted playtesters currently. im happy to host it somewhere else or in some other way for the public alpha release as you advise. i dont know anything about that stuff though."
 "youve given me two very long messages that i cant reply to everything in. come to me with clear decisions i need to make"
+
+## Owner, 2026-11-17, on the clip's closeout card (mockups A/B/C in the artifact "Rex clip closeout screens")
+"C is funniest if we can genuinely map a relevant, natural language "advice" phrase onto the real cause of death that doesnt wind up too repetitive without having to engineer some whole new system.."
+"we dont need "rough alpha" in the name on the finish card. i guess rex encounter is the name of the fictional exhibit."
+"make this finishing card have some VHS like effect over it too so its not jarring after the game experience"
+Also: "yes you may flip the switch that lets testers export the clip" (done). On thoughts in closeouts: "its final thoughts are already shown [on the death screen], and they're rarely amusing to be honest, at least in that context."
