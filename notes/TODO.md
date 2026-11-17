@@ -99,3 +99,23 @@ Next, from `notes/HOSTING.md` (the hosting guide and the list of what made the p
 
 ### T17. Eyelids follow the eye (from T3's "looks sad from the side")
 Status: built 2026-11-16, awaiting the owner; the rest pose from the side is NOT fixed. The owner's diagnosis (QUEUE, 02:00) was half right: the lids sat in a skull-fixed frame, so with the ball turned 15 degrees the opening's centre was 17 degrees off the pupil (29 at 30 degrees) and a lid hid up to 90% of the pupil. Now each eye has a `lidDir` that eases toward the ball's direction (src/view/body.js: `LID_FOLLOW` 0.8 sideways, `LID_FOLLOW_UP` 0.9, `LID_TAU` 0.1 s, clamps 0.45 / 0.4 rad): pupil within 3-6 degrees of the opening's centre across the range. Seen in close-ups: looking at a camera to its side, the pupil now sits in the opening (before: mostly hidden). At rest from the side it is almost unchanged, a heavy brow over a narrow slot, still sullen: the rim line is level (no canthal tilt), so the brow pad is the next thing to try. Looking far up or down from the side the lids read as slanted plates. Blink and squint not looked at. Saltline draws the body with its own `rexbody_gl.js` and does not get this.
+
+## From the owner, 2026-11-16 (see QUEUE for his words)
+
+### T18. Jaw driven by the emitted sound
+Status: in progress (2026-11-16, audio/view agent). Procedural from whatever sound is emitted, not hand made; the jaw must lead the sound slightly.
+
+### T19. Kill cam as a security camera, faithful to flares and sounds
+Status: in progress (2026-11-16, kill cam agent). A distinct CCTV look (not the bodycam VHS), on even when VHS mode is off; must always frame the action so it is funny to watch; flares, thrown things and sounds recreated from the tape. Doors are NOT to be recorded (T21).
+
+### T20. The creature package: the same creature in every host (for a future agent; not started)
+"the user expects to have exactly the same creature functionality in whatever environment they drop it into." In Saltline he noticed different huffing and sniffing sounds and no visual telltales for them. Cause as understood (confirm per effect): the port (T16) shares mind and body only; Saltline has its own `variants/saltline/src/audio.js` (14 clips against the arena's ~90, no hybrid voices) and its own drawing code `view/rexbody_gl.js` (no breath puffs, no sniff tells, no eyelid work T17, no sound-driven jaw T18).
+What to build: (1) define the creature as mind + body + species + voice (src/view/audio.js, audiohybrid.js, clips) + drawing (body.js, rexgeo.js) + tells (the breath, sniff, dust, drool and similar effects in src/view/effects.js that belong to the animal, not the arena), behind one entry point; the host supplies its world (terrain contract), a scene or a draw callback, an audio destination and a listener; (2) separate what in audio.js/effects.js is the arena's (rain, herd, ambience, player) from the animal's; (3) make the drawing work on a host's three.js version or document the minimum; (4) a conformance check: a table of everything the animal emits (events, acts, gestures) against the sound and the visible tell each must produce, run against every host, failing on any gap; (5) the extension point in Mind for a host's own creatures (restores Saltline's hounds and drones, `variants/saltline/pending/`); (6) then the items of T16 (written contract, minimal starter host, generalised world test, single-file build). Read notes/HOSTING.md first.
+
+### T21. Strip out the doors
+Status: open. "the doors currently are janky and i dont ever use them, we can strip them out". Remove the door things, their act (`act door`), UI prompt and sounds; leave the doorways as plain openings; check the mind's use of openings still passes test/mind.mjs, test/barn.mjs, test/window.mjs.
+
+### T22. Stuck-animal alarm
+Status: in progress (2026-11-16, telemetry agent). Flag in telemetry when the animal is hungry, still and silent for 20 s, with its internal state, so freezes like T13 report themselves.
+
+### Naming: "gait fix" means T14/T15 (the splayed poses: how fast it may turn for its speed, and when a planted foot may re-step). Queued; bamboo (T2) and the brow (T17) too.

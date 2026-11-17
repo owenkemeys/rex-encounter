@@ -86,3 +86,14 @@ Also: "i also dont want to have to think about branches and worktrees and so on,
 
 ## Owner, 2026-11-16 ~02:00 UTC, on the eyelids (T3)
 "the sad eyelids are to do with the axis that the eyelids pivot around. that axis is fixed relative to skull, in a way that produces a good parted effect from dead ahead, but strange from side. the eyelid rotation axis should be a child of the eyeball's look direction, so that the widest parting of the lids is always around the pupil. or at least something closer to this, with some damping and weighting factor for realism rather than 1:1 tracking. this is my diagnosis from observation only, and may be wrong or an incomplete fix."
+
+## Owner, 2026-11-16, after the eyelid build
+"the eye is an improvement already, thanks."
+"the saltline rex seemed to have some different sound effects (huffing,sniffing) and lost the visual telltales for the same. that's a shame and ought all to be part of the portability package. the user expects to have exactly the same creature functionality in whatever environment they drop it into."
+"when it vocalises, can the jaw opening be driven by the sound files in some way so the overall effect all ties together more?"
+"the kill cam needs to properly recreate flares, sounds, and other such interactions so it is faithful to what the player did and saw in their game - or if that is too expensive to achieve, then we can change the style or framing somehow so that players dont expect it (maybe even more security cam style)"
+Then, on the plan: "the doors currently are janky and i dont ever use them, we can strip them out"
+"security cam framing: okay do it, with a different VHS style to sell that its no longer a bodycam type recording. and applies even when VHS mode is off. BUT it needs to always be funny to watch, so the angle, distance, zoom etc need to all just work."
+"i'd like to see the jaw animation first and it should be procedural based on emitted sound effect, not hand crafted, to allow future flexibility. I am sure you can find a way to handle the need to precede the actual audio by a fraction."
+"the kill cam update can come in the same build, please. these two are visible changes that affect the fun immediately."
+"the creature package stuff can be just articulated on the to do list for a future agent." "the stuck alarm is up to you" "bamboo can stay on the to-do list."
