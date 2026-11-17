@@ -4,6 +4,7 @@
 import * as THREE from 'three/webgpu';
 import { Achievements, ACHIEVEMENTS } from './achievements.js';
 import { clamp } from './math.js';
+import { tuneInstall, tuneOpen, tuneAvailable, tuneShowStrip } from './view/tune.js';      // tune
 
 const $ = (id) => document.getElementById(id);
 // thoughts: always (default) / when watched (read at range by keeping it in view) / near only / never
@@ -30,13 +31,13 @@ export const KIT = { torch: true, flares: 3, stones: 0, meat: 0 };
 // is taught once, by a short prompt, the first time it matters (see teach).
 // One name per verb, used on every device: walk, run, crouch, look, zoom, flare, call, torch, the contextual verb itself, pause, controls.
 const KEYS = {
-  kb: { move: 'W A S D', run: 'Shift', crouch: 'C', look: 'mouse', zoom: 'right mouse / Z', use: 'click', items: 'wheel / 1 2 3', call: 'Q', act: 'E', torch: 'F', note: 'T', clip: 'R', pause: 'Esc', peek: 'Tab', again: 'Enter', struggle: 'W A S D' },
-  pad: { move: 'left stick', run: 'L3', crouch: 'B', look: 'right stick', zoom: 'LT', use: 'RT', items: 'LB / RB', call: 'X', act: 'A', torch: 'Y', note: 'R3', clip: 'pause card', pause: 'Start', peek: 'View', again: 'A', struggle: 'left stick' },
-  touch: { move: 'stick', run: 'stick to the rim, or run', crouch: 'crouch', look: 'drag the view', zoom: 'zoom', use: 'flare', items: 'item', call: 'call', act: 'pop-up button', torch: 'torch', note: 'note', clip: 'clip', pause: '\u2016', peek: '?', again: '', struggle: 'the stick' },
+  kb: { move: 'W A S D', run: 'Shift', crouch: 'C', jump: 'Space', look: 'mouse', zoom: 'right mouse / Z', use: 'click', items: 'wheel / 1 2 3', call: 'Q', act: 'E', torch: 'F', note: 'T', clip: 'R', pause: 'Esc', peek: 'Tab', again: 'Enter', struggle: 'W A S D' },
+  pad: { move: 'left stick', run: 'L3', crouch: 'B', jump: 'A', look: 'right stick', zoom: 'LT', use: 'RT', items: 'LB / RB', call: 'X', act: 'D-pad up', torch: 'Y', note: 'R3', clip: 'pause card', pause: 'Start', peek: 'View', again: 'A', struggle: 'left stick' },
+  touch: { move: 'stick', run: 'stick to the rim, or run', crouch: 'crouch', jump: 'jump', look: 'drag the view', zoom: 'zoom', use: 'flare', items: 'item', call: 'call', act: 'pop-up button', torch: 'torch', note: 'note', clip: 'clip', pause: '\u2016', peek: '?', again: '', struggle: 'the stick' },
 };
 const itemNames = () => [KIT.flares > 0 && 'flare', KIT.stones > 0 && 'stone', KIT.meat > 0 && 'meat'].filter(Boolean);
 const useName = () => (itemNames().length > 1 ? 'throw what is in hand' : 'throw a ' + itemNames()[0]);
-const CTL = () => [['move', 'walk'], ['run', 'run'], ['crouch', 'crouch'], ['look', 'look'], ['zoom', 'zoom'], itemNames().length && ['use', useName()], itemNames().length > 1 && ['items', 'change item'], ['call', 'call <i>(hold: shout)</i>'], ['act', 'climb, doors <i>(when shown)</i>'], KIT.torch && ['torch', 'torch'], ['note', 'note'], ['clip', 'save a clip of the last 15 s'], ['pause', 'pause']].filter(Boolean);
+const CTL = () => [['move', 'walk'], ['run', 'run'], ['crouch', 'crouch'], ['jump', 'jump'], ['look', 'look'], ['zoom', 'zoom'], itemNames().length && ['use', useName()], itemNames().length > 1 && ['items', 'change item'], ['call', 'call <i>(hold: shout)</i>'], ['act', 'climb, doors <i>(when shown)</i>'], KIT.torch && ['torch', 'torch'], ['note', 'note'], ['clip', 'save a clip of the last 15 s'], ['pause', 'pause']].filter(Boolean);
 // the start card: only what a first-time player needs
 const CTL_START = () => [['move', 'walk'], ['look', 'look'], itemNames().length && ['use', useName()], ['call', 'call <i>(hold: shout)</i>'], KIT.torch && ['torch', 'torch'], ['pause', 'pause']].filter(Boolean);
 // achievements that cannot be earned while the player carries no stones or meat: hidden from the lists and the counts
@@ -106,6 +107,12 @@ export function createUI(o) {
   $('bPhoto').addEventListener('click', () => { set('panel', false); setTimeout(photo, 350); });
   $('bTake').addEventListener('click', () => act.take());
   $('pSandbox').addEventListener('click', () => { audio.resume(); set('panel', true); if (session) session.setPaused(false); });
+  // tune: the live tuning panel (src/view/tune.js), from the sandbox tools, the pause card, or the key ;. The button shows only with #debug or #tune, after the first backtick,
+  // or when tuned values are already stored. Opening it lets go of the pointer without pausing; pinned rows stay on screen while playing.
+  tuneInstall({ release: () => { if (session && session.releasePointer) session.releasePointer(); }, enabled: () => debugOn });      // tune
+  $('bTune').addEventListener('click', () => { audio.resume(); set('panel', false); tuneOpen(true); });      // tune
+  $('pTune').addEventListener('click', () => { audio.resume(); if (session) session.setPaused(false); tuneOpen(true); });      // tune
+  { const showT = () => { $('pTune').hidden = !(debugOn || tuneAvailable()); }; showT(); setInterval(showT, 1500); if (tuneAvailable()) tuneShowStrip(); }      // tune
   // hidden debug entry for touch: five quick taps on the pause card's title
   { let taps = 0, tapT = 0; $('pTitle').addEventListener('click', () => { const now = performance.now(); taps = now - tapT < 1200 ? taps + 1 : 1; tapT = now; if (taps >= 5) { taps = 0; setDebug(true); } }); }
   // the corner: "?" shows the controls over the game (toggles on touch and with the free pointer); pause is main.js's

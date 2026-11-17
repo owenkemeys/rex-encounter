@@ -7,7 +7,9 @@ import { Figure, ST } from './figure.js';
 import { planShots, Ptz, K as PK } from './ptz.js';
 
 const HZ = 30, N = 480, LIVE = 450, AFTER = 2.5, M = 20;      // frames in the ring, seconds kept after the death, floats of player data per frame
-const SHOW = 12, EVMAX = 500, BURST = 0.4;      // the footage is shown at 12 frames a second; a cut or the start is a burst of static this long
+const EVMAX = 500, RPT = { show: 12, burst: 0.4 };      // show: the footage's frames a second; burst: a cut or the start is static this long (live, tuning panel)
+import { tune, tuneGroup } from './tune.js';      // tune
+{ tuneGroup('Kill cam camera', { order: 70 }); tune('Kill cam camera', 'Footage frame rate (per second)', RPT, 'show', 2, 30, 1, null, 'replay.fps'); tune('Kill cam camera', 'Static burst at a cut (s)', RPT, 'burst', 0, 2, 0.05, null, 'replay.burst'); }      // tune      // the footage is shown at 12 frames a second; a cut or the start is a burst of static this long
 const sstep = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
 const EVF = ['type', 'src', 'x', 'y', 'z', 'kind', 'first', 'loud', 'part', 'force', 'mat', 'surface', 'nx', 'nz', 'speed', 'id', 'intensity', 'yaw', 'amount'];
 
@@ -148,10 +150,10 @@ export class Replay {
     // the sound events that fall in the span just shown
     return f;
   }
-  /** Advance by dt: pose, figure, things, sounds due and the camera. False when the tape has run out. The footage is shown at SHOW frames a second: the picture holds between. */
+  /** Advance by dt: pose, figure, things, sounds due and the camera. False when the tape has run out. The footage is shown at RPT.show frames a second: the picture holds between. */
   update(dt, camera) {
     this.hold += dt;
-    if (this.hold < 1 / SHOW && this.t > 0) { this.burst = Math.max(0, 1 - (this.t - this.cutT) / BURST); return true; }
+    if (this.hold < 1 / RPT.show && this.t > 0) { this.burst = Math.max(0, 1 - (this.t - this.cutT) / RPT.burst); return true; }
     const step = this.hold; this.hold = 0;
     const f0 = this.s0 + this.t * HZ; this.t += step;
     const f = this.s0 + this.t * HZ, last = this.n - 1;
@@ -171,7 +173,7 @@ export class Replay {
     const P = this.ptz, m = P.m, c = camera;
     c.position.set(m.x, m.y, m.z); P.fwd(this.v3 || (this.v3 = {})); c.lookAt(m.x + this.v3.x, m.y + this.v3.y, m.z + this.v3.z);
     const fov = P.fov * 180 / Math.PI; if (Math.abs(c.fov - fov) > 1e-3) { c.fov = fov; c.updateProjectionMatrix(); }
-    this.burst = Math.max(0, 1 - (this.t - this.cutT) / BURST); this.stampMs = this.baseMs + this.t * 1000;
+    this.burst = Math.max(0, 1 - (this.t - this.cutT) / RPT.burst); this.stampMs = this.baseMs + this.t * 1000;
     return true;
   }
 }

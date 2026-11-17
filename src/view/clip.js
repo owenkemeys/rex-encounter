@@ -4,6 +4,9 @@
 // both the WebGL2 and the WebGPU canvas can be read) onto a hidden fixed-size 2D canvas, letterboxed to 1280x720 (720x1280 on a portrait screen),
 // with a small caption bug; that canvas is captured at 30 fps. Sound: audio.clipStream() (audio.js, `// clip`) taps the same signal the speakers get,
 // after the camera-microphone filter. Nothing here throws into the game loop.
+import { tune, tuneGroup } from './tune.js';      // tune
+export const CAPT = { size: 1, shadow: 0.85 };      // tune: the caption's size (x) and the strength of its shadow
+{ tuneGroup('Clip and closing card', { order: 90 }); tune('Clip and closing card', 'Caption size (x)', CAPT, 'size', 0.4, 3, 0.05, null, 'clip.captionSize'); tune('Clip and closing card', 'Caption shadow strength', CAPT, 'shadow', 0, 1, 0.01, null, 'clip.captionShadow'); }      // tune
 export const CLIP_CAPTION = 'rex encounter · alpha';      // burned into a corner of every clip: change it here
 import { facts as cardFacts, pick as cardPick, incidentNo, makeTape, note as cardNote, LEN as CARD_LEN } from './closeout.js';      // closeout
 const MIMES = ['video/mp4;codecs=avc1,mp4a', 'video/webm;codecs=vp9,opus', 'video/webm'];
@@ -56,9 +59,9 @@ export function createClip({ getCanvas, audio, tape, extra }) {      // closeout
       const k = Math.min(W / sw, H / sh), dw = Math.round(sw * k), dh = Math.round(sh * k), dx = (W - dw) >> 1, dy = (H - dh) >> 1;
       g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.drawImage(src, 0, 0, sw, sh, dx, dy, dw, dh);
       // the caption bug in the overlay's own style (bold monospace, soft shadow, light grey-green), bottom right, sized like the date stamp on the left
-      const cw = src.clientWidth || sw, ch = src.clientHeight || sh, sc = dh / ch, fs = Math.round(Math.max(12, Math.min(18, Math.min(cw, ch) * 0.034)) * sc), m = Math.max(12, Math.min(cw, ch) * 0.035) * sc;
+      const cw = src.clientWidth || sw, ch = src.clientHeight || sh, sc = dh / ch, fs = Math.round(Math.max(12, Math.min(18, Math.min(cw, ch) * 0.034)) * sc * CAPT.size), m = Math.max(12, Math.min(cw, ch) * 0.035) * sc;
       g.font = `bold ${fs}px "Lucida Console", "Courier New", monospace`; g.textBaseline = 'top'; g.textAlign = 'right';
-      const x = dx + dw - m, y = dy + dh - m - fs; g.fillStyle = 'rgba(0,0,0,0.85)'; g.fillText(CLIP_CAPTION, x + 1, y + 1); g.fillStyle = 'rgba(236,244,236,1)'; g.fillText(CLIP_CAPTION, x, y);
+      const x = dx + dw - m, y = dy + dh - m - fs; g.fillStyle = `rgba(0,0,0,${CAPT.shadow})`; g.fillText(CLIP_CAPTION, x + 1, y + 1); g.fillStyle = 'rgba(236,244,236,1)'; g.fillText(CLIP_CAPTION, x, y);
       C.frames++;
     } catch (e) { C.error = String(e && e.message || e); }
   };

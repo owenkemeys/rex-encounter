@@ -3,6 +3,7 @@
 // skin builder (view/rexgeo.js) take their anatomy, gait, mass, senses and temperament from
 // here. A second species is a second profile (and, for a quadruped, a second leg set in `legs`).
 import { lerp, sstep } from '../math.js';
+import { tune, tuneGroup } from '../view/tune.js';      // tune
 
 export const TYRANNOSAURUS = {
   name: 'Tyrannosaurus rex, adult',
@@ -115,3 +116,15 @@ export const TYRANNOSAURUS = {
   },
   spacing: { personal: 8.6, inspect: [7.8, 9.2], nudge: 6.6, chase: 7.0, bluff: [8, 10.5], stalk: [10, 15] },      // (kept with the 0.42 m shorter reach: standing 0.4 m nearer made gaze worse; see out/skel/PROPORTIONS.md)
 };
+{ // tune: body reactions (read live by the sim each time they are used; the hips block is copied when the animal is spawned)
+  const G = 'Body reactions (crashes, gaze)', C = TYRANNOSAURUS.crash, B = C.blow, L = TYRANNOSAURUS.gazeLead; tuneGroup(G, { order: 50 });      // tune
+  tune(G, 'Reels from a knock faster than (m/s)', C, 'reelFrom', 0.5, 8, 0.1, null, 'crash.reelFrom'); tune(G, 'Reels fully from a knock of (m/s)', C, 'reelFull', 2, 16, 0.1, null, 'crash.reelFull'); tune(G, 'Backs off after a reel: least (m/s)', C.reelBack, 0, 0, 3, 0.05, null, 'crash.reelBack[0]'); tune(G, 'Backs off after a reel: most (m/s)', C.reelBack, 1, 0, 4, 0.05, null, 'crash.reelBack[1]');      // tune
+  tune(G, 'Shakes its head from a reel of (0..1)', C, 'shakeFrom', 0, 1, 0.01, null, 'crash.shakeFrom'); tune(G, 'Stumble on a glancing or corner hit', C, 'stumble', 0, 3, 0.05, null, 'crash.stumble');      // tune
+  tune(G, 'Blow rebound: delay (s)', B, 't2', 0.02, 0.8, 0.01, null, 'crash.blow.t2'); tune(G, 'Blow rebound: roll over-correction (rad)', B, 'over', 0, 1.5, 0.01, null, 'crash.blow.over'); tune(G, 'Blow: roll kick', B, 'rollKick', 0, 4, 0.05, null, 'crash.blow.rollKick'); tune(G, 'Blow: head tilt back', B, 'headBack', 0, 20, 0.1, null, 'crash.blow.headBack');      // tune
+  tune(G, 'Blow: head thrown off the wall (m/s)', B, 'headAway', 0, 5, 0.05, null, 'crash.blow.headAway'); tune(G, 'Blow: tail swing', B, 'tail', 0, 3, 0.05, null, 'crash.blow.tail'); tune(G, 'Blow: sway back', B, 'swayBack', 0, 3, 0.05, null, 'crash.blow.swayBack'); tune(G, 'Blow: catch step after (s)', B, 'catchIn', 0, 0.6, 0.01, null, 'crash.blow.catchIn');      // tune
+  tune(G, 'Blow: snorts after a hit harder than (0..1)', B, 'gatherFrom', 0, 1, 0.01, null, 'crash.blow.gatherFrom'); tune(G, 'Blow: snort comes after (s)', B, 't3', 0.1, 2, 0.02, null, 'crash.blow.t3');      // tune
+  tune(G, 'Gaze lead: starts above speed (m/s)', L, 'minSpeed', 0.5, 8, 0.1, null, 'gazeLead.minSpeed'); tune(G, 'Gaze lead: full at speed (m/s)', L, 'fullSpeed', 1, 10, 0.1, null, 'gazeLead.fullSpeed'); tune(G, 'Gaze lead: how far ahead it looks (s)', L, 'start', 0.1, 2.5, 0.05, null, 'gazeLead.start'); tune(G, 'Gaze lead: peek along the route', L, 'peek', 0, 0.5, 0.01, null, 'gazeLead.peek');      // tune
+  tune(G, 'Gaze lead: leads a turn by (s)', L, 'turnLead', 0, 2, 0.05, null, 'gazeLead.turnLead'); tune(G, 'Gaze lead: furthest off its body line (rad)', L, 'maxYaw', 0, 1.5, 0.01, null, 'gazeLead.maxYaw'); tune(G, 'Gaze lead: furthest at a sprint (rad)', L, 'sprintYaw', 0, 1.5, 0.01, null, 'gazeLead.sprintYaw'); tune(G, 'Gaze lead: easing (s)', L, 'ease', 0.02, 1, 0.01, null, 'gazeLead.ease');      // tune
+  tune(G, 'Gaze lead: head turn rate (rad/s)', L, 'rate', 0.5, 8, 0.1, null, 'gazeLead.rate'); tune(G, 'Gaze lead: head bank into a turn', L, 'roll', 0, 0.4, 0.01, null, 'gazeLead.roll');      // tune
+  tune(G, 'Hips: sideways share of a lunge', TYRANNOSAURUS.hips, 'lungeSide', 0, 1, 0.01, null, 'hips.lungeSide', 'spawn');      // tune
+}

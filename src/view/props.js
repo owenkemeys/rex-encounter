@@ -2,6 +2,9 @@
 // the prey herd (procedural, light on draw calls), birds in the perimeter trees, and your torch.
 import * as THREE from 'three/webgpu';
 import { makeRng, clamp, lerp } from '../math.js';
+import { tune, tuneGroup } from './tune.js';      // tune
+const LIGHT = { torch: 140, flare: 26 };      // tune: the torch's and a burning flare's light (read live)
+{ tuneGroup('Player', { order: 80 }); tune('Player', 'Torch brightness', LIGHT, 'torch', 0, 500, 1, null, 'torch.intensity'); tune('Player', 'Flare light brightness', LIGHT, 'flare', 0, 100, 0.5, null, 'flare.intensity'); }      // tune
 import { mergeGeometries as mergeGeo } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PREY } from '../sim/herd.js';
 import { WEATHER } from './world.js';
@@ -261,9 +264,9 @@ export class Props {
       p.sp.material.opacity = 0.32 * Math.sin(Math.PI * Math.min(1, u * 1.3 + 0.04)) * (1 - u * 0.5);
       if (p.life <= 0) p.sp.visible = false;
     }
-    if (best) { this.flareLight.position.set(best.o.x, best.o.y + 0.5, best.o.z); this.flareLight.intensity = 26 * best.fl * best.k; } else this.flareLight.intensity = 0;
+    if (best) { this.flareLight.position.set(best.o.x, best.o.y + 0.5, best.o.z); this.flareLight.intensity = LIGHT.flare * best.fl * best.k; } else this.flareLight.intensity = 0;
     // torch: from just below the eye, along the view
-    this.torch.intensity = this.torchOn ? 140 : 0;
+    this.torch.intensity = this.torchOn ? LIGHT.torch : 0;
     if (this.torchOn) {
       const f = this.v3.set(0, 0, -1).applyQuaternion(camera.quaternion);
       this.torch.position.copy(camera.position).add(new THREE.Vector3(0.25, -0.3, 0).applyQuaternion(camera.quaternion));

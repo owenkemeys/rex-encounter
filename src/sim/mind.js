@@ -37,6 +37,7 @@
 // agents can be passed in (co-op); it attends to the one it finds most interesting.
 
 import { Peril } from './peril.js';
+import { tune, tuneGroup } from '../view/tune.js';      // tune
 import { makeRng, clamp, lerp, wrap, bearing, expK } from '../math.js';
 import { Attention } from './attend.js';
 import { Thinker } from './thoughts.js';
@@ -114,6 +115,30 @@ export const MIND_DEFAULT = {
     leaveDamp: 0.6,     // share of hunger's want (and its weighing) a leaving thing takes off, short of starving
   },
 };
+/** Plain numbers that were inline (the tuning panel moves them): hunger's rate, the kill thresholds, the curiosity and irritation gains. */
+const MT = { hungerSecs: 700, killFear: 0.35, killHunger: 0.75, killKnown: 0.5, irritNear: 0.03, irritShove: 0.35, irritGlare: 0.08, curiNovelty: 0.05, curiScent: 0.25, interestT: 45 };
+/** tune: the mind's dials, registered on this animal's own merged config (the nested ones are shared with the defaults, so they move every animal). */
+function tuneMind(core) {
+  const G = 'Mind: provoking and temperament', H = 'Mind: hunger, killing, curiosity', P = core.prov, W = P.w; tuneGroup(G, { order: 60 }); tuneGroup(H, { order: 61 });      // tune
+  const pr = (l, o, k, lo, hi, st, c, n) => tune(G, l, o, k, lo, hi, st, null, 'mind.' + c, n);      // tune
+  pr('Probing: sniff before the first probe, min (s)', P.sniff, 0, 0.2, 8, 0.1, 'prov.sniff[0]'); pr('Probing: sniff before the first probe, max (s)', P.sniff, 1, 0.5, 12, 0.1, 'prov.sniff[1]'); pr('Probing: wait between probes, min (s)', P.pause, 0, 0.2, 8, 0.1, 'prov.pause[0]'); pr('Probing: wait between probes, max (s)', P.pause, 1, 0.5, 10, 0.1, 'prov.pause[1]');      // tune
+  pr('Probing: quick sniff once begun, min (s)', P.quick, 0, 0.1, 4, 0.1, 'prov.quick[0]'); pr('Probing: quick sniff once begun, max (s)', P.quick, 1, 0.2, 6, 0.1, 'prov.quick[1]'); pr('Probing: stays still this long first (s)', P, 'stillT', 0.2, 6, 0.1, 'prov.stillT'); pr('Probing: only while hunger is under', P, 'hungerMax', 0, 1, 0.01, 'prov.hungerMax');      // tune
+  pr('Probing: only while fear is under', P, 'fearMax', 0, 1, 0.01, 'prov.fearMax'); pr('Probing: huffs first (chance)', P, 'huffFirst', 0, 1, 0.01, 'prov.huffFirst'); pr('Probing: reach distance, standing (m)', P, 'reachS', 1, 7, 0.1, 'prov.reachS'); pr('Probing: reach distance, lying (m)', P, 'reachL', 1, 7, 0.1, 'prov.reachL'); pr('Probing: backs off if closer than (m)', P, 'tooClose', 1, 6, 0.1, 'prov.tooClose');      // tune
+  for (const k of Object.keys(W)) pr('Probe weight: ' + k, W, k, 0, Math.max(3, W[k] * 3), 0.05, 'prov.w.' + k);      // tune
+  pr('Toss: how hard it throws', P, 'tossForce', 0.1, 3, 0.05, 'prov.tossForce');      // tune
+  pr('Pressure to nudge', core.rungs, 0, 0.05, 1, 0.01, 'core.rungs[0]'); pr('Pressure to shove', core.rungs, 1, 0.05, 1, 0.01, 'core.rungs[1]'); pr('Pressure to put a foot on it', core.rungs, 2, 0.05, 1, 0.01, 'core.rungs[2]'); pr('Pressure to reach with the mouth', core.rungs, 3, 0.05, 1.2, 0.01, 'core.rungs[3]');      // tune
+  pr('Wait to read an answer, min (s)', core.pause, 0, 0.5, 10, 0.1, 'core.pause[0]'); pr('Wait to read an answer, max (s)', core.pause, 1, 1, 14, 0.1, 'core.pause[1]'); pr('Shove force', core, 'shoveF', 0, 1, 0.01, 'core.shoveF'); pr('Hunger under which it only toys (never reaches)', core, 'fed', 0, 1, 0.01, 'core.fed');      // tune
+  pr('Open-mouthed reach: min (s)', core.reachT, 0, 0.5, 10, 0.1, 'core.reachT[0]'); pr('Open-mouthed reach: max (s)', core.reachT, 1, 1, 12, 0.1, 'core.reachT[1]'); pr('Reach pace (m/s)', core, 'reachPace', 0.2, 3, 0.05, 'core.reachPace'); pr('Pressure builds faster unwatched (x)', core, 'unwRise', 0.5, 5, 0.05, 'core.unwRise');      // tune
+  pr('Look before it files a thing as food (s)', core, 'claimLook', 0.5, 10, 0.1, 'core.claimLook'); pr('Food verdict strength', core, 'claim', 0, 2, 0.01, 'core.claim'); pr('Curiosity reserve: first meeting', core, 'first', 0, 2, 0.01, 'core.first'); pr('Curiosity reserve: filled by something new', core, 'fill', 0, 2, 0.01, 'core.fill');      // tune
+  pr('Boredom with repeats', core, 'habGain', 0, 2, 0.01, 'core.habGain'); pr('Boredom wears off over (s)', core, 'habT', 20, 600, 5, 'core.habT'); pr('Curiosity runs down over (s, close)', core, 'drainT', 10, 400, 5, 'core.drainT'); pr('Curiosity runs down over (s, far)', core, 'drainFar', 20, 800, 10, 'core.drainFar');      // tune
+  pr('Curiosity from a surprise', core, 'surprise', 0, 1, 0.01, 'core.surprise'); pr('Pressure a full curiosity holds off', core, 'curPeril', 0, 3, 0.05, 'core.curPeril'); pr('Pull of going to ask', core, 'want', 0, 3, 0.05, 'core.want'); pr('Pull from hunger', core, 'hunt', 0, 3, 0.05, 'core.hunt');      // tune
+  pr('Pace in when unwatched (m/s)', core, 'paceU', 0.3, 6, 0.05, 'core.paceU'); pr('Pace in on a glance (m/s)', core, 'paceG', 0.3, 5, 0.05, 'core.paceG'); pr('Pace in when watched (m/s)', core, 'paceW', 0.2, 4, 0.05, 'core.paceW'); pr('Hungry pace multiplier', core, 'hungryPace', 1, 3, 0.05, 'core.hungryPace');      // tune
+  pr('Close look distance (m)', core, 'inspectD', 2, 12, 0.1, 'core.inspectD'); pr('Pressure when a counter is tried again', core, 'teeth', 0, 1, 0.01, 'core.teeth'); pr('Wait after a counter worked (s)', core, 'balkHold', 0, 120, 1, 'core.balkHold');      // tune
+  const hh = (l, o, k, lo, hi, st, c) => tune(H, l, o, k, lo, hi, st, null, 'mind.' + c);      // tune
+  hh('Hunger: seconds from empty to starving', MT, 'hungerSecs', 100, 3000, 10, 'hungerSecs'); hh('Kills: only if fear is under', MT, 'killFear', 0, 1, 0.01, 'killFear'); hh('Kills a prey-like thing above hunger', MT, 'killHunger', 0, 1, 0.01, 'killHunger'); hh('Kills a thing it knows above hunger', MT, 'killKnown', 0, 1, 0.01, 'killKnown');      // tune
+  hh('Irritation from being near (rate)', MT, 'irritNear', 0, 0.2, 0.002, 'irritNear'); hh('Irritation from a shove', MT, 'irritShove', 0, 1, 0.01, 'irritShove'); hh('Irritation from a light in its eyes (rate)', MT, 'irritGlare', 0, 0.4, 0.005, 'irritGlare');      // tune
+  hh('Curiosity from something new (rate)', MT, 'curiNovelty', 0, 0.3, 0.005, 'curiNovelty'); hh('Curiosity from a scent (rate)', MT, 'curiScent', 0, 1, 0.01, 'curiScent'); hh('Interest fades over (s)', MT, 'interestT', 5, 300, 1, 'interestT');      // tune
+}
 // (the chase block: how long it keeps after a thing that runs)
 MIND_DEFAULT.chase = {
   losingAfter: 4,     // s into a run before a growing gap counts against it (it is still getting up to speed)
@@ -219,7 +244,7 @@ export class Mind {
     this.pd = { k: 0, lastT: -99, n: 0 };
     // commitment (see MIND_DEFAULT): the goal its behaviours serve, held until done, blocked, beaten by a clear margin or broken by
     // something that matters at once (`openT`)
-    this.cfg = mergeCfg(MIND_DEFAULT, this.sp.mind); this.goal = null; this.openT = -99;
+    this.cfg = mergeCfg(MIND_DEFAULT, this.sp.mind); this.goal = null; this.openT = -99; tuneMind(this.cfg.core);      // tune
     // the route planner takes its body's own measure (what the trunk can pass, where it can turn): nav.bodyRoom
     if (sim.nav && sim.nav.fit) sim.nav.fit(bodyRoom(sim));
   }
@@ -618,9 +643,9 @@ export class Mind {
         const dd = Math.hypot(g.x - sim.x, g.z - sim.z), toward = clamp(-(g.vx * (g.x - sim.x) + g.vz * (g.z - sim.z)) / (dd || 1), 0, 4);
         const fresh = Math.exp(-(this.t - K.seenSince) / 40), novelty = clamp(g.speed / 3, 0, 1) * 0.6 + toward * 0.25 + (dd < 10 ? 0.3 * fresh : 0);
         this.closeTime = dd < 12 ? (this.closeTime || 0) + dt : Math.max(0, (this.closeTime || 0) - dt * 0.5);
-        M.interest = clamp(M.interest + dt * (0.05 * novelty - (this.t - K.seenSince > 15 ? 0.012 : 0)), 0, 1);
+        M.interest = clamp(M.interest + dt * (MT.curiNovelty * novelty - (this.t - K.seenSince > 15 ? 0.012 : 0)), 0, 1);
         M.arousal = clamp(M.arousal + dt * 0.04 * (novelty - 0.15), 0, 1);
-        if (dd < 10) M.irritation = Math.min(1, M.irritation + dt * (0.03 * toward + 0.002) * (0.5 + this.temper.irritable) * (1 - 0.85 * this.tame) * (1 + this.pain));
+        if (dd < 10) M.irritation = Math.min(1, M.irritation + dt * (MT.irritNear * toward + 0.002) * (0.5 + this.temper.irritable) * (1 - 0.85 * this.tame) * (1 + this.pain));
       }
       // smell: the intruder upwind of it, close enough
       const dx = a.x - sim.x, dz = a.z - sim.z, d = Math.hypot(dx, dz), w = this._windBetween(a.x, a.z, world.wind);
@@ -629,7 +654,7 @@ export class Mind {
       this.scent += (sc - this.scent) * expK(dt, 4);
       if (this.scent > 0.08 && !K.seen) {
         const wh = this._windHere(world.wind); this.scentDir = bearing(-wh.x, -wh.z);      // it turns into the wind where it stands
-        M.interest = Math.min(1, M.interest + this.scent * dt * 0.25);
+        M.interest = Math.min(1, M.interest + this.scent * dt * MT.curiScent);
         if (R() < dt * 0.6) for (const p of this.p) { const pd = Math.hypot(p.x - sim.x, p.z - sim.z), pa = bearing(p.x - sim.x, p.z - sim.z); if (Math.cos(pa - this.scentDir) < 0.75 || pd > SM + 5) p.w *= 0.55; }
       }
     }
@@ -674,7 +699,7 @@ export class Mind {
       M.arousal = Math.min(1, M.arousal + sal * 0.6); M.interest = Math.min(1, M.interest + sal * 0.35);
       if (n.kind === 'shout' && this.know.seen && this.know.target && Math.hypot(n.x - this.know.target.x, n.z - this.know.target.z) < 5) this.ap.onLoud(sal, Math.hypot(n.x - sim.x, n.z - sim.z));
       if ((n.kind === 'shout' || n.kind === 'whistle') && this.know.seen && this.know.target && Math.hypot(n.x - this.know.target.x, n.z - this.know.target.z) < 5) { this.ap.act(n.kind === 'shout' ? 'loud' : 'call'); this.ap.shoutT = this.t; }
-      if (n.kind === 'shove') M.irritation = Math.min(1, M.irritation + 0.35 * (0.5 + this.temper.irritable));
+      if (n.kind === 'shove') M.irritation = Math.min(1, M.irritation + MT.irritShove * (0.5 + this.temper.irritable));
       { const inc = n.kind === 'step' ? 0.05 : n.kind === 'whistle' ? 0.04 : 0.18; this.mem.noiseHab = Math.min(1, this.mem.noiseHab + inc * (1 - bg)); Hb[cls] = Math.min(1, (Hb[cls] || 0) + inc); }
       const fast = n.kind === 'step' && n.loud > (n.splash ? 0.2 : 0.1);      // a splash is loud for the water, not for the pace
       // what made it, as far as it knows: a thing it saw flying, or lying there, where the sound came from, is what landed (a
@@ -697,7 +722,7 @@ export class Mind {
     // mood drifts
     const P = this.temper.patience;
     M.arousal += (0.1 + 0.12 * M.irritation - M.arousal) * expK(dt, 20 + 30 * P);
-    M.interest *= 1 - dt / (45 + 90 * P) * (K.seen ? 0.2 : 1);
+    M.interest *= 1 - dt / (MT.interestT + 90 * P) * (K.seen ? 0.2 : 1);
     M.irritation *= 1 - dt / 120;
     M.boredom = clamp(M.boredom + dt * (K.seen || this.startle ? -0.05 : 0.006), 0, 1);
     if (this.mem.steady) for (const q of this.mem.steady) { if (this.t - q.t > 10) q.k *= 1 - dt / 20; if (q.k < 0.3) q.hushed = false; if (K.seen && K.target && Math.hypot(K.target.x - q.x, K.target.z - q.z) < 8) { q.k = 0; q.hushed = false; } }
@@ -814,7 +839,7 @@ export class Mind {
   /** Objects, prey, blows and light: everything that is not the intruder. */
   _perceiveWorld(dt, world) {
     const sim = this.sim, h = sim.head, M = this.mood, R = this.R, SN = this.sp.senses, w = world.wind || { x: 0, z: 0 }, wl = Math.hypot(w.x, w.z) || 1;
-    this.hunger = Math.min(1, this.hunger + dt / 700);
+    this.hunger = Math.min(1, this.hunger + dt / MT.hungerSecs);
     // its body ran into something (rex.js crashS: t goes back to 0 at each crash, dur grows with the closing speed; the
     // 'contact' event itself goes to the view, not here): felt, a beat of surprise, remembered for a thought
     { const C = sim.crashS; if (C && typeof C.t === 'number') { if (C.t < (this._crashT0 ?? 99) - 0.01 && C.dur > 0) { const k = clamp((C.dur - 0.5) / 0.1, 1, 9); this.mem.crash = { t: this.t, k, hard: k >= 2.5 }; if (k >= 2) this.crashBeat = { t: this.t, until: this.t + Math.min(1.4, 0.5 + 0.12 * k), k }; this._onCrash(C, k); } this._crashT0 = C.t; } }
@@ -911,7 +936,7 @@ export class Mind {
     if (DZ[1] > 0.7 && DZ[-1] > 0.7 && this.sum.cert > 0.2 && Math.hypot(this.sum.x - h.pos.x, this.sum.z - h.pos.z) < 6 && M.irritation > 0.35 && this.t - (this.lastSnap ?? -99) > 4 && R() < dt * 0.8) {
       sim.gesture('snap', { x: this.sum.x, y: this.T.height(this.sum.x, this.sum.z) + 1.2, z: this.sum.z }); this.lastSnap = this.t; this.blindSnaps = (this.blindSnaps || 0) + 1;
     }
-    if (this.glare > 0.5 && this.know.seen) { M.irritation = Math.min(1, M.irritation + dt * 0.08 * (0.5 + this.temper.irritable)); sim.blink = Math.max(sim.blink, R() < dt * 4 ? 0.15 : 0); this.grudge = Math.min(1, this.grudge + dt * 0.035 * (0.5 + this.temper.irritable)); this.wrongs.glare += dt; this.lastWrong = { kind: 'glare', t: this.t }; this._wrong('glare', dt * 0.05); this.ap.onGlare(dt, this.glareD ?? 99); }
+    if (this.glare > 0.5 && this.know.seen) { M.irritation = Math.min(1, M.irritation + dt * MT.irritGlare * (0.5 + this.temper.irritable)); sim.blink = Math.max(sim.blink, R() < dt * 4 ? 0.15 : 0); this.grudge = Math.min(1, this.grudge + dt * 0.035 * (0.5 + this.temper.irritable)); this.wrongs.glare += dt; this.lastWrong = { kind: 'glare', t: this.t }; this._wrong('glare', dt * 0.05); this.ap.onGlare(dt, this.glareD ?? 99); }
     // going for its food: someone at the meat it is eating or guarding
     // (meat held out in your hand is yours to give, and a friend may come near its meal)
     if (this.beh && this.beh.name === 'feed' && this.focus && !this.focus.hand && this.bond.trust < 0.6 && this.know.seen && this.know.target) { const a = this.know.target, d = Math.hypot(a.x - this.focus.x, a.z - this.focus.z); if (d < 4.5) { this._wrong('food', dt * 0.03); this.grudge = Math.min(1, this.grudge + dt * 0.12 * (0.6 + this.temper.irritable)); this.wrongs.food += dt; this.lastWrong = { kind: 'food', t: this.t }; M.irritation = Math.min(1, M.irritation + dt * 0.1); } }
@@ -2713,7 +2738,7 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
             // the 3rd or 4th taste came out "not meat". A hungry animal that has him that is not afraid finishes it: one shake, then the bite
             // (very hungry, the first time; hungry above half, once he is known meat and known harmless: handled before). Fed and playing,
             // or afraid, it still lets go, and says why.
-            const known = (a.handled || 0) > 1, resolute = b.lethal || (!play && this.ap.fear < 0.35 && (prey && this.hunger > 0.75 || known && this.hunger > 0.5));
+            const known = (a.handled || 0) > 1, resolute = b.lethal || (!play && this.ap.fear < MT.killFear && (prey && this.hunger > MT.killHunger || known && this.hunger > MT.killKnown));
             if (resolute) nx = b.shakes < 1 ? 'worry' : 'kill';
             else if (b.pickup && play && held > 0.8) nx = b.pickup;      // PROVOKE: picked up to be dropped or thrown (never to be eaten)
             else if (prey && b.sub === 'taste' && !b.tasted) {

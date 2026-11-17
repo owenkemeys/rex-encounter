@@ -285,8 +285,12 @@ function noiseInto(g, nc, ng, W, H, a, rng) {      // a small noise canvas, scal
   g.save(); g.globalAlpha = a; g.imageSmoothingEnabled = true; g.drawImage(nc, 0, 0, W, H); g.restore();
 }
 /** The tape treatment: makes a drawer for a W x H canvas. `ctx.frame(g, t, stampMs, rng)`: t seconds into the closeout (0 to LEN). Legibility first. */
-export const CARD_SECONDS = 6.4, STATIC = 0.25;      // the closing card is held for CARD_SECONDS in the recording (the owner: twice the first 3.2 s)
-export const LEN = CARD_SECONDS;
+export let CARD_SECONDS = 6.4, STATIC = 0.25;      // the closing card is held for CARD_SECONDS in the recording (the owner: twice the first 3.2 s)
+export let LEN = CARD_SECONDS;
+import { tune, tuneGroup } from './tune.js';      // tune
+const CARDT = { seconds: CARD_SECONDS, stat: STATIC };      // tune: live copies; the exported lets follow them
+{ const G = 'Clip and closing card'; tuneGroup(G, { order: 90 });      // tune
+  tune(G, 'Closing card length (s)', CARDT, 'seconds', 1, 15, 0.1, (v) => { CARD_SECONDS = LEN = v; }, 'card.seconds'); tune(G, 'Static transition into the card (s)', CARDT, 'stat', 0, 2, 0.05, (v) => { STATIC = v; }, 'card.static'); }      // tune
 export function makeTape(W, H, line, no, link = CLIP_LINK, live = false) {
   const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
   const card = mk(), cg = card.getContext('2d'); drawCard(cg, W, H, line, no, link, live);

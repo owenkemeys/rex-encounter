@@ -82,6 +82,20 @@ export const LAYOUT = {
   jungle: { trail: [[-24, -18], [-36, -30], [-52, -42], [-62, -52], [-70, -66]], trailHalf: 6, clearing: { x: -62, z: -52, r: 8 } },
   bamboo: { x0: -99, x1: -85, z0: -6, z1: 93 },
   spawn: { you: { x: -13, z: 2 }, rex: { x: 15, z: 14, yaw: -2.0 } },     // ~30 m apart on the Lawn, in the open
+  // Where a session starts and where a new life appears. Owner (2026-11-17): "the arena and/or spawn position i find to be overly big and
+  // boring, i end up dashing over to the ruins or the barn from the start point most times because that gives opportunities for
+  // fooling around with the rex." So: the first spawn is in the open between the Barn and the Containers, 12 to 18 m from cover (the Barn, or the berm in front), the
+  // animal about 38 m off on the Lawn in plain view. A respawn takes whichever of `respawn` is farthest from the animal (at least
+  // 40 m, out of its sight line if one is) so a new life is never a second death; `spawn` above is the fallback.
+  spawns: {
+    first: { you: { x: -4, z: 58 }, rex: { x: -4, z: 20 } },      // between the Barn (17 m E) and the Containers (20 m W), the berm 12 m ahead; the animal faces you, the berm's end clear of the line
+    respawn: [
+      { name: 'the Barn', x: 30, z: 49 },            // 14 m off its south face
+      { name: 'the Ruins', x: -30, z: 20 },          // 16 m off their east side
+      { name: 'the Containers', x: -30, z: 48 },     // 14 m south of the stack
+      { name: 'the Warehouse', x: -52, z: 46 },      // 14 m south of it, in the Yard
+    ],
+  },
 };
 export const riverZ = (x) => -82 + 0.05 * x + 1.5 * Math.sin(x / 19);
 const L = LAYOUT;
@@ -473,4 +487,16 @@ export function makePaddock(seed = 7) {
   P.grazing = [{ x: -2, z: -50, r: 13 }, { x: 22, z: 42, r: 10 }, { x: 58, z: 8, r: 10 }, { x: -40, z: 40, r: 9 }];
   cache.set(seed, P);
   return P;
+}
+
+/** The respawn spot for a new life: of `spots`, those at least `minD` m from the animal (x, z, head height hy); of those, ones it cannot
+ *  see (nothing solid on the line from its head to eye height there) come first; then the farthest. Null when none is 40 m away. */
+export function pickRespawn(T, spots, ax, az, hy, minD = 40) {
+  let best = null;
+  for (const s of spots) {
+    const d = Math.hypot(s.x - ax, s.z - az); if (d < minD) continue;
+    const seen = T.segClear ? T.segClear(ax, hy, az, s.x, T.height(s.x, s.z) + 1.7, s.z, 0.1) : true, rank = (seen ? 0 : 1e4) + d;
+    if (!best || rank > best.rank) best = { ...s, rank, seen, d };
+  }
+  return best;
 }

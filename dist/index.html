@@ -337,6 +337,37 @@ body.touch #hint { bottom: calc(var(--sb) + 64px); }
 #bubble.dock-left #bpills { align-items: flex-start; } #bubble.dock-right #bpills { align-items: flex-end; }
 #bubble.dock-left, #bubble.dock-left #bcue { align-self: flex-start; } 
 #bubble { transform-origin: 50% 100%; }
+/* ---- tuning panel (src/view/tune.js): live sliders for the owner; pinned rows stay on screen while playing */
+#tunePanel { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); z-index: 30; background: rgba(14,16,14,0.95); border-left: 1px solid var(--line); color: var(--ink); font: 13px/1.3 var(--body); overflow: hidden; display: flex; flex-direction: column; padding-top: var(--st); }
+#tunePanel .tbox { display: flex; flex-direction: column; min-height: 0; flex: 1; padding: 0 12px calc(var(--sb) + 8px) 12px; gap: 8px; }
+#tunePanel .tt { display: flex; align-items: center; gap: 10px; padding-top: 8px; }
+#tunePanel .tt b { font: 600 18px/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
+#tunePanel .tbadge { flex: 1; font: 12px var(--mono); color: var(--ink-faint); }
+#tunePanel .tbadge.on { color: var(--warn); }
+#tunePanel button, #tuneStrip button { min-height: 44px; min-width: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; background: rgba(241,238,228,0.08); color: var(--ink); font: inherit; cursor: pointer; }
+#tunePanel button:disabled, #tuneStrip button:disabled { opacity: 0.3; cursor: default; }
+#tunePanel .tsearch { width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; background: rgba(0,0,0,0.35); color: var(--ink); font: inherit; font-size: 16px; }
+#tunePanel .tbar { display: flex; gap: 8px; } #tunePanel .tbar button { flex: 1; }
+#tunePanel .tout { width: 100%; font: 12px/1.35 var(--mono); background: rgba(0,0,0,0.5); color: var(--bone); border: 1px solid var(--line); border-radius: 6px; padding: 8px; user-select: text; -webkit-user-select: text; }
+#tunePanel .thint { margin: 0; color: var(--ink-faint); font-size: 12px; }
+#tunePanel .tlist { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0; touch-action: pan-y; }
+#tunePanel .tg > summary { min-height: 44px; display: flex; align-items: center; gap: 8px; cursor: pointer; font: 600 15px var(--display); letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1px solid var(--line); }
+#tunePanel .tg.hasch > summary .tgn { color: var(--warn); }
+#tunePanel .tgc { margin-left: auto; font: 12px var(--mono); color: var(--ink-faint); }
+.tr { min-height: 44px; padding: 5px 0; border-bottom: 1px solid rgba(241,238,228,0.07); }
+.tr.changed { background: rgba(242,163,58,0.14); box-shadow: inset 3px 0 var(--warn); padding-left: 6px; }
+.tr .tl { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.tr .tn { font-weight: 500; } .tr .tcode { font: 11px var(--mono); color: var(--ink-faint); }
+.tr .tctl { display: flex; align-items: center; gap: 6px; }
+.tr .tctl input[type="range"] { flex: 1; min-width: 0; height: 32px; touch-action: pan-x; accent-color: var(--accent); }
+.tr .tctl input[type="color"] { flex: 1; height: 36px; min-width: 60px; background: none; border: 1px solid var(--line); }
+.tr .tnum { width: 84px; min-height: 36px; padding: 0 6px; border: 1px solid var(--line); border-radius: 6px; background: rgba(0,0,0,0.35); color: var(--ink); font: 13px var(--mono); }
+.tr .tctl input[type="checkbox"] { width: 28px; height: 28px; }
+.tr .trst, .tr .tpin { flex: none; }
+.tr .tpin.on { color: var(--warn); border-color: var(--warn); }
+#tuneStrip { position: fixed; left: var(--sl); top: calc(var(--st) + 56px); width: min(340px, 62vw); max-height: 52vh; overflow-y: auto; z-index: 29; background: rgba(14,16,14,0.82); border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; color: var(--ink); font: 12px/1.25 var(--body); touch-action: pan-y; }
+#tuneStrip .tc .tl { display: block; } #tuneStrip .tc .tctl { gap: 4px; } #tuneStrip .tnum { width: 64px; } #tuneStrip .tr { padding: 3px 0; }
+body.tuning #tuneStrip { display: none; }
 </style>
 </head>
 <body>
@@ -347,7 +378,7 @@ body.touch #hint { bottom: calc(var(--sb) + 64px); }
   <div id="stick"><div id="nub"></div></div>
   <button id="tRun" aria-pressed="false" aria-label="run lock">run</button>
   <button id="tAct" hidden></button>
-  <div id="tbtns"><button id="tItem" aria-label="flare"><span class="nm">flare</span><span class="pips"></span></button><button id="tCall">call</button><button id="tClip" hidden aria-label="Save a clip of the last 15 seconds">clip</button><button id="tTorch" data-torch aria-pressed="false">torch</button><button id="tCycle" hidden>item</button><button id="tCrouch" data-crouch aria-pressed="false">crouch</button><button id="tZoom" aria-pressed="false">zoom</button></div>
+  <div id="tbtns"><button id="tItem" aria-label="flare"><span class="nm">flare</span><span class="pips"></span></button><button id="tCall">call</button><button id="tClip" hidden aria-label="Save a clip of the last 15 seconds">clip</button><button id="tTorch" data-torch aria-pressed="false">torch</button><button id="tCycle" hidden>item</button><button id="tCrouch" data-crouch aria-pressed="false">crouch</button><button id="tZoom" aria-pressed="false">zoom</button><button id="tJump" aria-label="jump">jump</button></div>
 </div>
 <div id="boot">Waking the animal</div>
 <div id="hurt"></div>
@@ -394,6 +425,7 @@ body.touch #hint { bottom: calc(var(--sb) + 64px); }
     <button id="pClip" hidden style="width:100%;margin-top:6px">save a clip of the last 15 seconds</button>
     <button id="pAgain">start over</button>
     <button id="pSandbox" class="dbg-only" style="width:100%;margin-top:6px">sandbox tools</button>
+    <button id="pTune" hidden style="width:100%;margin-top:6px">tuning</button>
     <details id="pLogBox"><summary>found<span id="pCount" class="val"></span></summary><ul id="pLog" class="tries"></ul></details>
   </div>
 </section>
@@ -443,6 +475,7 @@ body.touch #hint { bottom: calc(var(--sb) + 64px); }
 <div id="corner"><button id="noteBtn" aria-label="Note for the developer"><svg viewBox="0 0 14 14"><path d="M2 2h10v7H6l-3 3V9H2z"/></svg><b class="kc" id="noteKey">T</b></button><button id="helpBtn" aria-label="Controls">?<b class="kc" id="helpKey"></b></button><button id="pauseBtn" aria-label="Pause"><svg viewBox="0 0 14 14"><rect x="2" y="1" width="3.5" height="12" rx="1"/><rect x="8.5" y="1" width="3.5" height="12" rx="1"/></svg><b class="kc" id="pauseKey"></b></button></div>
 <button id="menuBtn" aria-controls="panel" aria-expanded="false" aria-label="Sandbox tools"><svg viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h12"/></svg></button>
 
+<section id="tunePanel" hidden aria-label="Tuning"></section>
 <section id="panel" aria-label="Controls">
   <h1>Rex <span>sandbox</span></h1>
   <div class="seg" role="group" aria-label="Camera">
@@ -461,6 +494,7 @@ body.touch #hint { bottom: calc(var(--sb) + 64px); }
     <div class="three"><button id="bStone" title="F, or click">Stone</button><button id="bFlare" title="Q">Flare</button><button id="bMeat" title="E">Meat</button>
       <button id="bShout" title="G">Shout</button><button id="bWhistle" title="R">Whistle</button><button id="bTorch" data-torch aria-pressed="false" title="L">Torch</button><button id="bShove" class="not-obs" title="V">Shove</button>
       <button id="bTake" class="foot-only" title="T">Take</button></div>
+    <div class="row"><button id="bTune" title="; (semicolon)" style="width:100%">tuning</button></div>
     <div class="row"><label for="tp">Go to</label>
       <select id="tp"><option value="">a structure</option><option value="barn">Barn</option><option value="loft">Hayloft</option><option value="warehouse">Warehouse</option><option value="containers">Containers</option><option value="ruins">Ruins</option><option value="gatehouse">Gatehouse</option><option value="tower">Feeding tower</option><option value="culvert">Culvert</option></select></div>
   </details>

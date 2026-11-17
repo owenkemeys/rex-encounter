@@ -11,11 +11,15 @@ import { Things } from './things.js';
 import { Herd } from './herd.js';
 import { Victim } from './victim.js';
 import { clamp } from '../math.js';
+import { tune } from '../view/tune.js';      // tune
 
 // What is left of someone it killed to eat: gone in this many mouthfuls (owner 2026-11-15: "the meat resource the body represents
 // should be depleted pretty quickly, a bite or two. in a long play session the rex is distracted for a long time eating the body
 // and its boring"). It was about forty mouthfuls, two minutes and more.
 const REMAINS = 2.2, REMAINS_MOUTHFULS = 2;
+const EAT = { mouthfuls: REMAINS_MOUTHFULS, amount: REMAINS };      // tune: how long it eats (read live)
+tune('Mind: hunger, killing, curiosity', 'How many mouthfuls the remains last', EAT, 'mouthfuls', 1, 12, 0.5, null, 'arena.remainsMouthfuls');      // tune
+tune('Mind: hunger, killing, curiosity', 'How much there is to eat of a person', EAT, 'amount', 0.5, 8, 0.1, null, 'arena.remainsAmount', 'next kill');      // tune
 
 export class Arena {
   constructor(terrain, sim, mind, seed = 1) {
@@ -132,7 +136,7 @@ export class Arena {
       this.hits = [];
       for (const e of mind.events) {
         if (e.type === 'handfed') { const o = things.get(e.id); if (o) { things.remove(e.id); e.x = o.x; e.y = o.y; e.z = o.z; } }
-        if (e.type === 'bite' || e.type === 'tear') { const o = things.get(e.id); if (o) { const take = o.of ? Math.max(e.amount, REMAINS / REMAINS_MOUTHFULS) : e.amount; o.amount = Math.max(0, o.amount - take); if (o.amount < 0.05) o.amount = 0; if (o.of && mind.kind) mind.kind.ate += take; } }
+        if (e.type === 'bite' || e.type === 'tear') { const o = things.get(e.id); if (o) { const take = o.of ? Math.max(e.amount, EAT.amount / EAT.mouthfuls) : e.amount; o.amount = Math.max(0, o.amount - take); if (o.amount < 0.05) o.amount = 0; if (o.of && mind.kind) mind.kind.ate += take; } }
         if (e.type === 'kill') { const p = herd.kill(e.id); if (p) things.place('carcass', p.x, p.z, { prey: p.id, yaw: p.yaw }); }
         this.events.push({ src: 'mind', ...e });
       }
@@ -165,7 +169,7 @@ export class Arena {
         if (e.type === 'death' && !intentOverride) {
           // killed hungry, it eats you: what is left is meat on the ground; otherwise a body lying there
           const eat = e.motive === 'prey' || (mind.hunger > 0.62 && e.motive !== 'play');
-          if (eat) { const o = things.place('carcass', e.x, e.z, { of: v.id, amount: REMAINS }); v.gone = true; this.events.push({ src: 'arena', type: 'remains', id: o.id, of: v.id, x: o.x, y: o.y, z: o.z }); }
+          if (eat) { const o = things.place('carcass', e.x, e.z, { of: v.id, amount: EAT.amount }); v.gone = true; this.events.push({ src: 'arena', type: 'remains', id: o.id, of: v.id, x: o.x, y: o.y, z: o.z }); }
           mind.onKill(v.id, e.cause, eat, v.who);
         }
       }

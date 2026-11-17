@@ -9,23 +9,26 @@
 // Ptz then moves like a pan-tilt-zoom head on that mount: fixed position, a damped spring on pan, tilt and zoom (a little lag, a little overshoot, a rate limit),
 // aimed at the midpoint of the figure and the head, zooming so both fit with margin, pushing in over the last second before the kill.
 export const HZ = 30, K = 9;
-const D2R = Math.PI / 180, FIG_H = 1.77, MINFRAC = 0.125, FMIN = 12 * D2R, FMAX = 56 * D2R, MARGIN = 0.18, TILT_MIN = -62 * D2R, PAN_RATE = 140 * D2R;
+import { tune, tuneGroup } from './tune.js';      // tune
+/** The kill cam's dials (the tuning panel moves them). Angles in degrees. Framing, damping, lead and push-in are read every frame of a replay; mount heights and distances when the shots are planned (the next replay). */
+export const PTZ = { fmin: 12, fmax: 56, margin: 0.18, minFrac: 0.125, lead: 4, push: 0.12, spring: 5.2, damp: 0.62, zoomOut: 4.2, zoomIn: 2.6, panRate: 140, mountMin: 4, mountMax: 8, pole: 7, near: 7, far: 34 };
+const D2R = Math.PI / 180, FIG_H = 1.77, TILT_MIN = -62 * D2R;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v), sstep = (a, b, x) => { const u = clamp((x - a) / (b - a), 0, 1); return u * u * (3 - 2 * u); };
 const wrap = (a) => a - Math.PI * 2 * Math.round(a / (Math.PI * 2));
 
 /** The framing for the frame `i`: where a camera at `c` should point and how wide to look. out = { pan, tilt, fov, fit, cap }. `push` 0..1 tightens the zoom for the kill. */
 export function aimFor(c, F, i, aspect, out, push = 0) {
-  const nF = (F.length / K) | 0, i4 = Math.min(nF - 1, i + 4);      // the operator knows the tape: aims a little ahead, so a sudden throw or lunge does not outrun the zoom
+  const nF = (F.length / K) | 0, i4 = Math.min(nF - 1, i + Math.round(PTZ.lead));      // the operator knows the tape: aims a little ahead, so a sudden throw or lunge does not outrun the zoom
   const o = i4 * K, fx = F[o], fy = F[o + 1], fz = F[o + 2], hx = F[o + 3], hy = F[o + 4], hz = F[o + 5];
   const cx = fx, cy = fy + 0.9, cz = fz, mx = (cx + hx) / 2, my = (cy + hy) / 2, mz = (cz + hz) / 2;
-  const dFig = Math.hypot(cx - c.x, cy - c.y, cz - c.z) || 1, cap = clamp(2 * Math.atan(FIG_H / (2 * MINFRAC * (aspect < 1 ? 0.6 + 0.4 * aspect : 1)) / dFig), FMIN, FMAX);
+  const dFig = Math.hypot(cx - c.x, cy - c.y, cz - c.z) || 1, cap = clamp(2 * Math.atan(FIG_H / (2 * PTZ.minFrac * (aspect < 1 ? 0.6 + 0.4 * aspect : 1)) / dFig), (PTZ.fmin * D2R), (PTZ.fmax * D2R));
   let fit = 0;
   for (const k of [0, 4, 9]) { const q = Math.min(nF - 1, i + k) * K; fit = Math.max(fit, fitFov(c, mx, my, mz, aspect, F[q], F[q + 1] + 0.9, F[q + 2], F[q + 3], F[q + 4], F[q + 5], F[q + 6], F[q + 7], F[q + 8])); }
   let ax = mx, ay = my, az = mz, fov = fit;
   if (fit > cap) { ax = cx + (hx - cx) * 0.4; ay = cy + (hy - cy) * 0.4; az = cz + (hz - cz) * 0.4; fov = cap; }
-  else fov = Math.max(FMIN, fit * (1 - 0.12 * push));
+  else fov = Math.max((PTZ.fmin * D2R), fit * (1 - PTZ.push * push));
   const dx = ax - c.x, dy = ay - c.y, dz = az - c.z, hd = Math.hypot(dx, dz);
-  out.pan = Math.atan2(dx, dz); out.tilt = Math.max(TILT_MIN, Math.atan2(dy, hd)); out.fov = clamp(fov, FMIN, FMAX); out.fit = fit; out.cap = cap; out.dist = Math.hypot(dx, dy, dz);
+  out.pan = Math.atan2(dx, dz); out.tilt = Math.max(TILT_MIN, Math.atan2(dy, hd)); out.fov = clamp(fov, (PTZ.fmin * D2R), (PTZ.fmax * D2R)); out.fit = fit; out.cap = cap; out.dist = Math.hypot(dx, dy, dz);
   return out;
 }
 /** The vertical field of view at which every subject sphere (figure, head, torso) is inside, with margin, looking from c at (ax, ay, az). */
@@ -40,7 +43,7 @@ function fitFov(c, ax, ay, az, aspect, cx, cy, cz, hx, hy, hz, bx, by, bz) {
     req = Math.max(req, ty, tx / aspect);
   };
   one(cx, cy, cz, 0.98); one(hx, hy, hz, 0.8); one(bx, by, bz, 1.5);
-  return 2 * Math.atan(req * (1 + MARGIN));
+  return 2 * Math.atan(req * (1 + PTZ.margin));
 }
 
 /** The game's own sight test (ground, wall pillars with their heights, roofs; see terrain.js segClear) but leaving out the thin trunks of trees, which hide a sliver of a person, not the person. */
@@ -68,7 +71,7 @@ export function mountsFor(T, F, n, death = n - 76) {
   for (const S of st) {
     si++;
     const cs = Math.cos(S.yaw), sn = Math.sin(S.yaw), loc = (a, b) => [S.cx + a * cs + b * sn, S.cz - a * sn + b * cs];
-    const gy = T.height(S.cx, S.cz), top = clamp((S.base ?? gy) + S.h + 1 - gy, 4, 8);
+    const gy = T.height(S.cx, S.cz), top = clamp((S.base ?? gy) + S.h + 1 - gy, PTZ.mountMin, PTZ.mountMax);
     const pts = [[1, 1], [-1, 1], [1, -1], [-1, -1], [0, 1], [0, -1], [1, 0], [-1, 0]];
     pts.forEach(([u, v], k) => {
       const [x, z] = loc(u * (S.hw + 0.7), v * (S.hd + 0.7)); if (Math.hypot(x, z) > lim) return;
@@ -85,7 +88,7 @@ export function mountsFor(T, F, n, death = n - 76) {
     for (const d of [8, 12, 17, 23]) for (const a of [90, -90, 55, -55, 125, -125, 20, -20, 160, -160]) {
       const r = a * D2R, dx = ax * Math.cos(r) - az * Math.sin(r), dz = ax * Math.sin(r) + az * Math.cos(r), x = C.x + dx * d, z = C.z + dz * d;
       if (Math.hypot(x, z) > lim || st.some((S) => inside(S, x, z, 2)) || out.some((m) => !m.real && Math.hypot(m.x - x, m.z - z) < 3)) continue;
-      out.push({ x, y: T.height(x, z) + 7, z, label: 'POLE ' + compass(x - C.x, z - C.z), cam: ((pi++ * 5 + 3) % 14) + 1, real: false });
+      out.push({ x, y: T.height(x, z) + PTZ.pole, z, label: 'POLE ' + compass(x - C.x, z - C.z), cam: ((pi++ * 5 + 3) % 14) + 1, real: false });
     }
   }
   return out;
@@ -102,9 +105,9 @@ export function planShots(T, F, n, death, aspect = 16 / 9) {
     for (let s = 0; s < ns; s++) {
       const i = Math.min(n - 1, s * STEP), o = i * K; V.x = m.x; V.y = m.y; V.z = m.z;
       aimFor(V, F, i, aspect, tmp, 0);
-      const fit = tmp.fit <= tmp.cap * 1.02 ? 1 : Math.pow(tmp.cap / tmp.fit, 1.5), fitHard = tmp.fit > FMAX ? 0.15 : 1;
+      const fit = tmp.fit <= tmp.cap * 1.02 ? 1 : Math.pow(tmp.cap / tmp.fit, 1.5), fitHard = tmp.fit > (PTZ.fmax * D2R) ? 0.15 : 1;
       const el = Math.atan2(m.y - (F[o + 1] + F[o + 4]) / 2, Math.hypot(m.x - (F[o] + F[o + 3]) / 2, m.z - (F[o + 2] + F[o + 5]) / 2)), pitch = 1 - 0.7 * sstep(36 * D2R, 56 * D2R, el) - 0.3 * sstep(56 * D2R, 68 * D2R, el);
-      const d = tmp.dist, dist = (d < 7 ? (d / 7) * (d / 7) : 1) * (d > 34 ? 34 / d : 1);
+      const d = tmp.dist, dist = (d < PTZ.near ? (d / PTZ.near) * (d / PTZ.near) : 1) * (d > PTZ.far ? PTZ.far / d : 1);
       // side-on to the animal's facing (torso to head), and the figure hidden behind its body
       let ux = F[o + 3] - F[o + 6], uz = F[o + 5] - F[o + 8]; const ul = Math.hypot(ux, uz) || 1; ux /= ul; uz /= ul;
       let vx = F[o] - m.x, vz = F[o + 2] - m.z; const vl = Math.hypot(vx, vz) || 1; vx /= vl; vz /= vl;
@@ -161,15 +164,15 @@ export class Ptz {
   /** Fix the head on a mount and point it straight at the frame (a hard cut; no easing from the last view). */
   mount(m, F, i, aspect) { this.m = m; aimFor(m, F, i, aspect, this.tg, 0); this.pan = this.tg.pan; this.tilt = this.tg.tilt; this.fov = this.tg.fov; this.vp = this.vt = this.vf = 0; this.rate = 0; }
   step(dt, F, i, aspect, push = 0) {
-    const g = aimFor(this.m, F, i, aspect, this.tg, push), W = 5.2, Z = 0.62, h = Math.min(dt, 1 / 30);
+    const g = aimFor(this.m, F, i, aspect, this.tg, push), W = PTZ.spring, Z = PTZ.damp, h = Math.min(dt, 1 / 30);
     for (let k = 0, n = Math.max(1, Math.round(dt / h)); k < n; k++) {
       const e = wrap(g.pan - this.pan);
-      this.vp += (W * W * e - 2 * Z * W * this.vp) * h; this.vp = clamp(this.vp, -PAN_RATE, PAN_RATE); this.pan += this.vp * h;
-      this.vt += (W * W * (g.tilt - this.tilt) - 2 * Z * W * this.vt) * h; this.vt = clamp(this.vt, -PAN_RATE, PAN_RATE); this.tilt += this.vt * h;
-      const lf = Math.log(this.fov), le = Math.log(g.fov) - lf, WZ = g.fov > this.fov ? 4.2 : 2.6;      // zooms out briskly (so nothing leaves the frame), in slowly
+      this.vp += (W * W * e - 2 * Z * W * this.vp) * h; this.vp = clamp(this.vp, -(PTZ.panRate * D2R), (PTZ.panRate * D2R)); this.pan += this.vp * h;
+      this.vt += (W * W * (g.tilt - this.tilt) - 2 * Z * W * this.vt) * h; this.vt = clamp(this.vt, -(PTZ.panRate * D2R), (PTZ.panRate * D2R)); this.tilt += this.vt * h;
+      const lf = Math.log(this.fov), le = Math.log(g.fov) - lf, WZ = g.fov > this.fov ? PTZ.zoomOut : PTZ.zoomIn;      // zooms out briskly (so nothing leaves the frame), in slowly
       this.vf += (WZ * WZ * le - 2 * WZ * this.vf) * h; this.fov = Math.exp(lf + this.vf * h);
     }
-    this.fov = clamp(this.fov, FMIN * 0.9, FMAX * 1.02); this.tilt = clamp(this.tilt, TILT_MIN - 0.05, 1.2);
+    this.fov = clamp(this.fov, (PTZ.fmin * D2R) * 0.9, (PTZ.fmax * D2R) * 1.02); this.tilt = clamp(this.tilt, TILT_MIN - 0.05, 1.2);
     this.rate = Math.hypot(this.vp * Math.cos(this.tilt), this.vt);
     return this;
   }
@@ -182,4 +185,11 @@ export class Ptz {
     const ux = -rz * f.y, uy = rz * f.x - rx * f.z, uz = rx * f.y, xc = dx * rx + dz * rz, yc = dx * ux + dy * uy + dz * uz, t = Math.tan(this.fov / 2);
     o.x = xc / zc / (t * aspect); o.y = yc / zc / t; return o;
   }
+}
+{ const G = 'Kill cam camera'; tuneGroup(G, { order: 70 });      // tune
+  tune(G, 'Camera mount height: lowest (m)', PTZ, 'mountMin', 1, 12, 0.25, null, 'ptz.mountMin', 'next replay'); tune(G, 'Camera mount height: highest (m)', PTZ, 'mountMax', 2, 20, 0.25, null, 'ptz.mountMax', 'next replay'); tune(G, 'Free-standing pole height (m)', PTZ, 'pole', 2, 16, 0.25, null, 'ptz.pole', 'next replay');      // tune
+  tune(G, 'Preferred distance: closer than this is penalised (m)', PTZ, 'near', 2, 20, 0.25, null, 'ptz.near', 'next replay'); tune(G, 'Preferred distance: further than this is penalised (m)', PTZ, 'far', 12, 90, 1, null, 'ptz.far', 'next replay');      // tune
+  tune(G, 'Zoom: tightest view (deg)', PTZ, 'fmin', 4, 30, 0.5, null, 'ptz.fovMin'); tune(G, 'Zoom: widest view (deg)', PTZ, 'fmax', 30, 100, 1, null, 'ptz.fovMax'); tune(G, 'Zoom: margin round the action', PTZ, 'margin', 0, 1, 0.01, null, 'ptz.margin'); tune(G, 'Zoom: smallest share of frame a person fills', PTZ, 'minFrac', 0.03, 0.4, 0.005, null, 'ptz.minFrac');      // tune
+  tune(G, 'Operator looks ahead (frames, 30 a second)', PTZ, 'lead', 0, 30, 1, null, 'ptz.leadFrames'); tune(G, 'Push-in over the last second', PTZ, 'push', 0, 0.6, 0.01, null, 'ptz.pushIn');      // tune
+  tune(G, 'Pan and tilt: stiffness', PTZ, 'spring', 1, 14, 0.1, null, 'ptz.spring'); tune(G, 'Pan and tilt: damping (low = overshoots)', PTZ, 'damp', 0.2, 1.5, 0.01, null, 'ptz.damping'); tune(G, 'Zoom out speed', PTZ, 'zoomOut', 0.5, 12, 0.1, null, 'ptz.zoomOut'); tune(G, 'Zoom in speed', PTZ, 'zoomIn', 0.5, 12, 0.1, null, 'ptz.zoomIn'); tune(G, 'Fastest pan (deg/s)', PTZ, 'panRate', 30, 400, 5, null, 'ptz.panRate');      // tune
 }

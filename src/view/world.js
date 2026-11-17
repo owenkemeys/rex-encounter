@@ -11,12 +11,15 @@ import {
 import { makeRng } from '../math.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildFeatures } from './features.js';
+import { tune, tuneColor, tuneGroup } from './tune.js';      // tune
 
 export const MOODS = {
   storm: { name: 'Storm at dusk', top: 0x0b1018, hor: 0x46525e, fog: 0x3a454f, dens: 0.0115, low: 1.6, hemi: [0x8ea2bd, 0x2c2e24, 1.0], sun: [0xc0b8c8, 2.3], glow: 0xd07a45, dir: [-0.6, 0.26, 0.5], exp: 1.45, rim: [0x9ab4dc, 0.8], rain: 1, wet: 1, dust: 0x3d3b36, cov: [0.0, 0.55], sunGlow: 0.6, env: 0.35, cloud: 0x2f3742 },      // dark and heavy: near-black sky, the last cold light low on the horizon, deep fog (the 2026-11-13 look, restored after it was lifted)
   dusk: { name: 'Last light', top: 0x1d2a44, hor: 0xe0915a, fog: 0x8a7366, dens: 0.0062, low: 1.2, hemi: [0x95a3c8, 0x4b4033, 0.55], sun: [0xffa860, 3.6], dir: [-0.8, 0.16, 0.32], exp: 1.0, rim: [0x8fa0d8, 1.0], rain: 0, wet: 0, dust: 0x5e4d3d, cov: [0.15, 0.7], sunGlow: 1.0, env: 0.7, cloud: 0x5a4a52 },
   day: { name: 'Overcast day', top: 0x5f7a93, hor: 0xc7c4b6, fog: 0xb3b4a8, dens: 0.0036, low: 0.8, hemi: [0xdfe6ee, 0x8a8468, 1.0], sun: [0xfff0d8, 3.0], dir: [-0.55, 0.62, 0.42], exp: 1.0, rim: [0xffffff, 0.3], rain: 0, wet: 0, dust: 0x9a8e74, cov: [0.05, 0.6], sunGlow: 0.35, env: 0.9, cloud: 0x9a9fa4 },
 };
+
+export const FLASH = { hemi: 1.6, sun: 2.2, env: 1.5, decay: 5.5, gap: 7, span: 16 };      // lightning: how much the strike lifts each light, how fast it fades, the quiet between strikes (tune)
 
 function canvasTex(size, draw, repeat, srgb = true) {
   const c = document.createElement('canvas'); c.width = c.height = size; draw(c.getContext('2d'), size);
@@ -1127,7 +1130,7 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
       if (mood.rain && dt > 0) {
         nextFlash -= dt;
         if (nextFlash <= 0) {
-          nextFlash = 7 + r() * 16; pulses = [0, 0.09 + r() * 0.08, 0.3 + r() * 0.2].map((d) => time0 + d); struck = true;
+          nextFlash = FLASH.gap + r() * FLASH.span; pulses = [0, 0.09 + r() * 0.08, 0.3 + r() * 0.2].map((d) => time0 + d); struck = true;
           const a = r() * 6.283, d = 380 + r() * 260; flashDir.set(Math.sin(a), 0.32 + r() * 0.25, Math.cos(a)).normalize();
           makeBolt(camera.position.x + Math.sin(a) * d, camera.position.z + Math.cos(a) * d, camera); boltT = 0.55;
         }
@@ -1151,14 +1154,14 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
       while (pulses.length && pulses[0] <= time0) { pulses.shift(); flash = 1; }
       if (api.debugFlash != null) flash = api.debugFlash;
       api.flash = flash > 0.3;
-      flash = Math.max(0, flash - dt * 5.5); boltT = Math.max(0, boltT - dt);
+      flash = Math.max(0, flash - dt * FLASH.decay); boltT = Math.max(0, boltT - dt);
       bolt.visible = boltT > 0 && flash > 0.15 && !!bolt.geometry.attributes.position && bolt.geometry.index && bolt.geometry.index.count > 0; boltMat.opacity = Math.min(1, flash * 1.5);
       U.flash.value = flash; U.flashDir.value.copy(flashDir);
       // the strike lights the paddock from where it fell: the key light swings toward the bolt for the flash
       if (flash > 0.02) { lightDir.copy(sunDir).lerp(flashDir, Math.min(1, flash * 1.6)).normalize(); sun.color.setHex(mood.sun[0]).lerp(white, Math.min(1, flash * 1.5)); }
       else if (lightDir.lengthSq()) { lightDir.set(0, 0, 0); sun.color.setHex(mood.sun[0]); }
-      hemi.intensity = mood.hemi[2] * (1 + 1.6 * flash); sun.intensity = mood.sun[1] * (1 + 2.2 * flash);
-      scene.environmentIntensity = mood.env * (1 + 1.5 * flash);
+      hemi.intensity = mood.hemi[2] * (1 + FLASH.hemi * flash); sun.intensity = mood.sun[1] * (1 + FLASH.sun * flash);
+      scene.environmentIntensity = mood.env * (1 + FLASH.env * flash);
       k.copy(cFog).lerp(white, flash * 0.55); scene.fog.color.copy(k); scene.background.copy(k);
       U.wind.value.copy(windV).multiplyScalar(1 / 3);
       if (renderer) renderer.toneMappingExposure = mood.exp;
@@ -1196,6 +1199,23 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
       if (bakeH) bakeH(x - rad, z - rad, x + rad, z + rad);
     },
   };
+  // tune: the three moods' looks, live. Each change re-applies the mood (colours, fog, lights); intensities and exposure are read again every frame anyway.
+  { const re = (key) => () => { if (api.moodKey === key) { const f = nextFlash; api.setMood(key); nextFlash = f; } };      // tune
+    const LOOKS = { storm: ['Storm look', 'storm'], dusk: ['Dusk look (last light)', 'dusk'], day: ['Day look (overcast)', 'day'] };      // tune
+    tuneGroup('Storm look', { order: 1, open: true }); tuneGroup('Dusk look (last light)', { order: 2 }); tuneGroup('Day look (overcast)', { order: 3 });      // tune
+    for (const [key, [G, c]] of Object.entries(LOOKS)) { const M = MOODS[key], f = re(key);      // tune
+      tuneColor(G, 'Sky colour overhead', M, 'top', f, c + '.top'); tuneColor(G, 'Sky colour at the horizon', M, 'hor', f, c + '.hor'); tuneColor(G, 'Fog colour', M, 'fog', f, c + '.fog'); tuneColor(G, 'Cloud colour', M, 'cloud', f, c + '.cloud');      // tune
+      tuneColor(G, 'Sunlight colour', M.sun, 0, f, c + '.sun[0]'); tuneColor(G, 'Sky light colour (from above)', M.hemi, 0, f, c + '.hemi[0]'); tuneColor(G, 'Sky light colour (bounce from the ground)', M.hemi, 1, f, c + '.hemi[1]'); tuneColor(G, 'Back-light colour', M.rim, 0, f, c + '.rim[0]');      // tune
+      tune(G, 'Fog thickness', M, 'dens', M.dens * 0.25, M.dens * 3, M.dens / 40, f, c + '.dens'); tune(G, 'Ground mist height', M, 'low', 0.2, 4, 0.05, f, c + '.low');      // tune
+      tune(G, 'Sky light strength', M.hemi, 2, 0, M.hemi[2] * 3, 0.02, null, c + '.hemi[2]'); tune(G, 'Sun strength', M.sun, 1, 0, M.sun[1] * 3, 0.05, null, c + '.sun[1]'); tune(G, 'Back-light strength', M.rim, 1, 0, Math.max(2, M.rim[1] * 3), 0.02, f, c + '.rim[1]');      // tune
+      tune(G, 'Reflected light from the sky', M, 'env', 0, Math.max(1.5, M.env * 3), 0.01, null, c + '.env'); tune(G, 'Overall brightness (exposure)', M, 'exp', 0.3, 3, 0.01, null, c + '.exp');      // tune
+      tune(G, 'Glow around the sun', M, 'sunGlow', 0, 2, 0.02, f, c + '.sunGlow'); tune(G, 'Cloud cover: where it starts', M.cov, 0, 0, 1, 0.01, f, c + '.cov[0]'); tune(G, 'Cloud cover: where it is full', M.cov, 1, 0, 1.2, 0.01, f, c + '.cov[1]');      // tune
+      tune(G, 'Wet look of the ground', M, 'wet', 0, 1, 0.02, f, c + '.wet');      // tune
+    }
+    tune('Storm look', 'Rain amount', MOODS.storm, 'rain', 0, 1.5, 0.02, re('storm'), 'storm.rain');      // tune
+    tune('Storm look', 'Lightning: lift to sky light', FLASH, 'hemi', 0, 6, 0.05, null, 'flash.hemi'); tune('Storm look', 'Lightning: lift to sun', FLASH, 'sun', 0, 8, 0.05, null, 'flash.sun'); tune('Storm look', 'Lightning: lift to reflections', FLASH, 'env', 0, 6, 0.05, null, 'flash.env');      // tune
+    tune('Storm look', 'Lightning: fade speed (bigger = shorter)', FLASH, 'decay', 1, 20, 0.1, null, 'flash.decay'); tune('Storm look', 'Lightning: quiet between strikes (s)', FLASH, 'gap', 1, 40, 0.5, null, 'flash.gap'); tune('Storm look', 'Lightning: extra random wait (s)', FLASH, 'span', 0, 40, 0.5, null, 'flash.span');      // tune
+  }
   api.setMood('storm');
   if (typeof document !== 'undefined' && typeof fetch === 'function') loadAssets();
   return api;

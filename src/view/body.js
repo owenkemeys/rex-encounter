@@ -4,6 +4,7 @@ import * as THREE from 'three/webgpu';
 import { attribute, vertexColor, vec3, float, mix, uniform, positionView, normalView, cross, dot, normalize, abs, sign, mx_worley_noise_float, mx_worley_noise_vec2, mx_noise_float, smoothstep, clamp, length, fwidth, max, faceDirection, exp } from 'three/tsl';
 import { RexSim, PS } from '../sim/rex.js';
 import { jawFromVoice } from './jawvoice.js';
+import { tune, tuneGroup } from './tune.js';      // tune
 import { WEATHER } from './world.js';
 import { positionWorld, cameraPosition, pow, normalWorld, normalLocal } from 'three/tsl';
 import { buildRexGeometry, paintRex, boneMatrices, BONE_COUNT, BONE, mouthY, EYE, EYE_AIM, eyeAim, WEB, WEBSHEET } from './rexgeo.js';
@@ -300,11 +301,14 @@ function teethGeometry(sockets, upper, ridge) {
 // middle of the opening (up/down it was cut by a lid: 30 degrees up the upper lid hid 76% of the pupil). Now the pivot axis and
 // the centre of the opening are carried by `lidDir`, a damped, weighted copy of the ball's look direction (never 1:1: the lids
 // lag and fall short of the eye a little, as real ones do), clamped about the resting gaze so they never leave the socket.
-const LID_FOLLOW = 0.8;       // 0..1: how much of the ball's turn sideways the opening takes (0 = fixed in the skull, 1 = glued to the pupil)
-const LID_FOLLOW_UP = 0.9;    // the same up and down: upper lids track vertical gaze more closely than sideways
-const LID_TAU = 0.1;          // s: time constant of the lids easing after the ball (a saccade is over before they have moved much)
-const LID_YAW_MAX = 0.45, LID_PITCH_MAX = 0.4;     // rad: furthest the opening's centre may leave the resting gaze (no gap at brow or cheek)
-const LID_CANT = 0;           // rad: outer corner raised about the lid's own axis (the rim line is level in the skull at 0)
+const LID = { follow: 0.8, up: 0.9, tau: 0.1, yawMax: 0.45, pitchMax: 0.4, cant: 0 };      // (live: the tuning panel moves them) follow:       // 0..1: how much of the ball's turn sideways the opening takes (0 = fixed in the skull, 1 = glued to the pupil)
+//   up:    // the same up and down: upper lids track vertical gaze more closely than sideways
+//   tau:          // s: time constant of the lids easing after the ball (a saccade is over before they have moved much)
+//   yawMax, pitchMax:     // rad: furthest the opening's centre may leave the resting gaze (no gap at brow or cheek)
+//   cant:           // rad: outer corner raised about the lid's own axis (the rim line is level in the skull at 0)
+{ const G = 'Eyes and eyelids'; tuneGroup(G, { order: 30 });      // tune
+  tune(G, 'Lids follow the eye sideways (0 = fixed, 1 = glued)', LID, 'follow', 0, 1, 0.01, null, 'eyes.lidFollow'); tune(G, 'Lids follow the eye up and down', LID, 'up', 0, 1.2, 0.01, null, 'eyes.lidFollowUp'); tune(G, 'Lid lag behind the eye (s)', LID, 'tau', 0.01, 0.6, 0.005, null, 'eyes.lidTau');      // tune
+  tune(G, 'Lids: furthest sideways drift (rad)', LID, 'yawMax', 0, 0.9, 0.01, null, 'eyes.lidYawMax'); tune(G, 'Lids: furthest up/down drift (rad)', LID, 'pitchMax', 0, 0.9, 0.01, null, 'eyes.lidPitchMax'); tune(G, 'Lids: outer corner tilt (rad)', LID, 'cant', -0.4, 0.4, 0.01, null, 'eyes.lidCant'); }      // tune
 
 export class RexBody {
   constructor(Q = { tier: 'high' }) {
@@ -442,7 +446,7 @@ export class RexBody {
     // saccades: every so often both eyes jump a little (a few degrees) and hold; between jumps they are still
     const now = performance.now() / 1000;
     if (now > this._sacT) { this._sacT = now + 0.35 + Math.random() * 1.6; this._sacV.set((Math.random() - 0.5) * 0.09, (Math.random() - 0.5) * 0.05, 0); }
-    this._ek = 1 - Math.exp(-55 * Math.min(0.25, Math.max(0, now - (this._eT ?? now - 1 / 60)))); this._eT = now; this._lk = 1 - Math.exp(-Math.min(0.25, Math.max(0, now - (this._lT ?? now - 1 / 60))) / LID_TAU); this._lT = now;
+    this._ek = 1 - Math.exp(-55 * Math.min(0.25, Math.max(0, now - (this._eT ?? now - 1 / 60)))); this._eT = now; this._lk = 1 - Math.exp(-Math.min(0.25, Math.max(0, now - (this._lT ?? now - 1 / 60))) / LID.tau); this._lT = now;
     const GE = this.glareEye, gmax = GE ? Math.max(GE[1] || 0, GE[-1] || 0) : 0;
     for (const E of this.eyes) {
       // the pose's squint is shared; while a beam dazzles, the lit eye screws shut and the shaded one only partly
@@ -464,12 +468,12 @@ export class RexBody {
       // pitch separately, so the lids stay level in the skull: the x axis they swing about stays horizontal); blink, droop and
       // squint swing the two lids about that x axis exactly as before, so a blink still closes over the pupil wherever it points
       const R = E.lidRest, ry = Math.atan2(R.x, R.z), rp = Math.asin(R.y), dy = Math.atan2(E.dir.x, E.dir.z), dp = Math.asin(Math.max(-1, Math.min(1, E.dir.y)));
-      const wy = Math.max(-LID_YAW_MAX, Math.min(LID_YAW_MAX, LID_FOLLOW * (dy - ry))), wp = Math.max(-LID_PITCH_MAX, Math.min(LID_PITCH_MAX, LID_FOLLOW_UP * (dp - rp)));
+      const wy = Math.max(-LID.yawMax, Math.min(LID.yawMax, LID.follow * (dy - ry))), wp = Math.max(-LID.pitchMax, Math.min(LID.pitchMax, LID.up * (dp - rp)));
       const ty = ry + wy, tp = rp + wp, ly = Math.atan2(E.lidDir.x, E.lidDir.z), lp = Math.asin(E.lidDir.y), k = this._lk;
       const ny = ly + (ty - ly) * k, np = lp + (tp - lp) * k;
       E.lidDir.set(Math.sin(ny) * Math.cos(np), Math.sin(np), Math.cos(ny) * Math.cos(np));
       this._lf.lookAt(E.lidDir, this._o.set(0, 0, 0), this._up).setPosition(E.pos);
-      this._lf.multiply(this._t.makeRotationX(-0.06)).multiply(this._t.makeRotationZ(E.sd * LID_CANT));      // the old 3.4 degrees up keeps the opening even above and below the pupil
+      this._lf.multiply(this._t.makeRotationX(-0.06)).multiply(this._t.makeRotationZ(E.sd * LID.cant));      // the old 3.4 degrees up keeps the opening even above and below the pupil
       this._t.makeRotationX(-0.5 + 0.7 * E.cu);
       E.lid.matrix.copy(H).multiply(this._lf).multiply(this._t); E.lid.matrixWorldNeedsUpdate = true;
       this._t.makeRotationX(0.62 - 0.7 * E.cl);

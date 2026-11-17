@@ -14,6 +14,7 @@
 import * as THREE from 'three/webgpu';
 import { pass, renderOutput, uniform, vec2, vec3, vec4, float, mix, dot, smoothstep, clamp, max, fract, sin, floor, abs, step, time, length, screenUV, viewportSize, texture, convertToTexture } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { tune, tuneGroup } from './tune.js';      // tune
 
 /** Grades per weather: lift (shadow tint), gain (highlight tint), saturation, contrast, vignette, bloom. */
 const GRADE = {
@@ -130,7 +131,8 @@ export function makePost(renderer, scene, camera, Q) {
   // ---- the camcorder look, built only when first asked for
   let vhsNode = null, osd = null, vhsOn = false, stamp = true, moodKey = 'storm';
   let cctvNode = null, cosd = null, cctvOn = false;
-  const CU = { burst: uniform(0), fps: uniform(12) };
+  const CU = { burst: uniform(0), fps: uniform(12), barrel: uniform(0.07), sat: uniform(0.14), con: uniform(0.86), black: uniform(0.06), gain: uniform(1.22), scan: uniform(0.07), noise: uniform(0.07), vig: uniform(0.4), blocks: uniform(0.6), tear: uniform(0.035), stat: uniform(0.92), tint: uniform(new THREE.Vector3(0.8, 1.0, 0.86)) };      // (the security-camera look's knobs are uniforms so the tuning panel can move them live)
+  const VU = { jitter: uniform(0.0009), barrel: uniform(0.1), head: uniform(0.018), chroma: uniform(0.82), snow: uniform(0.07), drop: uniform(0.9965), tapeGain: uniform(0.16), tapeLift: uniform(0.012), fields: uniform(0.06), vig: uniform(0.35) };      // the camcorder look's
   const cctvInfo = { cam: 1, label: '', stamp: 0, clock: 0, paused: false };
   const V = { year: 1996 };
   const buildVHS = () => {
@@ -138,13 +140,13 @@ export function makePost(renderer, scene, camera, Q) {
     const src = convertToTexture(graded), osdT = texture(osd.tex);
     const LINES = 240, px = float(1 / 520);                       // a VHS frame: ~240 lines a field, ~3 MHz of luma across the width
     // barrel, then the time base: per-line jitter, a slow wobble, a tracking band that rolls up the frame now and then
-    const cc = screenUV.sub(0.5), r2 = dot(cc, cc), q0 = cc.mul(float(1).add(r2.mul(0.1))).mul(0.985).add(0.5);
+    const cc = screenUV.sub(0.5), r2 = dot(cc, cc), q0 = cc.mul(float(1).add(r2.mul(VU.barrel))).mul(0.985).add(0.5);
     const line = floor(q0.y.mul(LINES)), fr = floor(time.mul(30));
-    const jit = h1(line.add(fr.mul(17.0))).sub(0.5).mul(0.0009);
+    const jit = h1(line.add(fr.mul(17.0))).sub(0.5).mul(VU.jitter);
     const wob = sin(q0.y.mul(5.0).add(time.mul(1.3))).mul(0.0012).add(sin(q0.y.mul(37.0).add(time.mul(6.1))).mul(0.0004));
     const bandY = fract(time.mul(0.045)).mul(1.6).sub(0.3), band = smoothstep(0.05, 0.0, abs(q0.y.sub(bandY))).mul(step(0.55, fract(time.mul(0.045).mul(0.5))));
     const head = smoothstep(0.955, 0.985, q0.y);                    // head-switching noise along the bottom edge
-    const dx = jit.add(wob).add(band.mul(h1(line.add(fr)).sub(0.3).mul(0.025))).add(head.mul(float(0.018).add(h1(line.add(fr.mul(3.0))).mul(0.02))));
+    const dx = jit.add(wob).add(band.mul(h1(line.add(fr)).sub(0.3).mul(0.025))).add(head.mul(VU.head.add(h1(line.add(fr.mul(3.0))).mul(0.02))));
     const q = vec2(q0.x.add(dx), q0.y);
     const tap = (o) => { const u = vec2(q.x.add(px.mul(o)), q.y), s = src.sample(u).rgb, t = osdT.sample(u); return mix(s, t.rgb, t.a); };
     const toY = (c) => dot(c, vec3(0.299, 0.587, 0.114)), toI = (c) => dot(c, vec3(0.596, -0.274, -0.322)), toQ = (c) => dot(c, vec3(0.211, -0.523, 0.312));
@@ -156,19 +158,19 @@ export function makePost(renderer, scene, camera, Q) {
     const c1 = tap(-3), c2 = tap(-7), c3 = tap(-11);
     let I = toI(c1).mul(0.4).add(toI(c2).mul(0.35)).add(toI(c3).mul(0.25)), Qc = toQ(c1).mul(0.4).add(toQ(c2).mul(0.35)).add(toQ(c3).mul(0.25));
     const cn = h2(vec2(line, fr)).sub(0.5);
-    I = I.mul(0.82).add(cn.mul(0.03)); Qc = Qc.mul(0.82).add(h1(line.add(fr.mul(5.0))).sub(0.5).mul(0.025));
+    I = I.mul(VU.chroma).add(cn.mul(0.03)); Qc = Qc.mul(VU.chroma).add(h1(line.add(fr.mul(5.0))).sub(0.5).mul(0.025));
     // snow, dropouts (a white streak along part of a line), head noise
     const snow = h2(q.mul(vec2(520, LINES * 2)).add(fract(time.mul(7.3)).mul(311.0))).sub(0.5);
-    Y = Y.add(snow.mul(0.07)).add(snow.mul(head).mul(0.5));
-    const dSeed = h1(line.mul(0.731).add(fr.mul(1.37))), ds = h1(line.add(fr.mul(2.1))), drop = step(0.9965, dSeed).mul(step(ds, q.x)).mul(step(q.x, ds.add(0.12)));
+    Y = Y.add(snow.mul(VU.snow)).add(snow.mul(head).mul(0.5));
+    const dSeed = h1(line.mul(0.731).add(fr.mul(1.37))), ds = h1(line.add(fr.mul(2.1))), drop = step(VU.drop, dSeed).mul(step(ds, q.x)).mul(step(q.x, ds.add(0.12)));
     Y = mix(Y, float(0.85).add(snow.mul(0.3)), drop.mul(0.85));
     let c = vec3(Y.add(I.mul(0.956)).add(Qc.mul(0.621)), Y.sub(I.mul(0.272)).sub(Qc.mul(0.647)), Y.sub(I.mul(1.106)).add(Qc.mul(1.703)));
     // the tape's tone: blown highlights, lifted milky blacks, a little warm
-    c = clamp(c.mul(U.tape.mul(0.16).add(1)).add(U.tape.mul(0.012)), 0, 1).mul(vec3(1.02, 1.0, 0.95)).mul(float(1).sub(U.tape.mul(0.07))).add(U.tape.mul(0.04));      // (tape 0 in the storm: no lift, no extra gain)
+    c = clamp(c.mul(U.tape.mul(VU.tapeGain).add(1)).add(U.tape.mul(VU.tapeLift)), 0, 1).mul(vec3(1.02, 1.0, 0.95)).mul(float(1).sub(U.tape.mul(0.07))).add(U.tape.mul(0.04));      // (tape 0 in the storm: no lift, no extra gain)
     // interlaced fields: alternate lines dim, the pair swapping every frame; a faint soft vignette
     const fl = q.y.mul(viewportSize.y).add(step(0.5, fract(time.mul(30))));
-    c = c.mul(float(0.94).add(sin(fl.mul(Math.PI)).mul(sin(fl.mul(Math.PI))).mul(0.06)));
-    c = c.mul(float(1).sub(smoothstep(0.35, 0.75, length(cc)).mul(0.35)));
+    c = c.mul(float(1).sub(VU.fields).add(sin(fl.mul(Math.PI)).mul(sin(fl.mul(Math.PI))).mul(VU.fields)));
+    c = c.mul(float(1).sub(smoothstep(0.35, 0.75, length(cc)).mul(VU.vig)));
     const inside = step(0, q0.x).mul(step(q0.x, 1)).mul(step(0, q0.y)).mul(step(q0.y, 1));
     vhsNode = vec4(c.mul(inside), 1);
   };
@@ -179,30 +181,30 @@ export function makePost(renderer, scene, camera, Q) {
     const src = convertToTexture(graded), osdT = texture(cosd.tex);
     const fr = floor(time.mul(CU.fps)), vs = viewportSize;
     // barrel (mild), a sync tear now and then, a hard tear and roll while the burst is up
-    const cc = screenUV.sub(0.5), r2 = dot(cc, cc), q0 = cc.mul(float(1).add(r2.mul(0.07))).mul(0.99).add(0.5);
+    const cc = screenUV.sub(0.5), r2 = dot(cc, cc), q0 = cc.mul(float(1).add(r2.mul(CU.barrel))).mul(0.99).add(0.5);
     const tearOn = step(0.78, h1(floor(time.mul(0.45)).mul(3.1))), tearY = fract(time.mul(0.45).mul(7.0)).mul(0.9).add(0.05), tear = smoothstep(0.045, 0.0, abs(q0.y.sub(tearY))).mul(tearOn).mul(step(fract(time.mul(0.45)), 0.14));
     const line = floor(q0.y.mul(vs.y.mul(0.5))), bj = h1(line.add(fr.mul(7.0))).sub(0.5);
-    const dx = tear.mul(float(0.035).add(bj.mul(0.03))).add(CU.burst.mul(bj).mul(0.12)).add(h1(line.mul(0.37).add(fr.mul(3.0))).sub(0.5).mul(0.0012));
+    const dx = tear.mul(CU.tear.add(bj.mul(0.03))).add(CU.burst.mul(bj).mul(0.12)).add(h1(line.mul(0.37).add(fr.mul(3.0))).sub(0.5).mul(0.0012));
     const roll = CU.burst.mul(CU.burst).mul(0.3);
     const q = vec2(q0.x.add(dx), fract(q0.y.add(roll)));
     // compression blocks: 8-pixel blocks pull toward their own average now and then, and each block's level twitches a little
     const bs = vec2(vs.x.div(8.0), vs.y.div(8.0)), bid = floor(q.mul(bs)), bc = bid.add(0.5).div(bs);
     const sharp = src.sample(q).rgb, blocky = src.sample(bc).rgb;
     const bh = h2(bid.add(fr.mul(0.5).floor().mul(13.0)));
-    let c = mix(sharp, blocky, bh.mul(0.5).add(0.12).mul(0.6));
+    let c = mix(sharp, blocky, bh.mul(0.5).add(0.12).mul(CU.blocks));
     c = c.add(bh.sub(0.5).mul(0.025));
     // tone: near monochrome with a green-grey cast, low contrast, crushed blacks
     const lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
-    c = mix(vec3(lum), c, 0.14).mul(vec3(0.80, 1.0, 0.86));
-    c = c.sub(0.5).mul(0.86).add(0.5).sub(0.06).max(0).mul(1.22);
+    c = mix(vec3(lum), c, CU.sat).mul(CU.tint);
+    c = c.sub(0.5).mul(CU.con).add(0.5).sub(CU.black).max(0).mul(CU.gain);
     // faint horizontal lines, grain that changes at the footage's own rate, a soft vignette
-    const scan = float(1).sub(step(0.5, fract(q.y.mul(vs.y).mul(0.5))).mul(0.07));
+    const scan = float(1).sub(step(0.5, fract(q.y.mul(vs.y).mul(0.5))).mul(CU.scan));
     const gr = h2(q.mul(vs).add(fr.mul(37.0))).sub(0.5);
-    c = c.mul(scan).add(gr.mul(0.07)).mul(float(1).sub(smoothstep(0.4, 0.8, length(cc)).mul(0.4)));
+    c = c.mul(scan).add(gr.mul(CU.noise)).mul(float(1).sub(smoothstep(0.4, 0.8, length(cc)).mul(CU.vig)));
     c = c.add(vec3(0.02, 0.03, 0.025).mul(float(1).sub(lum)));
     // static: while the burst is up the picture is noise with a ghost of the scene
     const nz = h2(q.mul(vs.mul(0.6)).add(fr.mul(11.0))).mul(0.55).add(0.1).mul(vec3(0.85, 1.0, 0.9));
-    c = mix(c, nz, CU.burst.mul(CU.burst).mul(0.92));
+    c = mix(c, nz, CU.burst.mul(CU.burst).mul(CU.stat));
     const inside = step(0, q0.x).mul(step(q0.x, 1)).mul(step(0, q0.y)).mul(step(q0.y, 1));
     c = clamp(c, 0, 1).mul(inside);
     const t = osdT.sample(screenUV);      // the lettering last: straight, sharp, not distorted or noisy
@@ -270,6 +272,23 @@ export function makePost(renderer, scene, camera, Q) {
       P.render();
     },
   };
+  // tune: the grade per mood (re-applied on change) and the camcorder and security-camera looks (their knobs are uniforms, so live)
+  { const re = (key) => () => { if (moodKey === key) api.setMood(key); };      // tune
+    for (const [key, G0] of [['storm', 'Storm look'], ['dusk', 'Dusk look (last light)'], ['day', 'Day look (overcast)']]) { const G = GRADE[key], f = re(key), c = key + '.grade.';      // tune
+      tuneGroup(G0);      // tune
+      tune(G0, 'Colour richness (saturation)', G, 'sat', 0.2, 1.5, 0.01, f, c + 'sat'); tune(G0, 'Contrast', G, 'con', 0.6, 1.6, 0.01, f, c + 'con'); tune(G0, 'Dark edges (vignette)', G, 'vig', 0, 1.2, 0.01, f, c + 'vig');      // tune
+      tune(G0, 'Glow on bright spots (bloom)', G, 'bloom', 0, 1.2, 0.01, f, c + 'bloom'); tune(G0, 'Glow: brightness needed to bloom', G, 'thr', 0.3, 1.5, 0.01, f, c + 'thr'); }      // tune
+    const V0 = 'Body-cam VHS look', C0 = 'Security-camera (CCTV) look';      // tune
+    tuneGroup(V0, { order: 10 }); tuneGroup(C0, { order: 11 });      // tune
+    tune(V0, 'Picture wobble per line', VU.jitter, 'value', 0, 0.004, 0.0001, null, 'vhs.jitter'); tune(V0, 'Edge bend (barrel)', VU.barrel, 'value', 0, 0.5, 0.01, null, 'vhs.barrel'); tune(V0, 'Head-switch smear at the bottom', VU.head, 'value', 0, 0.08, 0.001, null, 'vhs.head');      // tune
+    tune(V0, 'Colour bleed (1 = none lost)', VU.chroma, 'value', 0.2, 1.2, 0.01, null, 'vhs.chroma'); tune(V0, 'Snow / grain', VU.snow, 'value', 0, 0.3, 0.005, null, 'vhs.snow'); tune(V0, 'Dropout streaks (higher = fewer)', VU.drop, 'value', 0.98, 1, 0.0005, null, 'vhs.dropoutThreshold');      // tune
+    tune(V0, 'Tape glow: brighter highlights', VU.tapeGain, 'value', 0, 0.6, 0.01, null, 'vhs.tapeGain', 'not in the storm'); tune(V0, 'Tape glow: milky blacks', VU.tapeLift, 'value', 0, 0.06, 0.001, null, 'vhs.tapeLift', 'not in the storm'); tune(V0, 'Interlace line dimming', VU.fields, 'value', 0, 0.3, 0.005, null, 'vhs.fields'); tune(V0, 'Dark corners', VU.vig, 'value', 0, 0.9, 0.01, null, 'vhs.vignette');      // tune
+    tune(C0, 'Frame rate (per second)', CU.fps, 'value', 2, 30, 1, null, 'cctv.fps'); tune(C0, 'Edge bend (barrel)', CU.barrel, 'value', 0, 0.4, 0.005, null, 'cctv.barrel'); tune(C0, 'Colour left in the picture', CU.sat, 'value', 0, 1, 0.01, null, 'cctv.colour');      // tune
+    tune(C0, 'Tint: red', CU.tint.value, 'x', 0.3, 1.3, 0.01, null, 'cctv.tint.r'); tune(C0, 'Tint: green', CU.tint.value, 'y', 0.3, 1.3, 0.01, null, 'cctv.tint.g'); tune(C0, 'Tint: blue', CU.tint.value, 'z', 0.3, 1.3, 0.01, null, 'cctv.tint.b');      // tune
+    tune(C0, 'Contrast', CU.con, 'value', 0.3, 1.5, 0.01, null, 'cctv.contrast'); tune(C0, 'Crushed blacks', CU.black, 'value', 0, 0.3, 0.005, null, 'cctv.black'); tune(C0, 'Brightness gain', CU.gain, 'value', 0.6, 2, 0.01, null, 'cctv.gain');      // tune
+    tune(C0, 'Scan lines', CU.scan, 'value', 0, 0.4, 0.005, null, 'cctv.scanLines'); tune(C0, 'Noise / grain', CU.noise, 'value', 0, 0.3, 0.005, null, 'cctv.noise'); tune(C0, 'Dark corners', CU.vig, 'value', 0, 1, 0.01, null, 'cctv.vignette');      // tune
+    tune(C0, 'Compression blocks', CU.blocks, 'value', 0, 1.5, 0.02, null, 'cctv.blocks'); tune(C0, 'Sync tear strength', CU.tear, 'value', 0, 0.15, 0.005, null, 'cctv.tear'); tune(C0, 'Static at a cut', CU.stat, 'value', 0, 1, 0.01, null, 'cctv.static');      // tune
+  }
   if (location.hash.startsWith('#test')) window.__post = api;
   return api;
 }

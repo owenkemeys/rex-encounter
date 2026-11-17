@@ -13,7 +13,10 @@ import { Arena } from './sim/arena.js';
 import { Props } from './view/props.js';
 import { makePost } from './view/post.js';
 import { clamp, bearing, makeRng } from './math.js';
+import { pickRespawn } from './paddock.js';
+import * as JMP from './jump.js';      // the on-foot jump (pure numbers; test/jump.mjs)
 import { createUI, KIT as KIT_START } from './ui.js';
+import { tune, tuneGroup } from './view/tune.js';      // tune
 import { detectQuality, backendPreference, QualityController, qualityMenu } from './view/quality.js';
 import { createTelemetry, NO_TELEMETRY } from './telemetry.js';
 
@@ -78,7 +81,8 @@ async function boot() {
     } });
   // where the game opens (not the #test hashes, whose scripts expect the animal at the origin): on the Lawn, you and the animal in
   // the open about 30 m apart (paddock.js LAYOUT.spawn), the Feeding Tower off to one side
-  const SP = terrain.paddock && terrain.paddock.LAYOUT && terrain.paddock.LAYOUT.spawn;
+  const SPOTS = terrain.paddock && terrain.paddock.LAYOUT && terrain.paddock.LAYOUT.spawns, FIRST = SPOTS && SPOTS.first;      // first spawn of a session: paddock.js LAYOUT.spawns
+  const SP = FIRST ? { you: FIRST.you, rex: { x: FIRST.rex.x, z: FIRST.rex.z, yaw: Math.atan2(FIRST.you.x - FIRST.rex.x, FIRST.you.z - FIRST.rex.z) } } : terrain.paddock && terrain.paddock.LAYOUT && terrain.paddock.LAYOUT.spawn;
   const OPEN = TEST ? null : SP ? { x: SP.you.x, z: SP.you.z, rx: SP.rex.x, rz: SP.rex.z, yaw: SP.rex.yaw } : { x: -18, z: -4, rx: 12, rz: -4, yaw: 0.4 };
   const sim = new RexSim(terrain, { x: OPEN ? OPEN.rx : 0, z: OPEN ? OPEN.rz : 0, yaw: OPEN ? OPEN.yaw : 0.4, seed: SEED });
   const mind = new Mind(sim, SEED);
@@ -98,7 +102,7 @@ async function boot() {
   const S = {
     mode: 'observe', mindOn: true, timeScale: 1, acc: 0, pace: DIM.walk, stalk: false, lure: false, mx: 0, my: 0,
     goal: null, goalId: 1, keys: new Set(), noises: [], stones: [],
-    you: { x: 0, z: 0, yaw: 0, pitch: 0.1, vx: 0, vz: 0, px: 0, pz: 0, crouch: false, eye: 1.7, stepT: 0, push: { x: 0, z: 0 }, up: null, rustleT: 0 },
+    you: { x: 0, z: 0, yaw: 0, pitch: 0.1, vx: 0, vz: 0, px: 0, pz: 0, crouch: false, eye: 1.7, stepT: 0, push: { x: 0, z: 0 }, up: null, rustleT: 0, J: JMP.newJump(), dip: 0 },
     fly: { x: 0, y: 8, z: 0, yaw: 0, pitch: -0.2 },
     wind: { a: wr() * 6.283, s: 3 }, clock: 0, fps: 60, hudT: 0, stepTimes: [],
   };
@@ -290,7 +294,7 @@ async function boot() {
     return { x: camera.position.x + ray.x * 25, y: null, z: camera.position.z + ray.z * 25 };
   }
   function lob(kind) {
-    const o = camera.position, a = aimPoint(), dx = a.x - o.x, dz = a.z - o.z, d = Math.hypot(dx, dz), k = Math.min(1, (kind === 'meat' ? 22 : 40) / (d || 1));
+    const o = camera.position, a = aimPoint(), dx = a.x - o.x, dz = a.z - o.z, d = Math.hypot(dx, dz), k = Math.min(1, (kind === 'meat' ? PLY.throwMeat : kind === 'flare' ? PLY.throwFlare : PLY.throwStone) / (d || 1));
     if (S.mode !== 'foot') { const x = o.x + dx * k, z = o.z + dz * k; if (kind === 'stone') things.throw('stone', x, terrain.height(x, z) + 6, z, x, z); else things.place(kind, x, z); if (kind === 'flare') audio.ignite(); return; }
     things.throw(kind, o.x, o.y - 0.25, o.z, o.x + dx * k, o.z + dz * k, 'you', k < 1 ? null : a.y);
     if (kind === 'flare') audio.ignite();
@@ -301,6 +305,11 @@ async function boot() {
   // below always exist (the sandbox and the retired mechanics use them), but only kinds with a count above 0 are in hand.
   // Flares do not come back by themselves: three per life.
   const KIT = { stone: { n: 0, max: 0, every: 2.5, gap: 0.45 }, flare: { n: 0, max: 0, every: Infinity, gap: 2.5 }, meat: { n: 0, max: 0, every: 70, gap: 1.5 } };
+  const PLY = { walk: 2.6, run: 6.2, crouch: 1.3, eyeStand: 1.7, eyeCrouch: 1.0, throwStone: 40, throwFlare: 40, throwMeat: 22 };      // tune: the player's speeds (m/s), eye heights (m) and how far a throw goes (m)
+  { const G = 'Player', K = KIT; tuneGroup(G, { order: 80 });      // tune
+    tune(G, 'Walk speed (m/s)', PLY, 'walk', 0.8, 8, 0.05, null, 'player.walk'); tune(G, 'Run speed (m/s)', PLY, 'run', 2, 14, 0.1, null, 'player.run'); tune(G, 'Crouch speed (m/s)', PLY, 'crouch', 0.3, 5, 0.05, null, 'player.crouch'); tune(G, 'Eye height standing (m)', PLY, 'eyeStand', 1.0, 2.4, 0.01, null, 'player.eyeStand'); tune(G, 'Eye height crouched (m)', PLY, 'eyeCrouch', 0.4, 1.6, 0.01, null, 'player.eyeCrouch');      // tune
+    tune(G, 'Flare throw: furthest it lands (m)', PLY, 'throwFlare', 5, 120, 1, null, 'player.throwFlare'); tune(G, 'Stone throw: furthest it lands (m)', PLY, 'throwStone', 5, 120, 1, null, 'player.throwStone'); tune(G, 'Meat throw: furthest it lands (m)', PLY, 'throwMeat', 5, 80, 1, null, 'player.throwMeat');      // tune
+    tune(G, 'Stones come back every (s)', K.stone, 'every', 0.5, 20, 0.1, null, 'kit.stone.every'); tune(G, 'Meat comes back every (s)', K.meat, 'every', 5, 300, 1, null, 'kit.meat.every'); tune(G, 'Pause between stone throws (s)', K.stone, 'gap', 0.1, 5, 0.05, null, 'kit.stone.gap'); tune(G, 'Pause between flares (s)', K.flare, 'gap', 0.1, 10, 0.1, null, 'kit.flare.gap'); tune(G, 'Pause between meat throws (s)', K.meat, 'gap', 0.1, 10, 0.1, null, 'kit.meat.gap'); }      // tune
   const kitReset = () => { for (const [k, c] of [['stone', KIT_START.stones], ['flare', KIT_START.flares], ['meat', KIT_START.meat]]) { const e = KIT[k]; e.n = e.max = c; e.last = -99; e.t = 0; } };
   kitReset();
   S.kit = KIT;
@@ -375,9 +384,9 @@ async function boot() {
     /** After a death: back on your feet, out of its reach. Uses the sim's respawn if it has one. */
     respawn() {
       // a new life (victim.js): whole, at a start point well away from the animal, which keeps everything it knows of you
-      const V = arena.victim('you'), far = OPEN && Math.hypot(sim.x - OPEN.x, sim.z - OPEN.z) > 40, { x, z } = far ? arena.respawn('you', OPEN.x, OPEN.z) : arena.respawn('you');
+      const V = arena.victim('you'), pk = SPOTS && SPOTS.respawn && pickRespawn(terrain, SPOTS.respawn, sim.x, sim.z, sim.head.pos.y), far = !pk && OPEN && Math.hypot(sim.x - OPEN.x, sim.z - OPEN.z) > 40, { x, z } = pk ? arena.respawn('you', pk.x, pk.z) : far ? arena.respawn('you', OPEN.x, OPEN.z) : arena.respawn('you');      // the farthest respawn spot 40 m or more from it, unseen first; else the old rule
       if (S.mode !== 'foot') setMode('foot');
-      const Y = S.you; Y.x = Y.px = x; Y.z = Y.pz = z; Y.up = null; Y.crouch = false; S.crouchToggle = false; Y.eye = 1.7; S.handled = null;
+      const Y = S.you; Y.x = Y.px = x; Y.z = Y.pz = z; Y.up = null; JMP.reset(Y.J); Y.dip = 0; S.jumpReq = false; Y.crouch = false; S.crouchToggle = false; Y.eye = 1.7; S.handled = null;
       Y.yaw = Math.atan2(-(sim.x - x), -(sim.z - z)); Y.pitch = 0.08; Y.vx = Y.vz = 0;
       if (V.x !== undefined && V.free) { V.x = x; V.z = z; }
       S.footSince = performance.now(); act.resetKit();
@@ -584,7 +593,8 @@ async function boot() {
     if (S.mode === 'observe' && (MOVE.includes(k) && (S.mindOn || !k.startsWith('arrow')))) { takeOver(); return; }
     // the player's verbs: use (click), 1 2 3 / wheel what is in hand, E the one contextual action, Q call, F torch, C crouch
     if (k === '1' || k === '2' || k === '3') { if (S.mode !== 'observe') act.select(+k - 1); }
-    else if ((k === 'e' || k === ' ') && S.mode === 'foot' && !e.repeat) act.interact();
+    else if (k === 'e' && S.mode === 'foot' && !e.repeat) act.interact();
+    else if (k === ' ' && S.mode === 'foot' && !e.repeat) S.jumpReq = true;      // Space jumps (it was the contextual action; E still is)
     else if (k === 'q' && S.mode !== 'fly' && !e.repeat) act.callDown();
     else if (k === 'f' && !e.repeat) { act.torch(); ui.taught('torch'); }
     else if (k === 'c' && S.mode === 'foot' && !e.repeat) { setCrouch(!S.crouchToggle); ui.taught('crouch'); }
@@ -627,6 +637,7 @@ async function boot() {
   $('tCall').addEventListener('pointerdown', (e) => { e.preventDefault(); audio.resume(); act.callDown(); });
   for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) $('tCall').addEventListener(ev, () => act.callUp());
   $('tAct').addEventListener('click', () => { audio.resume(); act.interact(); });
+  $('tJump').addEventListener('click', () => { audio.resume(); if (S.mode === 'foot') S.jumpReq = true; });
   // start, pause, fullscreen
   $('startGo').addEventListener('click', (e) => { e.stopPropagation(); start(false); });
   $('start').addEventListener('click', (e) => { if (!e.target.closest('label, button, input')) start(false); });
@@ -728,9 +739,9 @@ async function boot() {
   }
 
   // ------------------------------------------------------------ you, as a body in the world
-  function solidify(p, r = 0.4) {
+  function solidify(p, r = 0.4, lift = 0) {
     // you cannot stand inside rock or inside the animal; if it walks into you, you are pushed
-    { const g = terrain.height(p.x, p.z); terrain.pushOut(p, r, g, g + 1.8, 3); }      // the same solid shapes you see: rocks, trunks, cycads, walls
+    { const g = terrain.height(p.x, p.z); terrain.pushOut(p, r, g + lift, g + 1.8 + lift, 3); }      // the same solid shapes you see: rocks, trunks, cycads, walls
     for (const q of herd.alive) { const dx = p.x - q.x, dz = p.z - q.z, d = Math.hypot(dx, dz), m = 0.55 + r; if (d < m && d > 0) { p.x = q.x + dx / d * m; p.z = q.z + dz / d * m; } }
     const v = sim.pose.v, L = (k, j) => ({ x: v[(55 + k * 6 + j) * 3], z: v[(55 + k * 6 + j) * 3 + 2] });
     const segs = [[sim.spine[13].p, sim.spine[18].p, 1.25], [sim.spine[13].p, sim.spine[8].p, 1.0], [sim.spine[8].p, sim.spine[3].p, 0.55], [sim.spine[3].p, sim.spine[0].p, 0.3], [L(0, 1), L(0, 2), 0.35], [L(1, 1), L(1, 2), 0.35]];      // trunk, tail to the tip, and the shins
@@ -773,7 +784,8 @@ async function boot() {
     }
     if (S.mode !== 'fly') { if (down(2)) act.callDown(); if (!bt[2] && pad.prev[2]) act.callUp(); }   // X: tap whistle, hold shout
     if (S.mode === 'foot') {
-      if (down(0)) act.interact();                                        // A: the contextual action
+      if (down(0)) S.jumpReq = true;                                        // A: jump
+      if (down(12)) act.interact();                                       // D-pad up: the contextual action (was A)
       if (down(1)) { setCrouch(!S.crouchToggle); ui.taught('crouch'); }  // B: crouch
       if (down(3)) { act.torch(); ui.taught('torch'); }                  // Y: torch
       if (down(10)) pad.sprint = !pad.sprint;                             // L3: sprint
@@ -819,7 +831,7 @@ async function boot() {
       const oy = Y.yaw - S.handled.yaw, op = Y.pitch - S.handled.pitch;
       const held = K.has('w') || K.has('a') || K.has('s') || K.has('d') || Math.hypot(S.stick.x, S.stick.y) > 0.5 || (pad.on && Math.hypot(pad.lx, pad.ly) > 0.5);
       if (held && !V.free) arena.struggle('you', Math.min(0.5, dt * 2.5));      // a held key counts for a little; mashing counts for much more
-      Y.x = Y.px = V.x; Y.z = Y.pz = V.z; Y.vx = Y.vz = 0; Y.push.x = Y.push.z = 0; Y.crouch = false; Y.up = null;
+      Y.x = Y.px = V.x; Y.z = Y.pz = V.z; Y.vx = Y.vz = 0; Y.push.x = Y.push.z = 0; Y.crouch = false; Y.up = null; JMP.reset(Y.J); Y.dip = 0; S.jumpReq = false;
       if (V.free) {
         // on your feet again: you look where the fall left you looking
         Y.yaw = C.yaw + oy; Y.pitch = clamp(C.pitch + op, -1.4, 1.4); Y.eye = 1.7; S.handled = null;
@@ -839,26 +851,35 @@ async function boot() {
       // the ground under you: wading and mud hold you back (terrain.speedFactor); off the tower, a face steeper than a person
       // can scramble up (PERSON_SLOPE) turns an uphill step aside, axis by axis, so you slide along the foot of it
       const ground = Y.up || !terrain.speedFactor ? 1 : terrain.speedFactor(Y.x, Y.z, 'person');
-      const mag = Math.min(1, Math.hypot(f, r)), sp = (Y.crouch ? 1.3 : sprint && V.canSprint ? 6.2 : 2.6) * mag * (V.slow || 1) * ground, sy = Math.sin(Y.yaw), cy = Math.cos(Y.yaw), n = Math.hypot(f, r) || 1;
+      const mag = Math.min(1, Math.hypot(f, r)), sp = (Y.crouch ? PLY.crouch : sprint && V.canSprint ? PLY.run : PLY.walk) * mag * (V.slow || 1) * ground, sy = Math.sin(Y.yaw), cy = Math.cos(Y.yaw), n = Math.hypot(f, r) || 1;
       Y.px = Y.x; Y.pz = Y.z;
-      Y.x += ((-sy * f + cy * r) / n * sp + Y.push.x) * dt; Y.z += ((-cy * f - sy * r) / n * sp + Y.push.z) * dt;
+      // jump (src/jump.js): only from the ground, on your feet, standing (not crouched, not on the tower, not wading); the run is carried
+      const J = Y.J, ix = (-sy * f + cy * r) / n * sp, iz = (-cy * f - sy * r) / n * sp;
+      if (S.jumpReq) { S.jumpReq = false; if (JMP.takeoff(J, Y.vx, Y.vz, !Y.crouch && !Y.up && ground >= JMP.GROUND_MIN && !S.dead)) ui.taught('jump'); }
+      if (J.air) JMP.steer(J, ix, iz, dt);
+      Y.x += ((J.air ? J.vx : ix) + Y.push.x) * dt; Y.z += ((J.air ? J.vz : iz) + Y.push.z) * dt;
       if (!Y.up && terrain.slopeAt) {
         const h0 = terrain.height(Y.px, Y.pz), steep = (x, z) => { const d = Math.hypot(x - Y.px, z - Y.pz), dh = terrain.height(x, z) - h0; return d > 1e-5 && ((dh / d > PERSON_SLOPE && terrain.slopeAt(x, z) > PERSON_SLOPE) || dh < -PERSON_DROP); };      // nor step off a drop deeper than PERSON_DROP (the bluff, the ledge, the hole over the cave)
         if (steep(Y.x, Y.z)) { if (!steep(Y.x, Y.pz)) Y.z = Y.pz; else if (!steep(Y.px, Y.z)) Y.x = Y.px; else { Y.x = Y.px; Y.z = Y.pz; } }
       }
       Y.push.x *= Math.exp(-dt * 4); Y.push.z *= Math.exp(-dt * 4);
       if (Y.up) { const T = Y.up, dx = Y.x - T.cx, dz = Y.z - T.cz, c = Math.cos(T.yaw), s2 = Math.sin(T.yaw); let lx = dx * c - dz * s2, lz = dx * s2 + dz * c; lx = clamp(lx, -T.hw + 0.4, T.hw - 0.4); lz = clamp(lz, -T.hd + 0.4, T.hd - 0.4); Y.x = T.cx + lx * c + lz * s2; Y.z = T.cz - lx * s2 + lz * c; }
-      else if (solidify(Y) > 0.05) fx.kick(0.04);
+      else if (solidify(Y, 0.4, Math.min(J.h, JMP.CLEAR_MAX)) > 0.05) fx.kick(0.04);      // feet this high clear a log or rubble under half a metre, nothing taller
       Y.vx = (Y.x - Y.px) / dt; Y.vz = (Y.z - Y.pz) / dt;
-      Y.eye += ((Y.crouch ? 1.0 : 1.7) - Y.eye) * Math.min(1, dt * 8);
+      Y.eye += ((Y.crouch ? PLY.eyeCrouch : PLY.eyeStand) - Y.eye) * Math.min(1, dt * 8);
+      { const L = JMP.stepJump(J, dt); Y.dip *= Math.exp(-dt * 7);
+        if (L) {      // landing: the knees give, and it is heard like a heavy step (the same 'step' noise path, a little louder than a run)
+          const surf = terrain.surfaceAt ? terrain.surfaceAt(Y.x, Y.z) : 'grass', hard = surf === 'gravel' || surf === 'rock' ? 1.5 : 1, run = Math.hypot(Y.vx, Y.vz) > 4;
+          Y.dip = 0.10 + 0.05 * clamp(L.speed / 3.7, 0, 1); fx.kick(0.05);
+          S.noises.push({ x: Y.x, y: terrain.height(Y.x, Y.z), z: Y.z, loud: (run ? 0.3 : 0.2) * hard, kind: 'step', you: true }); audio.step(run ? 0.3 : 0.22, surf); } }
       // footsteps: walking is quiet, running carries
       const v = Math.hypot(Y.vx, Y.vz);
       // (what the ground is changes the step: gravel and rock click, water splashes; the splash the animal hears is the arena's)
-      if (v > 0.5) { Y.stepT -= dt * v; if (Y.stepT <= 0) { Y.stepT = 1.5; const surf = Y.up ? 'wood' : terrain.surfaceAt ? terrain.surfaceAt(Y.x, Y.z) : 'grass', hard = surf === 'gravel' || surf === 'rock' ? 1.5 : 1; const loud = Y.crouch ? 0 : (v > 4 ? 0.16 : 0.045) * hard; if (loud) S.noises.push({ x: Y.x, y: terrain.height(Y.x, Y.z), z: Y.z, loud, kind: 'step', you: true }); audio.step(Y.crouch ? 0.03 : v > 4 ? 0.2 : 0.08, surf); } }
-      const bob = v > 0.5 ? Math.sin(sim.t * (v > 4 ? 13 : 8)) * (v > 4 ? 0.05 : 0.025) : 0;
+      if (v > 0.5 && !J.air) { Y.stepT -= dt * v; if (Y.stepT <= 0) { Y.stepT = 1.5; const surf = Y.up ? 'wood' : terrain.surfaceAt ? terrain.surfaceAt(Y.x, Y.z) : 'grass', hard = surf === 'gravel' || surf === 'rock' ? 1.5 : 1; const loud = Y.crouch ? 0 : (v > 4 ? 0.16 : 0.045) * hard; if (loud) S.noises.push({ x: Y.x, y: terrain.height(Y.x, Y.z), z: Y.z, loud, kind: 'step', you: true }); audio.step(Y.crouch ? 0.03 : v > 4 ? 0.2 : 0.08, surf); } }
+      const bob = v > 0.5 && !J.air ? Math.sin(sim.t * (v > 4 ? 13 : 8)) * (v > 4 ? 0.05 : 0.025) : 0;
       // pushing through fern is noisy, and leaves a trail of bent fronds
-      if (v > 0.4 && !Y.up) { Y.rustleT -= dt; if (Y.rustleT <= 0) { Y.rustleT = 0.35; const f = world.trample(Y.x, Y.z, 0.7, 0.55); if (f > 0.2) { audio.rustle(Y.crouch ? 0.05 : v > 4 ? 0.3 : 0.14); S.noises.push({ x: Y.x, y: terrain.height(Y.x, Y.z), z: Y.z, loud: Y.crouch ? 0.02 : v > 4 ? 0.14 : 0.06, kind: 'rustle', you: true }); } } }
-      camera.position.set(Y.x, (Y.up ? Y.up.base + Y.up.h : terrain.height(Y.x, Y.z)) + Y.eye + bob, Y.z);
+      if (v > 0.4 && !Y.up && !J.air) { Y.rustleT -= dt; if (Y.rustleT <= 0) { Y.rustleT = 0.35; const f = world.trample(Y.x, Y.z, 0.7, 0.55); if (f > 0.2) { audio.rustle(Y.crouch ? 0.05 : v > 4 ? 0.3 : 0.14); S.noises.push({ x: Y.x, y: terrain.height(Y.x, Y.z), z: Y.z, loud: Y.crouch ? 0.02 : v > 4 ? 0.14 : 0.06, kind: 'rustle', you: true }); } } }
+      camera.position.set(Y.x, (Y.up ? Y.up.base + Y.up.h : terrain.height(Y.x, Y.z)) + Y.eye + bob + J.h - Y.dip, Y.z);
       camera.rotation.set(Y.pitch, Y.yaw, 0);
     } else if (S.mode !== 'foot') {
       const c = S.fly, fast = K.has('shift') ? 3 : 1, sp = 14 * fast * dt, cp = Math.cos(c.pitch);
@@ -896,7 +917,7 @@ async function boot() {
     if (S.mode === 'fly') return [];
     const Y = S.you, sp = Math.hypot(Y.vx, Y.vz);
     const f = ray.set(0, 0, -1).applyQuaternion(camera.quaternion);
-    return [{ id: 'you', x: Y.x, y: (Y.up ? Y.up.base + Y.up.h : terrain.height(Y.x, Y.z)) + Y.eye, z: Y.z, vx: Y.vx, vz: Y.vz, speed: sp, crouch: Y.crouch, fx: -Math.sin(Y.yaw), fz: -Math.cos(Y.yaw), torch: props.torchOn, lx: f.x, ly: f.y, lz: f.z }];
+    return [{ id: 'you', x: Y.x, y: (Y.up ? Y.up.base + Y.up.h : terrain.height(Y.x, Y.z)) + Y.eye + Y.J.h, z: Y.z, vx: Y.vx, vz: Y.vz, speed: sp, crouch: Y.crouch, fx: -Math.sin(Y.yaw), fz: -Math.cos(Y.yaw), torch: props.torchOn, lx: f.x, ly: f.y, lz: f.z }];
   }
 
   function birds(x, z, loud) { const n = props.flush(x, z, loud); if (n) { S.noises.push(n); audio.flurry(Math.hypot(n.x - camera.position.x, n.z - camera.position.z)); } }

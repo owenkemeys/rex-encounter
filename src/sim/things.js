@@ -3,6 +3,7 @@
 // rest. Every impact is a sound with a loudness set by how hard it hit; a hit on the animal is felt.
 // Deterministic given the same throws; no renderer here.
 import { clamp } from '../math.js';
+import { tune } from '../view/tune.js';      // tune
 
 const G = 9.81;
 const KIND = {
@@ -11,6 +12,7 @@ const KIND = {
   meat: { r: 0.22, e: 0.04, mu: 0.25, loud: 0.06, amount: 1 },
   carcass: { r: 0.6, e: 0, mu: 0, loud: 0, amount: 3 },
 };
+tune('Player', 'Flare burn time (s)', KIND.flare, 'burn', 5, 240, 1, null, 'flare.burn', 'next flare');      // tune
 
 export class Things {
   constructor(terrain) {

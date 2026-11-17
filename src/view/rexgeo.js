@@ -9,6 +9,7 @@
 import { Vector3, Matrix4, Quaternion } from 'three';
 import { PV, LEG, SPINE_N, IDX, PS, DIM, NECK_RISE, NECK_ROOT } from '../sim/rex.js';
 import { TYRANNOSAURUS } from '../species/tyrannosaurus.js';
+import { tune, tuneGroup } from './tune.js';      // tune
 
 // ------------------------------------------------------------------ head design (head space:
 // x left, y up, z forward, origin at the skull pivot where the neck meets the skull)
@@ -101,6 +102,14 @@ TRUNK.push([0.6, 0.7, -0.3], [0.58, 0.72, -0.34], [0.62, 0.77, -0.41], [0.68, 0.
   // extra depth goes under, into the throat). Centred high, the deep sections at its foot tilted back with the rising curve
   // stood ~0.9 m over the joints at the shoulders: a hump, which a head-low pose turned into a withers with the neck falling off it
   [0.56, 0.74, -0.3], [0.53, 0.66, -0.22], [0.5, 0.6, -0.16], [0.47, 0.55, -0.11], [0.44, 0.5, -0.07], [0.41, 0.46, -0.04], [0.37, 0.42, 0]);
+const TUNE_G = 'Body shape (applies on reload)';      // tune
+{ // tune: body shape. The skin is meshed once when the body is built, so these apply on reload (the stored values are applied here, at import, before that).
+  const G = 'Body shape (applies on reload)', R = 'reload', rg = (v) => (v >= 0 ? [v * 0.4, v * 2.5 + 0.02] : [v * 2.5 - 0.02, v * 0.4]);      // tune
+  tuneGroup(G, { order: 40 });      // tune
+  const T = (label, o, k, code, lo, hi, st) => { const r = rg(o[k]); tune(G, label, o, k, lo ?? r[0], hi ?? r[1], st ?? 0.005, null, code, R); };      // tune
+  T('Hips: half width (m)', TRUNK[IDX.PELVIS], 0, 'trunk.pelvis.width'); T('Hips: depth (m)', TRUNK[IDX.PELVIS], 1, 'trunk.pelvis.depth'); T('Waist: half width (m)', TRUNK[IDX.TAIL_BASE], 0, 'trunk.waist.width'); T('Waist: depth (m)', TRUNK[IDX.TAIL_BASE], 1, 'trunk.waist.depth');      // tune
+  T('Chest: half width (m)', TRUNK[IDX.CHEST], 0, 'trunk.chest.width'); T('Chest: depth (m)', TRUNK[IDX.CHEST], 1, 'trunk.chest.depth'); T('Mid-back: half width (m)', TRUNK[IDX.CHEST - 3], 0, 'trunk.midback.width'); T('Mid-back: depth (m)', TRUNK[IDX.CHEST - 3], 1, 'trunk.midback.depth');      // tune
+}
 
 // ------------------------------------------------------------------ SDF primitives
 const _q = new Vector3();
@@ -383,6 +392,13 @@ const FEMUR = TYRANNOSAURUS.dims.femur, PUBIS_LEN = 0.9 * FEMUR, PUBIS_TILT = 12
 export const PUBIS = { len: PUBIS_LEN, shaftFwd: PUBIS_LEN * Math.sin(PUBIS_TILT), drop: PUBIS_LEN * Math.cos(PUBIS_TILT) + 0.06 + 0.0, boot: 0.62 * PUBIS_LEN, toe: 0.2, heel: 0.59,
   w: 0.06, h: 0.15, front: 0.8, back: 0.35, k: 0.15, sag: 0.05, belly: 0.8,
   isch: { len: 0.75 * FEMUR, ang: 50 * Math.PI / 180, w: 0.09, h: 0.09 } };
+{ const G = TUNE_G, R = 'reload', rg = (v) => (v >= 0 ? [v * 0.4, v * 2.5 + 0.02] : [v * 2.5 - 0.02, v * 0.4]);      // tune
+  const T = (label, o, k, code) => { const r = rg(o[k]); tune(G, label, o, k, r[0], r[1], 0.005, null, code, R); };      // tune
+  T('Pubic boot: how far it drops (m)', PUBIS, 'drop', 'pubis.drop'); T('Pubic boot: length of the boot (m)', PUBIS, 'boot', 'pubis.boot'); T('Pubic boot: toe (forward point)', PUBIS, 'toe', 'pubis.toe'); T('Pubic boot: heel (rear point)', PUBIS, 'heel', 'pubis.heel');      // tune
+  T('Pubic keel: half width (m)', PUBIS, 'w', 'pubis.w'); T('Pubic keel: half height (m)', PUBIS, 'h', 'pubis.h'); T('Pubic keel: runs into the belly over (m)', PUBIS, 'front', 'pubis.front'); T('Pubic keel: runs up to the tail over (m)', PUBIS, 'back', 'pubis.back');      // tune
+  T('Pubic keel: blend softness', PUBIS, 'k', 'pubis.k'); T('Pubic keel: sag', PUBIS, 'sag', 'pubis.sag'); T('Pubic keel: belly fullness', PUBIS, 'belly', 'pubis.belly'); T('Pubic shaft: forward lean (m)', PUBIS, 'shaftFwd', 'pubis.shaftFwd');      // tune
+  T('Ischium: length (m)', PUBIS.isch, 'len', 'pubis.isch.len'); T('Ischium: angle (rad)', PUBIS.isch, 'ang', 'pubis.isch.ang'); T('Ischium: half width (m)', PUBIS.isch, 'w', 'pubis.isch.w'); T('Ischium: half height (m)', PUBIS.isch, 'h', 'pubis.isch.h');      // tune
+}      // tune
 export const CHESTF = { f0: 0.1, u0: -0.62, r: [0.34, 0.6, 0.5], k: 0.2 };
 
 // ------------------------------------------------------------------ build the primitive set in the bind pose

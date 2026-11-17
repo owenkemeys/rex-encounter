@@ -10,6 +10,7 @@
 // per-frame update. The older method names (thump, roar, huff, growl, clack, ...) keep their signatures.
 import { synthLib } from './audiosynth.js';
 import { hybridLib, HYB_NEEDS } from './audiohybrid.js';
+import { tune, tuneGroup } from './tune.js';      // tune
 
 const TENSE = new Set(['stalk', 'stare', 'watch', 'display', 'circle', 'besiege', 'inspect', 'bluff', 'ambush', 'hunt']);
 const SNIFFY = new Set(['sniff', 'trail', 'investigate', 'search', 'revisit', 'inspect']);
@@ -44,14 +45,32 @@ const TIER = {
  *  so the jaw leads the sound by it (owner: "precede the actual audio by a fraction"). 50 to 90 ms; one named place. */
 export const MOUTH_LEAD = 0.09;
 /** Jaw follower (see _mouthStep): attack / release time constants (s); the high band (450 Hz to 3.5 kHz) level in dBFS at the mouth emitters' inputs that is silence and that is a full gape, raised to `pow`; the brightness (high band's share of high + low energy) that starts and finishes counting; the low-band (80 to 400 Hz) range for the flutter; the hiss-band range for the nose. */
-const MOUTH = { atk: 0.04, rel: 0.18, fast: 0.006, slow: 0.04, hiFloorDb: -40, hiFullDb: -20, pow: 2.0, t0: -8.5, t1: -5.5, air: 0.95, a0: -4, a1: 0, loFloorDb: -50, loFullDb: -15, noseFloorDb: -50, noseFullDb: -30 };
+const MOUTH = { lead: MOUTH_LEAD, atk: 0.04, rel: 0.18, fast: 0.006, slow: 0.04, hiFloorDb: -40, hiFullDb: -20, pow: 2.0, t0: -8.5, t1: -5.5, air: 0.95, a0: -4, a1: 0, loFloorDb: -50, loFullDb: -15, noseFloorDb: -50, noseFullDb: -30 };
+/** The band edges (Hz) the jaw follower listens through, the sound trims (1 = as built; the voices carry their own level), and the nodes they steer (tuning panel). */
+const BANDS = { loHp: 80, loLp: 400, hiHp: 450, hiLp: 3500, noseHp: 2500 }, BANDF = {}, DLS = [], EMTRIM = {};
+const SND = { roar: 0.42, growl: 0.36, huff: 0.32, crunch: 0.8, tear: 0.75, scream: 1, feet: 1, crash: 1, clack: 1, breath: 1 };
+{ // tune: jaw-from-voice and the sound levels, all read live (band edges and the lead retune the running nodes)
+  const J = 'Jaw from voice', S0 = 'Voice and sound levels', band = () => { for (const [k, v] of Object.entries(BANDF)) { const f = { loHp: 'loHp', loLp: 'loLp', hiHp: 'hiHp', hiLp: 'hiLp', noseHp: 'noseHp' }[k]; if (f) v.frequency.value = BANDS[f]; } };      // tune
+  tuneGroup(J, { order: 20 }); tuneGroup(S0, { order: 21 });      // tune
+  tune(J, 'Jaw leads the sound by (s)', MOUTH, 'lead', 0, 0.25, 0.005, (v) => { for (const d of DLS) d.delayTime.value = v; }, 'jaw.mouthLead');      // tune
+  tune(J, 'Throat band: low edge (Hz)', BANDS, 'loHp', 20, 200, 1, band, 'jaw.band.loHp'); tune(J, 'Throat band: high edge (Hz)', BANDS, 'loLp', 200, 800, 5, band, 'jaw.band.loLp'); tune(J, 'Open-mouth band: low edge (Hz)', BANDS, 'hiHp', 200, 1200, 10, band, 'jaw.band.hiHp'); tune(J, 'Open-mouth band: high edge (Hz)', BANDS, 'hiLp', 1500, 8000, 50, band, 'jaw.band.hiLp'); tune(J, 'Nose hiss band: low edge (Hz)', BANDS, 'noseHp', 1000, 6000, 50, band, 'jaw.band.noseHp');      // tune
+  tune(J, 'Silence level of open-mouth band (dB)', MOUTH, 'hiFloorDb', -80, -10, 1, null, 'jaw.hiFloorDb'); tune(J, 'Full-gape level of open-mouth band (dB)', MOUTH, 'hiFullDb', -50, 0, 1, null, 'jaw.hiFullDb'); tune(J, 'Level curve (1 = straight, 2 = quiet sounds barely open)', MOUTH, 'pow', 0.5, 4, 0.05, null, 'jaw.pow');      // tune
+  tune(J, 'Brightness where opening starts (dB)', MOUTH, 't0', -20, 0, 0.1, null, 'jaw.tiltStart'); tune(J, 'Brightness where fully counted (dB)', MOUTH, 't1', -20, 5, 0.1, null, 'jaw.tiltFull'); tune(J, 'Breath damping (mouth shut, air through the nose)', MOUTH, 'air', 0, 1, 0.01, null, 'jaw.air'); tune(J, 'Damping starts (dB)', MOUTH, 'a0', -15, 5, 0.1, null, 'jaw.dampStart'); tune(J, 'Damping full (dB)', MOUTH, 'a1', -10, 10, 0.1, null, 'jaw.dampFull');      // tune
+  tune(J, 'Opens at (s, smaller = snappier)', MOUTH, 'atk', 0.005, 0.3, 0.005, null, 'jaw.attack'); tune(J, 'Closes over (s, bigger = lazier)', MOUTH, 'rel', 0.02, 0.8, 0.01, null, 'jaw.release');      // tune
+  tune(J, 'Tremble: fast follower (s)', MOUTH, 'fast', 0.001, 0.05, 0.001, null, 'jaw.flutterFast'); tune(J, 'Tremble: slow follower (s)', MOUTH, 'slow', 0.01, 0.2, 0.005, null, 'jaw.flutterSlow'); tune(J, 'Throat level: silence (dB)', MOUTH, 'loFloorDb', -80, -20, 1, null, 'jaw.loFloorDb'); tune(J, 'Throat level: full (dB)', MOUTH, 'loFullDb', -40, 0, 1, null, 'jaw.loFullDb');      // tune
+  tune(J, 'Nose level: silence (dB)', MOUTH, 'noseFloorDb', -80, -20, 1, null, 'jaw.noseFloorDb'); tune(J, 'Nose level: full (dB)', MOUTH, 'noseFullDb', -60, 0, 1, null, 'jaw.noseFullDb');      // tune
+  tune(S0, 'Roar', SND, 'roar', 0, 1.5, 0.01, null, 'snd.roar'); tune(S0, 'Growl', SND, 'growl', 0, 1.5, 0.01, null, 'snd.growl'); tune(S0, 'Huff / snort', SND, 'huff', 0, 1.5, 0.01, null, 'snd.huff'); tune(S0, 'Kill scream (1 = as built)', SND, 'scream', 0, 2, 0.02, null, 'snd.scream');      // tune
+  tune(S0, 'Crunch of a bite', SND, 'crunch', 0, 2, 0.02, null, 'snd.crunch'); tune(S0, 'Tearing', SND, 'tear', 0, 2, 0.02, null, 'snd.tear'); tune(S0, 'Teeth clack, dry (1 = as built)', SND, 'clack', 0, 3, 0.02, null, 'snd.clack'); tune(S0, 'Breathing (1 = as built)', SND, 'breath', 0, 4, 0.05, null, 'snd.breath');      // tune
+  tune(S0, 'Footfalls (1 = as built)', SND, 'feet', 0, 3, 0.02, (v) => { for (const e of EMTRIM.feet || []) e.in.gain.value = v; }, 'snd.feet'); tune(S0, 'Crash and impact sounds (1 = as built)', SND, 'crash', 0, 3, 0.02, null, 'snd.crash');      // tune
+}
 
 /** A place sound comes from: in -> [mouth delay] -> [proximity shelf] -> lowpass (air + occlusion) -> gain (distance) -> panner -> bus, with a reverb send. */
 class Emitter {
-  constructor(A, { hrtf = false, shelf = false, pan = true, bus, send, ref = 4, mouth = false }) {
+  constructor(A, { hrtf = false, shelf = false, pan = true, bus, send, ref = 4, mouth = false, trim = null }) {
     const c = A.ctx; this.A = A; this.ref = ref; this.busy = 0; this.pos = { x: 0, y: 0, z: 0 };
     this.in = c.createGain(); let n = this.in;
-    if (mouth) { this.dl = c.createDelay(0.5); this.dl.delayTime.value = MOUTH_LEAD; this.in.connect(this.dl); n = this.dl; if (A.mouthTap) this.in.connect(A.mouthTap); }      // jaw-from-voice: the analyser hears `in` now, the room hears it MOUTH_LEAD later (direct path and reverb send both)
+    if (trim) { this.in.gain.value = SND[trim]; (EMTRIM[trim] || (EMTRIM[trim] = [])).push(this); }      // tune
+    if (mouth) { this.dl = c.createDelay(0.5); this.dl.delayTime.value = MOUTH.lead; DLS.push(this.dl); this.in.connect(this.dl); n = this.dl; if (A.mouthTap) this.in.connect(A.mouthTap); }      // jaw-from-voice: the analyser hears `in` now, the room hears it MOUTH_LEAD later (direct path and reverb send both)
     if (shelf) { this.sh = c.createBiquadFilter(); this.sh.type = 'lowshelf'; this.sh.frequency.value = 110; n.connect(this.sh); n = this.sh; }
     this.lp = c.createBiquadFilter(); this.lp.type = 'lowpass'; this.lp.Q.value = 0.5; this.lp.frequency.value = 18000; n.connect(this.lp);
     this.g = c.createGain(); this.lp.connect(this.g);
@@ -435,12 +454,12 @@ export class Audio {
       // jaw-from-voice: everything the mouth or nose makes goes into the `mouth` emitters (head: voice, breath, sniffs; selfMouth: the scream); their input is tapped
       // by two analysers (voice band, hiss band) and reaches the room MOUTH_LEAD later. headHit is the head as a thing that bumps (contact, bite impacts): not delayed, not tapped.
       this.mouthTap = c.createGain(); this.mouthTap.gain.value = 1;
-      const an = (hpF, lpF) => { const A = c.createAnalyser(); A.fftSize = 1024; let n = this.mouthTap; for (const [ty, f] of [['highpass', hpF], ['lowpass', lpF]]) { if (!f) continue; const b = c.createBiquadFilter(); b.type = ty; b.frequency.value = f; b.Q.value = 0.7; n.connect(b); n = b; } n.connect(A); return A; };
-      this.anL = an(80, 400); this.anH = an(450, 3500); this.anN = an(2500, 0);      // low band (the throat), high band (what an open mouth lets out), hiss band (the nose)
+      const an = (nm, hpF, lpF) => { const A = c.createAnalyser(); A.fftSize = 1024; let n = this.mouthTap; for (const [ty, f] of [['highpass', hpF], ['lowpass', lpF]]) { if (!f) continue; const b = c.createBiquadFilter(); b.type = ty; b.frequency.value = f; b.Q.value = 0.7; BANDF[nm + (ty === 'highpass' ? 'Hp' : 'Lp')] = b; n.connect(b); n = b; } n.connect(A); return A; };
+      this.anL = an('lo', BANDS.loHp, BANDS.loLp); this.anH = an('hi', BANDS.hiHp, BANDS.hiLp); this.anN = an('nose', BANDS.noseHp, 0);      // low band (the throat), high band (what an open mouth lets out), hiss band (the nose)
       this._M = { t: null, bL: new Float32Array(1024), bH: new Float32Array(1024), bN: new Float32Array(1024), v: 0, n: 0, lf: 0, ls: 0, sL: 0, sH: 0, dbL: -120, dbH: -120, dbN: -120, bright: 0 }; this.mouthOpen = 0; this.mouthFast = 0; this.mouthFlutter = 0; this.noseOpen = 0;
       this.head = new Emitter(this, { hrtf: hr, shelf: hr, bus: this.busCre, send: this.sendCre, ref: 5, mouth: true });
       this.headHit = new Emitter(this, { hrtf: hr, shelf: hr, bus: this.busCre, send: this.sendCre, ref: 5 });
-      this.feet = [0, 1].map(() => new Emitter(this, { hrtf: hr, shelf: hr, bus: this.busCre, send: this.sendCre, ref: 4 }));
+      this.feet = [0, 1].map(() => new Emitter(this, { hrtf: hr, shelf: hr, bus: this.busCre, send: this.sendCre, ref: 4, trim: 'feet' }));
       this.pool = Array.from({ length: low ? 3 : 6 }, () => new Emitter(this, { hrtf: false, bus: this.busFx, send: this.sendFx, ref: 2.5 }));
       this.creaturePool = Array.from({ length: low ? 1 : 2 }, () => new Emitter(this, { hrtf: hr, bus: this.busCre, send: this.sendCre, ref: 4 }));
       this.ambPool = Array.from({ length: low ? 2 : 4 }, () => new Emitter(this, { hrtf: false, bus: this.busAmb, send: this.sendAmb, ref: 3 }));
@@ -650,18 +669,18 @@ export class Audio {
   }
   // Dynamic range does the work: its everyday voice (breath, rumbles, huffs, footfalls, even a display roar) is kept low, and
   // full volume is reserved for one sound, the scream at the instant it commits to a kill (scream(), from the strike).
-  roar(dist) { this._voice('roar', dist, 0.42 * this._db(1), this._jit(0.035)); this.st.hush = this.ctx ? this.ctx.currentTime + 25 : 0; }
-  huff(dist) { this._voice('huff', dist, 0.32 * this._db(2), this._jit(0.05)); }
-  growl(dist) { this._voice('growl', dist, 0.36 * this._db(1.5), this._jit(0.04)); }
+  roar(dist) { this._voice('roar', dist, SND.roar * this._db(1), this._jit(0.035)); this.st.hush = this.ctx ? this.ctx.currentTime + 25 : 0; }
+  huff(dist) { this._voice('huff', dist, SND.huff * this._db(2), this._jit(0.05)); }
+  growl(dist) { this._voice('growl', dist, SND.growl * this._db(1.5), this._jit(0.04)); }
   /** The killing strike: the bank's roar, close, dry and at full level, over the recorded monster roar (manifest
    *  `monster_roar`, its first seconds); nothing else it does is this loud. */
   scream() {
     if (!this._ok()) return; const c = this.ctx, t = c.currentTime;
-    this._play('roar', this.selfMouth, t, 1.5, 1.04, 3);
+    this._play('roar', this.selfMouth, t, 1.5 * SND.scream, 1.04, 3);
     const m = this.clips && this.clips.monster_roar;
     if (m) {
       if (!this._scrBuf) { const n = Math.min(m.x.length, Math.round(m.sr * 2.4)), b = c.createBuffer(1, n, m.sr), y = b.getChannelData(0), f = m.sr * 0.25; for (let i = 0; i < n; i++) y[i] = m.x[i] * Math.min(1, (n - i) / f, i / 64); this._scrBuf = b; }
-      const s = c.createBufferSource(), g = c.createGain(); s.buffer = this._scrBuf; g.gain.value = 1.4; s.connect(g); g.connect(this.selfMouth.in); s.start(t);
+      const s = c.createBufferSource(), g = c.createGain(); s.buffer = this._scrBuf; g.gain.value = 1.4 * SND.scream; s.connect(g); g.connect(this.selfMouth.in); s.start(t);
     }
     this.st.vocal = t; this.st.hush = t + 25;
   }
@@ -674,7 +693,7 @@ export class Audio {
     if (!this._ok()) return; const F = clamp(force, 0.1, 1);
     const p = this._where(dist, 'head'), L = this._L(), d = Math.hypot(p.x - L.x, p.y - L.y, p.z - L.z), h = this.sim ? this.sim.head.pos : null;
     const near = !h || Math.hypot(p.x - h.x, p.y - h.y, p.z - h.z) < 3, em = near ? this.headHit : this._free(this.creaturePool, 3);      // teeth meeting: an impact, so neither delayed nor opening the jaw (it is the jaw closing)
-    const at = Math.max(this.ctx.currentTime + 0.06, this._arrive(d)), dest = em.in || em, R = this.R, side = this._jit(0.06), G = 2 * (0.7 + 0.5 * F) * this._db(1.5);
+    const at = Math.max(this.ctx.currentTime + 0.06, this._arrive(d)), dest = em.in || em, R = this.R, side = this._jit(0.06), G = 2 * SND.clack * (0.7 + 0.5 * F) * this._db(1.5);
     if (near) { em.place(p.x, p.y, p.z, at); em.set(d, this.st.occ, at); } else this._place(em, p, at);
     this.st.vocal = this.ctx.currentTime; const room = this.voices < (this.low ? 14 : 32) - 6;
     const B = (dt, dur, type, f, q, g, atk = 0.002) => this._burst(dest, at + dt, dur, type, f, q, g, atk);
@@ -689,8 +708,8 @@ export class Audio {
     if (room) { const k = 1 + Math.floor(R() * 2); for (let i = 0; i < k; i++) B(0.006 + 0.03 * R(), 0.012, 'highpass', 2500 + 2500 * R(), 0.7, (0.3 + 0.3 * R()) * G, 0.0008); }   // the rows settle on each other
     const bn = this._clipNames('bone_'); if (bn.length && room) this._snip(this._bagPick('clackbone', bn), dest, at, 0.12, 0.92 + 0.2 * R(), 0.9 * G, 300, 6000);
   }
-  crunch(dist) { this._voice('crunch', dist, 0.8 * this._db(2), this._jit(0.06)); }
-  tear(dist) { this._voice('tear', dist, 0.75 * this._db(2), this._jit(0.06)); }
+  crunch(dist) { this._voice('crunch', dist, SND.crunch * this._db(2), this._jit(0.06)); }
+  tear(dist) { this._voice('tear', dist, SND.tear * this._db(2), this._jit(0.06)); }
   /** Breath: called every frame (level = chest expansion, dist = to the head). Also runs the per-frame update. */
   breath(level, dist) { this.src = null; this._frame(level, dist); }      // the per-frame voices (sniff, rumble, gestures) are placed at the head, never at the last event main.js set
 
@@ -861,13 +880,13 @@ export class Audio {
     const kind = /steel|container|fence|glass/.test(mat || '') ? 'metal' : /concrete|block|rock|pipe|stone/.test(mat || '') || e.surface === 'rock' ? 'hard' : mat ? 'wood' : 'soft';
     const f = clamp((e.force ?? 0.4) / 1.5, 0.12, 1), em = this.headHit, at = Math.max(this.ctx.currentTime, this._arrive(d)), c = this.ctx, R = this.R, dest = em.in;
     em.place(x, y, z, at); em.set(d, this.st.occ, at);
-    const g = (0.15 + 0.55 * f) * this._db(2), side = this._jit(0.06);
+    const g = (0.15 + 0.55 * f) * SND.crash * this._db(2), side = this._jit(0.06);
     // a hard hit, or any hit of the trunk or hips: the weight of the animal landing on the thing (owner 2026-11-15: the crash was "a
     // humorous light bonk like a wooden spoon tapping a saucepan, not at all appropriate for a multi ton animal crashing into a
     // shipping container"). A low body boom always; then what the thing itself does: a container booms and rattles, boards crack.
     const trunk = e.part === 'torso' || e.part === 'hips', hv = e.force ?? 0;
     if (trunk || hv > 2.5) {
-      const F = clamp((hv + (trunk ? 2.5 : 0)) / 9, 0.2, 1), G = (0.55 + 0.9 * F) * this._db(2);
+      const F = clamp((hv + (trunk ? 2.5 : 0)) / 9, 0.2, 1), G = (0.55 + 0.9 * F) * SND.crash * this._db(2);
       this._burst(dest, at, 0.42, 'lowpass', 78 * side, 0.8, 1.9 * G, 0.008);                 // the mass arriving
       this._burst(dest, at + 0.004, 0.16, 'lowpass', 210 * side, 0.7, 1.3 * G, 0.004);        // flesh and bone on it
       this._burst(dest, at + 0.01, 0.09, 'bandpass', 620 * side, 0.9, 0.5 * G, 0.003);
@@ -941,7 +960,7 @@ export class Audio {
       // breathing: air in (higher, quieter) for the first 40% of the cycle, out (lower, fuller) for the rest
       if (this.breathL) {
         const ph = sim.breathPhase || 0, ex = sim.exertion || 0, inh = ph < 0.4, flow = inh ? Math.sin(Math.PI * ph / 0.4) : Math.sin(Math.PI * (ph - 0.4) / 0.6);
-        const a = on ? 0.09 * (1 + 1.6 * ex) * Math.pow(flow, 1.5) * (inh ? 0.55 : 1) : 0, B = this.breathL;
+        const a = on ? 0.09 * SND.breath * (1 + 1.6 * ex) * Math.pow(flow, 1.5) * (inh ? 0.55 : 1) : 0, B = this.breathL;
         B.gn.gain.setTargetAtTime(a, t, 0.04); B.gc.gain.setTargetAtTime(inh ? 0.3 * a : 1.2 * a, t, 0.05); B.nb.frequency.setTargetAtTime(inh ? 1050 : 520, t, 0.08);
       }
       // gestures the body makes that the events do not voice
