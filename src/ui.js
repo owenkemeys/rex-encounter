@@ -568,13 +568,13 @@ export function createUI(o) {
     // owner: "death cam lets make that automatic a second or so after the shocking black screen from the death. fade in from black and auto watch the replay."
     // It starts ~1.2 s after the death while the tape still takes its last 2.5 s; with nothing to play the card comes up as before.
     if (S.dead && !D.shown && !S.replay) {
-      if (!D.auto && inv.clock - D.at > 1.2) { D.auto = true; if (!playReplay(0.8)) showDeath(); }
+      if (!D.auto && inv.clock - D.at > 1.2) { D.auto = true; if (!playReplay(0.8, true)) showDeath(); }
       else if (D.auto) showDeath();      // the replay ran out or was skipped
     }
     cutFrame();
   }
-  function playReplay(fade) {
-    if (!(session && session.canReplay && session.canReplay() && session.replay())) return false;
+  function playReplay(fade, auto) {
+    if (!(session && session.canReplay && session.canReplay() && session.replay(!!auto))) return false;
     D.fade = inv.clock; D.fadeLen = fade; return true;
   }
   // closeout: the death menu. A slim panel in the security system's own lettering over the (dimmed) last frame of the footage: one line of facts, one deadpan line of
@@ -591,8 +591,8 @@ export function createUI(o) {
     $('xFacts').textContent = ['INCIDENT No. ' + (L ? L.no : '0000'), 'VISITOR LASTED ' + dur(D.lasted).toUpperCase(), cause].filter(Boolean).join(' \u00b7 ');
     $('xAdvice').textContent = L ? L.text : '';
     const tape = !!(session && session.canReplay && session.canReplay());
-    $('xReplay').hidden = !tape; { const b = $('xClip'); b.hidden = !(tape && session && session.clipOK && session.clipOK()); if (S.clip) S.clip.discard(); }
-    $('xKeys').textContent = keysLine(); $('xClipSub').hidden = $('xClip').hidden;
+    $('xReplay').hidden = !tape; { const b = $('xClip'); b.hidden = !(tape && session && session.clipOK && session.clipOK()); if (S.clip) S.clip.onState = syncClip; clipBusy = false; syncClip(); }      // (the clip of this death is kept: it was recorded as the replay played)
+    $('xKeys').textContent = keysLine();
     document.body.classList.add('dead');
     try { $('xAgain').focus({ preventScroll: true }); } catch {}      // Enter, Space or A goes again
   }
@@ -609,9 +609,28 @@ export function createUI(o) {
   }
   $('xAgain').addEventListener('click', () => { audio.resume(); retry(false); });
   $('xReplay').addEventListener('click', () => { audio.resume(); playReplay(0.4); });
-  // clip: "save clip" plays the tape once more while it is recorded (main.js startClip, src/view/clip.js); the file is handed over from the "ready" panel there
+  // clip: the death replay was recorded as it played (src/view/clip.js, main.js startReplay), so SAVE CLIP hands the file over from the very click. Only when the replay was
+  // skipped (no finished clip) does it play the replay and card once more, recorded, with a small tag (main.js startClip).
+  let clipBusy = false;
+  function syncClip() {
+    const b = $('xClip'), sub = $('xClipSub'), c = S.clip; if (!b || !c) return;
+    if (!clipBusy) { const fin = c.state === 'finishing'; b.disabled = fin; b.textContent = fin ? 'preparing\u2026' : 'save clip'; }
+    if (!sub.classList.contains('show')) { sub.textContent = 'plays the replay once more while recording a video for you'; sub.hidden = b.hidden || !!c.blob || c.state === 'finishing'; }
+  }
+  /** What came of a hand-over (from the button, or at the end of a re-recording). */
+  function clipResult(r) {
+    const b = $('xClip'), sub = $('xClipSub'); if (!b) return; r = r || {};
+    if (r.ok) { clipBusy = true; b.disabled = false; b.textContent = 'saved'; setTimeout(() => { clipBusy = false; syncClip(); }, 1600); return; }
+    clipBusy = false; syncClip();      // declined, or the browser wants a press: the button is usable again
+    if (!r.declined && !r.needsPress) { sub.textContent = 'Saving is not available in this view.'; sub.hidden = false; sub.classList.add('show'); setTimeout(() => { sub.classList.remove('show'); syncClip(); }, 4000); }
+  }
+  function clipClick() {
+    const c = S.clip; audio.resume(); if (clipBusy || !c || c.state === 'finishing') return;
+    if (c.blob) { clipBusy = true; const b = $('xClip'); b.disabled = true; b.textContent = 'saving\u2026'; c.deliver().then(clipResult, () => clipResult({})); return; }      // (deliver starts in this click: the share sheet needs it)
+    if (session && session.clip && session.clip()) { D.fade = inv.clock; D.fadeLen = 0.4; }
+  }
   function clipReady() {}
-  if ($('xClip')) $('xClip').addEventListener('click', () => { try { audio.resume(); if (session && session.clip && session.clip()) { D.fade = inv.clock; D.fadeLen = 0.4; } } catch {} });
+  if ($('xClip')) $('xClip').addEventListener('click', () => { try { clipClick(); } catch {} });
   const deathFocus = () => { try { $('xAgain').focus({ preventScroll: true }); } catch {} };
   // ------------------------------------------------------------ photo: the frame, the bubble, a quiet wordmark
   function compose() {
@@ -664,7 +683,7 @@ export function createUI(o) {
   let acc = 0, pausedOnce = false;
   apply(); devChanged();
   return {
-    clipReady, deathMenu: showDeath, deathFocus, flags, set, achv, photo, whistle, toggleAll: () => set('bare'), taught, peek, held, note, devChanged,
+    clipReady, clipResult, deathMenu: showDeath, deathFocus, flags, set, achv, photo, whistle, toggleAll: () => set('bare'), taught, peek, held, note, devChanged,
     get debug() { return debugOn; }, setDebug,
     /** The pause card's "start over": a new life, as after a death. */
     restart() { retry(false, true); },

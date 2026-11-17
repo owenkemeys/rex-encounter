@@ -287,8 +287,10 @@ body.dead #dead { display: flex; animation: fadein .6s ease; }
 .dm-btns button { min-height: 46px; padding: 0 18px; font: 700 14px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; border-radius: 2px; cursor: pointer; }
 #xAgain { flex: 1.7; background: var(--accent); color: #1b1410; border: 2px solid var(--accent); }
 #xReplay, #xClip { flex: 1; background: transparent; color: #ecf4ec; border: 1px solid rgba(236,244,236,0.5); }
+#xClip:disabled { opacity: 0.6; cursor: default; }
 #xReplay:hover, #xClip:hover { background: rgba(236,244,236,0.1); }
 #xClipSub { display: none; font: 400 12px var(--mono); opacity: 0.65; }
+#xClipSub.show:not([hidden]),
 body.touch #xClipSub:not([hidden]), .dm:has(#xClip:hover) #xClipSub:not([hidden]), .dm:has(#xClip:focus-visible) #xClipSub:not([hidden]) { display: block; }
 #xKeys { font: 400 11px var(--mono); opacity: 0.5; letter-spacing: 0.06em; min-height: 1em; }
 #dead :focus-visible { outline: 3px solid var(--warn); outline-offset: 2px; }
@@ -297,7 +299,7 @@ body.replay #dead { display: none; }
 .card .btns { display: flex; gap: 10px; }
 .card .btns button { flex: 1; }
 .clipnote { margin: 8px 0 0; min-height: 1em; font-size: 12px; color: var(--ink-faint); text-align: center; }
-#replayTag.rec { opacity: 0.95; color: #ff8a80; font-weight: bold; } body.clipping #noteBtn { display: none !important; }
+#replayTag.rec { opacity: 0.95; color: #ff8a80; font-weight: bold; }
 #replayTag { position: fixed; bottom: calc(var(--sb) + 10px); left: 50%; transform: translateX(-50%); z-index: 12; pointer-events: none; font: 11px "Lucida Console", "Courier New", monospace; letter-spacing: 0.08em; color: #cfdacf; opacity: 0.5; text-shadow: 0 1px 2px #000; white-space: nowrap; }
 body.replay #bubble, body.replay #osd { display: none !important; }
 body.replay #kitHud, body.replay #prompt, body.replay #hint, body.replay #menuBtn, body.replay #crosshair, body.replay #touch, body.replay #invite, body.replay #corner button:not(#noteBtn) { visibility: hidden; }      /* what it is thinking now is not on the tape */
@@ -435,7 +437,7 @@ body.tuning #tuneStrip { display: none; }
     <p id="xFacts"></p>
     <p id="xAdvice"></p>
     <div class="dm-btns"><button id="xAgain">go again</button><button id="xReplay">watch again</button><button id="xClip" hidden>save clip</button></div>
-    <p id="xClipSub" hidden>replays it once while recording a video for you</p>
+    <p id="xClipSub" hidden>plays the replay once more while recording a video for you</p>
     <p id="xKeys"></p>
   </div></div>
 </section>

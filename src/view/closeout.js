@@ -285,7 +285,7 @@ function noiseInto(g, nc, ng, W, H, a, rng) {      // a small noise canvas, scal
   g.save(); g.globalAlpha = a; g.imageSmoothingEnabled = true; g.drawImage(nc, 0, 0, W, H); g.restore();
 }
 /** The tape treatment: makes a drawer for a W x H canvas. `ctx.frame(g, t, stampMs, rng)`: t seconds into the closeout (0 to LEN). Legibility first. */
-export let CARD_SECONDS = 6.4, STATIC = 0.25;      // the closing card is held for CARD_SECONDS in the recording (the owner: twice the first 3.2 s)
+export let CARD_SECONDS = 5, STATIC = 0.25;      // the closing card, at the end of the death cam and of every clip, is held for CARD_SECONDS (the owner: 5 s)
 export let LEN = CARD_SECONDS;
 import { tune, tuneGroup } from './tune.js';      // tune
 const CARDT = { seconds: CARD_SECONDS, stat: STATIC };      // tune: live copies; the exported lets follow them
