@@ -33,7 +33,7 @@ export const KIT = { torch: true, flares: 3, stones: 0, meat: 0 };
 const KEYS = {
   kb: { move: 'W A S D', run: 'Shift', crouch: 'C', jump: 'Space', look: 'mouse', zoom: 'right mouse / Z', use: 'click', items: 'wheel / 1 2 3', call: 'Q', act: 'E', torch: 'F', note: 'T', clip: 'R', pause: 'Esc', peek: 'Tab', again: 'Enter', struggle: 'W A S D' },
   pad: { move: 'left stick', run: 'L3', crouch: 'B', jump: 'A', look: 'right stick', zoom: 'LT', use: 'RT', items: 'LB / RB', call: 'X', act: 'D-pad up', torch: 'Y', note: 'R3', clip: 'pause card', pause: 'Start', peek: 'View', again: 'A', struggle: 'left stick' },
-  touch: { move: 'stick', run: 'stick to the rim, or run', crouch: 'crouch', jump: 'jump', look: 'drag the view', zoom: 'zoom', use: 'flare', items: 'item', call: 'call', act: 'pop-up button', torch: 'torch', note: 'note', clip: 'clip', pause: '\u2016', peek: '?', again: '', struggle: 'the stick' },
+  touch: { move: 'left stick', run: 'stick to the rim', crouch: 'crouch', jump: 'jump', look: 'right stick', zoom: 'zoom', use: 'flare', items: 'item', call: 'call', act: 'pop-up button', torch: 'torch', note: 'note', clip: 'clip', pause: '\u2016', peek: '?', again: '', struggle: 'struggle button' },
 };
 const itemNames = () => [KIT.flares > 0 && 'flare', KIT.stones > 0 && 'stone', KIT.meat > 0 && 'meat'].filter(Boolean);
 const useName = () => (itemNames().length > 1 ? 'throw what is in hand' : 'throw a ' + itemNames()[0]);
@@ -50,7 +50,7 @@ const TEACH = {
   crouch: '{crouch} to crouch', zoom: 'hold {zoom} to zoom', run: 'hold {run} to run', torch: '{torch} for the torch', peek: 'hold {peek} for the controls',
   struggle: 'work {struggle} hard to get free',
 };
-const TEACH_TOUCH = { use: 'tap {use} to throw one', call: 'tap {call} to call. hold it to shout', zoom: 'tap {zoom} to look closer', crouch: 'tap {crouch} to crouch', torch: 'tap {torch} for the torch', run: 'push the stick to the rim to run, or tap run to lock it', peek: 'tap {peek} for the controls', struggle: 'work the stick hard to get free' };
+const TEACH_TOUCH = { use: 'tap {use} to throw one', call: 'tap {call} to call. hold it to shout', zoom: 'tap {zoom} to look closer', crouch: 'tap {crouch} to crouch', torch: 'tap {torch} for the torch', run: 'push the left stick to the rim to run', peek: 'tap {peek} for the controls', struggle: 'tap struggle, again and again' };
 const DONE = 2, SHOW = 3;
 
 export function createUI(o) {
@@ -62,7 +62,7 @@ export function createUI(o) {
   const fmtB = (t) => String(t || '').replace(/\{(\w+)\}/g, (_, k) => kb(k));
   // on touch a button named for its verb (crouch, zoom, torch) needs no line of its own: they share one
   const ctlHTML = (list = CTL()) => {
-    list = list.filter(([k]) => (k !== 'clip' || (S.clip && S.clip.supported)) && (k !== 'note' || document.body.classList.contains('notes-on')));
+    list = list.filter(([k]) => (k !== 'clip' || (S.clip && S.clip.supported)) && (k !== 'note' || document.body.classList.contains('notes-on')) && !(k === 'zoom' && dev() === 'touch'));      // no zoom button on touch
     const d = dev(), K = KEYS[d], same = d === 'touch' ? list.filter(([k, t]) => K[k] === t) : [];
     const rows = list.filter((r) => !same.includes(r)).map(([k, t]) => `<b>${esc(K[k])}</b><span>${t}</span>`);
     if (same.length) rows.splice(rows.length - 1, 0, `<b>${same.map(([k]) => esc(K[k])).join(' ')}</b><span>as named</span>`);
@@ -424,7 +424,7 @@ export function createUI(o) {
     if (inv.stage === 0) { inv.stage = 1; inv.t = 0; }
     if (inv.stage === 1) {
       if (S.mode !== 'observe') { inv.stage = 2; inv.t = 0; IV.classList.remove('on'); return; }
-      if (inv.t > 1.5) showInvite(d === 'touch' ? 'use the <b>stick</b> to walk, or <b>drag</b> to look: you step in where the camera stands.<small>or just watch.</small>'
+      if (inv.t > 1.5) showInvite(d === 'touch' ? 'use the <b>left stick</b> to walk, the <b>right</b> to look: you step in where the camera stands.<small>or just watch.</small>'
         : d === 'pad' ? '<b>left stick</b> to walk, <b>right stick</b> to look: you step in where the camera stands.<small>or just watch.</small>'
         : `${kb('move')} to walk, or move the <b>mouse</b> to look: you step in where the camera stands.<small>or just watch.</small>`);
       return;
@@ -482,7 +482,7 @@ export function createUI(o) {
   const PR = $('prompt'), TA = $('tAct'); let prWhat = '';
   function promptFrame() {
     const w = S.started && !S.paused && !S.dead && act.interactable ? act.interactable() : null;
-    if (w !== prWhat) { prWhat = w; if (w) { PR.innerHTML = `${kb('act')}${esc(w)}`; TA.textContent = w; } }      // the verb itself is the name (climb, bar the door)
+    if (w !== prWhat) { prWhat = w; if (w) { PR.innerHTML = `${kb('act')}${esc(w)}`; TA.textContent = w === 'take the meat' ? 'take' : w === 'climb down' ? 'down' : w.replace(/ the door$/, ''); } }      // the verb itself is the name (climb, bar the door)
     PR.classList.toggle('on', !!w); TA.hidden = !w;
   }
   // ------------------------------------------------------------ what you carry, in one place: torch on/off and the flares left
@@ -504,7 +504,7 @@ export function createUI(o) {
     hf.querySelector('.pips').textContent = n > 0 ? pips(n, max) : '';
     hf.querySelector('.kc').textContent = d === 'touch' || uses('use') >= DONE || n < 1 ? '' : Kd.use;
     const ti = $('tItem'); if (ti) { ti.querySelector('.nm').textContent = cur || 'none'; ti.querySelector('.pips').textContent = pips(n, max); ti.setAttribute('aria-label', `${cur || 'none'}, ${n} left`); }
-    const tc = $('tCycle'); if (tc) tc.hidden = items.length < 2;
+    
   }
   /** What is in hand changed (or ran out): a brief brightening of the readout. */
   function held() {

@@ -119,6 +119,7 @@ async function boot() {
   const clip = createClip({ getCanvas: () => canvas, audio, tape: rec, extra: () => { const V = arena.victims && arena.victims.get('you'); return { cause: V && V.cause, motive: V && V.lastHurt && V.lastHurt.motive, deaths: V ? V.lives : 1, crouch: !!S.you.crouch, label: rec.label, lasted: S.footSince && V ? (performance.now() - S.footSince) / 1000 - (V.dead ? Math.max(0, (V.clock || 0) - (V.deadT || 0)) : 0) : 0 }; } }); S.clip = clip;      // closeout: the card's facts      // clip: "save clip" on the death card records the replay to a file
   function startClip() {      // closeout: "save clip" on the death menu when there is no finished clip (the replay was skipped): the replay and card play once more, recorded, with the small tag
     if (!clip.supported || !S.dead || (S.replay && !S.replayHold) || clip.hasClip()) return false;
+    try { audio.resume(); } catch {}      // clipsound: inside the tap on SAVE CLIP: wake the audio context so the re-recording has sound
     clip.wantSave = true;      // handed over by itself at the end if the browser still allows it, else the button is pressed once more
     if (!startReplay(false, true) || !clip.active) { clip.wantSave = false; if (S.replay) holdReplay(); return false; }
     return true;
@@ -128,7 +129,7 @@ async function boot() {
   function startLiveClip() {
     if (!clip.supported || !S.started || S.dead || S.replay || S.paused || S.frozen || S.clipLive || clip.active || S.mode !== 'foot' || rec.count < 90 || rec.death >= 0) return false;
     liveSaved = { p: camera.position.clone(), q: camera.quaternion.clone(), fov: camera.fov, torch: props.torchOn, locked: locked() };
-    S.clipLive = true; S.keys.clear(); drag = null; S.call = null; S.zoom.hold = false; S.stick.x = S.stick.y = 0; S.stick.id = null; S.stick.run = false; stick.classList.remove('run'); nub.style.transform = '';
+    S.clipLive = true; S.keys.clear(); drag = null; S.call = null; S.zoom.hold = false; releaseTouch();
     if (!rec.play(camera.aspect, true)) { S.clipLive = false; liveSaved = null; return false; }
     S.replay = true; document.body.classList.add('replay'); tagEl.hidden = true; clip.dropCard();
     if (post && post.setCCTV) post.setCCTV(true);
@@ -365,7 +366,7 @@ async function boot() {
     // call: a tap whistles (carries across the paddock), holding it shouts (loud, close)
     callDown() { if (S.call) return; S.call = { at: performance.now(), shouted: false }; },
     callUp() { const c = S.call; S.call = null; if (c && !c.shouted) { audio.resume(); act.whistle(); ui.taught('call'); } },
-    callTick() { const c = S.call; if (c && !c.shouted && performance.now() - c.at > 350) { c.shouted = true; audio.resume(); act.shout(); ui.taught('call'); } },
+    callTick() { const c = S.call; if (c && !c.shouted && performance.now() - c.at > 400) { c.shouted = true; audio.resume(); act.shout(); ui.taught('call'); } },
     /** Meat taken back from the ground goes back in the bag. */
     gotMeat() { KIT.meat.n = Math.min(KIT.meat.max, KIT.meat.n + 1); },
     /** A new life: the starting kit again (the KIT switch in ui.js). */
@@ -460,7 +461,17 @@ async function boot() {
   // needsUnlock() also covers iOS's media elements (the silent switch): until one is playing, every gesture tries again.
   { const wake = () => { if (S.started && !S.paused && !S.frozen && audio.needsUnlock()) audio.resume(); };      // not while the note box holds the game frozen: typing there must not restart the sound
     for (const ev of ['touchend', 'pointerup', 'click', 'keydown']) document.addEventListener(ev, wake, { capture: true, passive: true });
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); }); window.addEventListener('pageshow', wake); }
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); }); window.addEventListener('pageshow', wake);
+    // a tap while the sound is still faded out (the focus event never came: some phones and frames) brings it back first
+    for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => { if (audio._away && !document.hidden) audio.back(S.started && !S.paused && !S.frozen); }, { capture: true, passive: true }); }
+  // not in front, no sound: a hidden tab, a hidden or frozen page: fade 0.1 s then suspend; a blurred window (another window or app in
+  // front, or focus moved out of the frame): fade 0.15 s, suspend after a 0.3 s grace so a browser prompt does not chop the sound.
+  // Back (visible, focus, pageshow): the master fades up over 0.2 s and a resume is tried (iOS may refuse without a gesture: the next tap's wake does it).
+  { const hideNow = () => audio.away(120, 0.03), backNow = () => { if (!document.hidden) audio.back(S.started && !S.paused && !S.frozen); };
+    document.addEventListener('visibilitychange', () => { if (document.hidden) hideNow(); else backNow(); });
+    window.addEventListener('pagehide', hideNow); document.addEventListener('freeze', hideNow);
+    window.addEventListener('blur', () => { if (S.dev !== 'touch' && !document.hidden) audio.away(300, 0.05); });      // not on touch: phones fire blur for things that are not leaving
+    window.addEventListener('focus', backNow); window.addEventListener('pageshow', backNow); }
   // hidden diagnostic: '#audio' (also '#audioios', '#audiodirect') shows a plain readout of the sound path and a test-tone button
   if (/^#audio/.test(location.hash)) {
     const box = document.createElement('div');
@@ -475,6 +486,7 @@ async function boot() {
   function start(fs) {
     if (S.started) return;
     S.started = true; document.body.classList.add('started'); audio.resume();
+    if (S.dev === 'touch') { try { if (localStorage.getItem('dh.thint') !== '1') { localStorage.setItem('dh.thint', '1'); const h = $('tHint'); h.hidden = false; setTimeout(() => { h.hidden = true; }, 3000); } } catch {} }      // once: the two sticks and the cluster, named for three seconds
     // fullscreen is its own explicit action (pause card), never part of this gesture
     lockPointer(); S.invite = true; S.startedAt = performance.now(); S.clock0 = S.clock;
     try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch {}
@@ -482,7 +494,7 @@ async function boot() {
   }
   function setPaused(p) {
     if (!S.started || p === S.paused || (p && S.dead)) return;
-    S.paused = p; document.body.classList.toggle('paused', p); S.keys.clear(); drag = null;
+    S.paused = p; document.body.classList.toggle('paused', p); S.keys.clear(); drag = null; if (p) releaseTouch();
     if (p) { releasePointer(); try { if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend(); } catch {} }
     else { audio.resume(); lockPointer(); }
     ui.paused(p);
@@ -526,6 +538,7 @@ async function boot() {
     if (!S.started) return;
     audio.resume();
     if (e.pointerType === 'mouse' && e.button === 2) { S.zoom.hold = true; ui.taught('zoom'); return; }      // right button: hold to zoom
+    if (e.pointerType === 'touch' && stickDown(e)) return;
     if (e.pointerType === 'touch') {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.size === 2) { const [p, q] = [...touches.values()]; pinch = { d: Math.hypot(p.x - q.x, p.y - q.y) || 1 }; drag = null; return; }
@@ -536,6 +549,7 @@ async function boot() {
     drag = { x: e.clientX, y: e.clientY, moved: 0 }; try { stage.setPointerCapture(e.pointerId); } catch {}
   });
   stage.addEventListener('pointermove', (e) => {
+    if (e.pointerId === S.stick.id) { stickAt(e); return; } if (S.lk && e.pointerId === S.lk.id) { lookAt(e); return; }
     S.mx = e.clientX; S.my = e.clientY; S.over = true;      // (a mouse moving hands the device back to keyboard/mouse: setDev, above)
     if (pinch && touches.has(e.pointerId)) {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -552,12 +566,14 @@ async function boot() {
     if (!drag || locked() || S.paused) return;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
     if (S.mode === 'observe') { if (drag.moved > 14) { takeOver(); drag.moved = 6; } return; }
+    if (e.pointerType === 'touch' && S.touchLook === 'stick') return;      // the right stick looks; a drag elsewhere does not
     look(dx, dy);
   });
   stage.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') S.over = false; });
   const touchEnd = (e) => { touches.delete(e.pointerId); if (pinch && touches.size < 2) { pinch = touches.size ? 'after' : null; drag = null; } };
-  stage.addEventListener('pointercancel', (e) => { touchEnd(e); drag = null; });
+  stage.addEventListener('pointercancel', (e) => { if (stickEnd(e) || lookEnd(e)) return; touchEnd(e); drag = null; });
   stage.addEventListener('pointerup', (e) => {
+    if (stickEnd(e) || lookEnd(e)) return;
     if (e.pointerType === 'mouse' && e.button === 2) { S.zoom.hold = false; return; }
     const wasPinch = !!pinch; touchEnd(e); if (wasPinch) { if (!touches.size) pinch = null; return; }
     if (drag && drag.moved < 6 && S.mode !== 'observe' && !S.paused) {
@@ -576,6 +592,8 @@ async function boot() {
   // options on the pause card: look speed, the camcorder look (post.setVHS, if the renderer offers it)
   { const el = $('pSens'); if (el) { el.value = Math.log2(S.sens); el.addEventListener('input', () => { S.sens = 2 ** +el.value; try { localStorage.setItem('dh.sens', S.sens.toFixed(3)); } catch {} }); } }
   { const el = $('pInvert'); el.checked = S.invert; el.addEventListener('change', () => { audio.resume(); S.invert = el.checked; try { localStorage.setItem('dh.invert', S.invert ? '1' : '0'); } catch {} }); }
+  { const el = $('pTLook'); if (el) { el.value = S.touchLook; el.addEventListener('change', () => { S.touchLook = el.value === 'drag' ? 'drag' : 'stick'; releaseTouch(); try { localStorage.setItem('dh.tlook', S.touchLook); } catch {} }); }
+    const ar = $('pARun'); if (ar) { ar.checked = S.runLock; ar.addEventListener('change', () => { S.runLock = ar.checked; try { localStorage.setItem('dh.arun', S.runLock ? '1' : '0'); } catch {} }); } }
   { const el = $('pVHS'); let on = true; try { on = localStorage.getItem('dh.vhs') !== '0'; } catch {}      // VHS mode starts on; only an explicit choice turns it off
     const setVHS = (v) => { try { if (post && typeof post.setVHS === 'function') post.setVHS(v); } catch {} };
     const els = [el, $('sVHS')].filter(Boolean);       // the pause card's toggle and the start card's: one setting, kept in step
@@ -620,7 +638,8 @@ async function boot() {
   window.addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); S.keys.delete(k); if (k === 'z') S.zoom.hold = false; if (k === 'q') act.callUp(); });
   window.addEventListener('blur', () => { S.keys.clear(); S.zoom.hold = false; S.call = null; });
   document.addEventListener('visibilitychange', () => { if (document.hidden && !S.frozen) setPaused(true); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden && clip.active) { if (clip.tagged) endReplay(); else if (S.replay) stopReplay(); } });      // clip: a hidden tab stops the picture
+  { const clipAway = () => { if (clip.active) { if (clip.tagged) endReplay(); else if (S.replay) stopReplay(); } };      // clip: a hidden tab stops the picture (and the recording is cancelled by endReplay / stopReplay)
+    document.addEventListener('visibilitychange', () => { if (document.hidden) clipAway(); }); window.addEventListener('pagehide', clipAway); document.addEventListener('freeze', clipAway); }
   // touch: a thumbstick to walk (push it to the rim to run), drag anywhere else to look, tap to throw what is in hand
   // the device in use, live: the last of keyboard/mouse ('kb'), touch, gamepad ('pad'). Every hint and control list follows it.
   function setDev(d) {
@@ -632,21 +651,55 @@ async function boot() {
   let padRef = null, uiRef = null;
   document.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') setDev('touch'); else if (e.pointerType === 'mouse') setDev('kb'); }, true);
   document.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && S.dev !== 'kb' && Math.abs(e.movementX) + Math.abs(e.movementY) > 2) setDev('kb'); }, true);
-  S.stick = { x: 0, y: 0, id: null, run: false }; S.runLock = false;      // run: the stick pushed to its rim (starts above 0.88, stops below 0.75); runLock: the RUN button, any stick movement runs
-  const stick = $('stick'), nub = $('nub');
-  const stickAt = (e) => { const r = stick.getBoundingClientRect(); let x = (e.clientX - r.left - r.width / 2) / (r.width / 2), y = (e.clientY - r.top - r.height / 2) / (r.height / 2); const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } S.stick.x = x; S.stick.y = y; if (!S.stick.run && l > 0.88) { S.stick.run = true; ui.taught('run'); } else if (S.stick.run && l < 0.75) S.stick.run = false; stick.classList.toggle('run', S.stick.run || (S.runLock && l > 0.15)); nub.style.transform = `translate(${x * 40}px, ${y * 40}px)`; };
-  stick.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (!S.started || S.paused) return; audio.resume(); takeOver(); S.stick.id = e.pointerId; try { stick.setPointerCapture(e.pointerId); } catch {} stickAt(e); });
-  stick.addEventListener('pointermove', (e) => { if (e.pointerId === S.stick.id) stickAt(e); });
-  const stickEnd = (e) => { if (e.pointerId === S.stick.id) { S.stick.id = null; S.stick.x = S.stick.y = 0; S.stick.run = false; stick.classList.remove('run'); nub.style.transform = ''; } };
-  stick.addEventListener('pointerup', stickEnd); stick.addEventListener('pointercancel', stickEnd);
-  $('tRun').addEventListener('click', () => { S.runLock = !S.runLock; $('tRun').setAttribute('aria-pressed', String(S.runLock)); if (!S.runLock) stick.classList.remove('run'); ui.taught('run'); });
-  $('tCrouch').addEventListener('click', () => { setCrouch(!S.crouchToggle); ui.taught('crouch'); });
-  $('tItem').addEventListener('click', () => { audio.resume(); takeOver(); act.use(); });      // the flare button throws
-  $('tCycle').addEventListener('click', () => { audio.resume(); act.cycle(1); });
-  $('tCall').addEventListener('pointerdown', (e) => { e.preventDefault(); audio.resume(); act.callDown(); });
-  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) $('tCall').addEventListener(ev, () => act.callUp());
-  $('tAct').addEventListener('click', () => { audio.resume(); act.interact(); });
-  $('tJump').addEventListener('click', () => { audio.resume(); if (S.mode === 'foot') S.jumpReq = true; });
+  S.stick = { x: 0, y: 0, id: null, run: false };      // run: the stick pushed to its rim (starts above 0.88, stops below 0.75)
+  try { S.runLock = localStorage.getItem('dh.arun') === '1'; } catch { S.runLock = false; }      // "always run on touch" (pause card): any stick movement runs
+  S.touchLook = (() => { try { return localStorage.getItem('dh.tlook') === 'drag' ? 'drag' : 'stick'; } catch { return 'stick'; } })();
+  const stick = $('stick'), nub = $('nub'), lstick = $('lstick'), lnub = $('lnub');
+  // the look stick's feel: deflection sets turn rate. sens: rad/s at the rim (before the look-speed setting); vert: vertical share; curve: exponent
+  const TL = { sens: 3.4, vert: 0.6, curve: 3, dead: 0.08, smooth: 0.06 };      // tune: the touch look stick (turn rate at the rim, vertical share, response curve exponent, dead zone, smoothing time)
+  { const G = 'Player'; tune(G, 'Touch look stick: turn rate at the rim (rad/s)', TL, 'sens', 0.5, 8, 0.1, null, 'touchLook.sens'); tune(G, 'Touch look stick: vertical share', TL, 'vert', 0.2, 1.2, 0.05, null, 'touchLook.vert'); tune(G, 'Touch look stick: response curve exponent', TL, 'curve', 1, 5, 0.1, null, 'touchLook.curve'); tune(G, 'Touch look stick: dead zone', TL, 'dead', 0, 0.3, 0.01, null, 'touchLook.dead'); tune(G, 'Touch look stick: smoothing (s)', TL, 'smooth', 0, 0.3, 0.01, null, 'touchLook.smooth'); }      // tune
+  S.lk = null;
+  const setU = () => { const u = clamp(Math.min(innerWidth, innerHeight) / 390, 0.85, 1.35); document.documentElement.style.setProperty('--u', u.toFixed(3)); return u; };
+  let U = setU(); window.addEventListener('resize', () => { U = setU(); });
+  const ring = (el, x, y) => { el.style.left = x + 'px'; el.style.top = y + 'px'; el.classList.add('on'); };
+  const stickAt = (e) => { const r = stick.getBoundingClientRect(), R = r.width / 2; let x = (e.clientX - r.left - R) / R, y = (e.clientY - r.top - R) / R; const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } S.stick.x = x; S.stick.y = y; if (!S.stick.run && l > 0.88) { S.stick.run = true; ui.taught('run'); } else if (S.stick.run && l < 0.75) S.stick.run = false; stick.classList.toggle('run', S.stick.run || (S.runLock && l > 0.15)); nub.style.transform = `translate(${x * R * 0.64}px, ${y * R * 0.64}px)`; };
+  const stickEnd = (e) => { if (e && e.pointerId !== S.stick.id) return false; S.stick.id = null; S.stick.x = S.stick.y = 0; S.stick.run = false; stick.classList.remove('run', 'on'); stick.style.left = stick.style.top = ''; nub.style.transform = ''; return true; };
+  const lookAt = (e) => { const L = S.lk; if (!L) return; let x = (e.clientX - L.ox) / L.R, y = (e.clientY - L.oy) / L.R; const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } L.x = x; L.y = y; lnub.style.transform = `translate(${x * L.R * 0.64}px, ${y * L.R * 0.64}px)`; };
+  const lookEnd = (e) => { if (!S.lk || (e && e.pointerId !== S.lk.id)) return false; S.lk = null; lstick.classList.remove('on'); lstick.style.left = lstick.style.top = ''; lnub.style.transform = ''; return true; };
+  const releaseTouch = () => { stickEnd(); lookEnd(); };
+  /** A finger went down on the view. Left 40% (below the top bar): the move stick appears under it. Right 45%: the look stick (unless "touch look" is drag).
+   *  Returns true when the touch is taken. Buttons never get here: they sit above the stage. */
+  const stickDown = (e) => {
+    if (!S.started || S.paused || S.dead || S.frozen || S.replay || S.clipLive) return false;
+    const W = innerWidth, H = innerHeight, top = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--st')) || 10) + 56, yMin = Math.max(top, H > W ? H * 0.35 : 0), x = e.clientX, y = e.clientY;
+    const left = x < W * 0.4 && y >= yMin, right = x > W * 0.55 && y >= yMin, R = 62 * U;
+    if (left) {
+      if (S.stick.id != null) return true; takeOver(); S.stick.id = e.pointerId; try { stage.setPointerCapture(e.pointerId); } catch {}
+      const cx = clamp(x, R + 4, W - R - 4), cy = clamp(y, R + 4, H - R - 4); ring(stick, cx, cy); stickAt(e); return true;
+    }
+    if (S.touchLook === 'stick' && right) {
+      if (S.lk) return true; takeOver(); try { stage.setPointerCapture(e.pointerId); } catch {}
+      const cx = clamp(x, R + 4, W - R - 4), cy = clamp(y, R + 4, H - R - 4); S.lk = { id: e.pointerId, ox: cx, oy: cy, R, x: 0, y: 0, sx: 0, sy: 0 }; ring(lstick, cx, cy); lookAt(e); return true;
+    }
+    return false;
+  };
+  /** Per frame: the look stick turns you. Smoothed, dead zone, then a curve: fine near the centre, quick at the rim; pitch slower than yaw. */
+  const lookStickTick = (dt) => {
+    const L = S.lk; if (!L || S.clipLive || S.paused || S.mode === 'observe') return;
+    const sm = TL.smooth > 0 ? 1 - Math.exp(-dt / TL.smooth) : 1; L.sx += (L.x - L.sx) * sm; L.sy += (L.y - L.sy) * sm;
+    const m = Math.hypot(L.sx, L.sy); if (m <= TL.dead) return;
+    const mm = Math.min(1, (m - TL.dead) / (1 - TL.dead)), g = 0.15 * mm + 0.85 * Math.pow(mm, TL.curve), vx = L.sx / m * g, vy = L.sy / m * g;
+    look(vx * dt, vy * TL.vert * dt, TL.sens);
+  };
+  /** A button that acts on the touch going down (a click is dropped on some phones while another finger is held). */
+  const press = (id, fn, up) => { const el = $(id); el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); el.classList.add('down'); try { el.setPointerCapture(e.pointerId); } catch {} fn(e); }); const end = () => { el.classList.remove('down'); if (up) up(); }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); };
+  press('tCrouch', () => { setCrouch(!S.crouchToggle); ui.taught('crouch'); });
+  press('tItem', () => { audio.resume(); takeOver(); act.use(); });      // the flare button throws
+  press('tCall', () => { audio.resume(); act.callDown(); }, () => act.callUp());      // tap: whistle; hold: shout
+  press('tAct', () => { audio.resume(); act.interact(); });
+  press('tJump', () => { audio.resume(); if (S.mode === 'foot') S.jumpReq = true; });
+  press('tStruggle', () => { if (S.mode === 'foot' && !arena.victim('you').free) { arena.struggle('you', 1); ui.taught('struggle'); } });
+  $('tCall').addEventListener('pointerleave', () => act.callUp());
   // start, pause, fullscreen
   $('startGo').addEventListener('click', (e) => { e.stopPropagation(); start(false); });
   $('start').addEventListener('click', (e) => { if (!e.target.closest('label, button, input')) start(false); });
@@ -657,7 +710,7 @@ async function boot() {
   $('pAgain').addEventListener('click', () => { ui.restart(); setPaused(false); });
   $('pFull').addEventListener('click', () => { audio.resume(); fullscreen(); });
   if (!KIT_START.torch) $('tTorch').hidden = true;
-  $('tTorch').addEventListener('click', () => { act.torch(); ui.taught('torch'); });
+  press('tTorch', () => { act.torch(); ui.taught('torch'); });
   $('tZoom').addEventListener('click', () => ui.taught('zoom'));
   // closeout: save a clip of the last 15 s (key R, the touch button, the pause card)
   { const tc = $('tClip'), pc = $('pClip'); if (tc) { tc.hidden = !clip.supported; tc.addEventListener('click', () => { if (!startLiveClip()) ui.note('nothing to record yet'); }); }
@@ -705,7 +758,14 @@ async function boot() {
     let on = true; try { on = localStorage.getItem('dh.sound') !== '0'; } catch {}
     const setSound = (v) => { audio.on = v; for (const el of els) el.checked = v; try { localStorage.setItem('dh.sound', v ? '1' : '0'); } catch {} audioResume(); audio._applyVol(); audio.setRain(world.mood.rain); };
     for (const el of els) { el.checked = on; el.addEventListener('change', (e) => setSound(e.target.checked)); }
-    if (!on) { audio.on = false; try { audio._applyVol(); } catch {} } }
+    if (!on) { audio.on = false; try { audio._applyVol(); } catch {} }
+    // the muted-speaker icon: shown whenever the game is on screen but silent (setting off, context waiting for a gesture, master still faded); a tap fixes it
+    const mi = $('muteIcon'); let miOn = false;
+    const silent = () => !audio.on || audio._away || (!S.paused && !(audio.ctx && audio.ctx.state === 'running'));
+    const miTick = () => { const v = !document.hidden && !audio.offline && silent(); if (v !== miOn) { miOn = v; mi.hidden = !v; } };
+    mi.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); if (!audio.on) setSound(true); else { audioResume(); audio._applyVol(); } audio.back(true); miTick(); });
+    mi.addEventListener('pointerdown', (e) => e.stopPropagation());
+    setInterval(miTick, 250); miTick(); }
   $('shake').addEventListener('input', (e) => { fx.shakeGain = +e.target.value; });
   $('call').addEventListener('click', () => { const p = camera.position, b = bearing(sim.x - p.x, sim.z - p.z); reachTo(p.x + Math.sin(b) * 4.6, p.z + Math.cos(b) * 4.6); });
   $('stop').addEventListener('click', () => { S.goal = null; });
@@ -825,8 +885,10 @@ async function boot() {
     }
   }
 
+  let strugShown = false;
   function moveCamera(dt) {
-    const K = S.keys;
+    const K = S.keys; lookStickTick(dt);
+    { const sg = document.body.classList.contains('touch') && S.mode === 'foot' && !S.dead && !arena.victim('you').free; if (sg !== strugShown) { strugShown = sg; $('tStruggle').hidden = !sg; } }      // held by the animal: one big button
     if (pad.on && S.mode !== 'observe') {         // look: rate grows with deflection, a little faster at the rim
       const c = S.mode === 'foot' ? S.you : S.fly, m = Math.hypot(pad.rx, pad.ry), g = 2.6 * (0.45 + 0.55 * m) * dt * S.sens / S.zoom.cur;
       c.yaw -= pad.rx * g; c.pitch = clamp(c.pitch - pad.ry * g * 0.75 * (S.invert ? -1 : 1), -1.4, 1.4);
@@ -1065,7 +1127,7 @@ async function boot() {
   function freeze(on) {
     if (on) {
       if (!S.started || S.paused || S.frozen || (S.dead && !S.replay && !document.body.classList.contains('dead'))) return false;      // (allowed in the death cam and on the card)
-      S.frozen = true; S.keys.clear(); drag = null; S.call = null; S.zoom.hold = false; S.stick.x = S.stick.y = 0; S.stick.id = null; S.stick.run = false; stick.classList.remove('run'); nub.style.transform = '';
+      S.frozen = true; S.keys.clear(); drag = null; S.call = null; S.zoom.hold = false; releaseTouch();
       document.body.classList.add('frozen'); S.relockWas = locked(); releasePointer();
       try { if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend(); } catch {}
       return true;

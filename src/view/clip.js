@@ -9,7 +9,10 @@ export const CAPT = { size: 1, shadow: 0.85 };      // tune: the caption's size 
 { tuneGroup('Clip and closing card', { order: 90 }); tune('Clip and closing card', 'Caption size (x)', CAPT, 'size', 0.4, 3, 0.05, null, 'clip.captionSize'); tune('Clip and closing card', 'Caption shadow strength', CAPT, 'shadow', 0, 1, 0.01, null, 'clip.captionShadow'); }      // tune
 export const CLIP_CAPTION = 'rex encounter · alpha';      // burned into a corner of every clip: change it here
 import { facts as cardFacts, pick as cardPick, incidentNo, makeTape, note as cardNote, LEN as CARD_LEN } from './closeout.js';      // closeout
-const MIMES = ['video/mp4;codecs=avc1,mp4a', 'video/webm;codecs=vp9,opus', 'video/webm'];
+// clipsound: every candidate names a video AND an audio codec; a stream that has an audio track never gets a video-only type (some browsers then drop the sound).
+const MIMES_AV = ['video/mp4;codecs="avc1.640028,mp4a.40.2"', 'video/mp4;codecs="avc1.42E01E,mp4a.40.2"', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs="avc1.640028,opus"', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=h264,opus', 'video/webm;codecs=av1,opus', 'video/mp4', 'video/webm'];      // the last two: container only, the audio track is in the stream so the browser adds its own codec (iOS Safari: mp4 + AAC)
+const MIMES_V = ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+export const clipMimes = (withAudio) => (withAudio ? MIMES_AV : MIMES_V).filter((m) => { try { return MediaRecorder.isTypeSupported(m); } catch { return false; } });
 const pad = (n) => String(n).padStart(2, '0');
 
 export function clipSupported() {
@@ -37,7 +40,7 @@ export function createClip({ getCanvas, audio, tape, extra }) {      // closeout
   C.hasDownloads = () => !!C.dl;
   C.hasClip = () => !!C.blob || C.state === 'finishing';      // a finished (or finishing) clip of this death exists
   C.canRecord = () => C.supported && !C.autoOff;
-  function pick() { for (const m of MIMES) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch {} } return ''; }
+  function pick(withAudio) { const l = clipMimes(withAudio); return l.length ? l[0] : ''; }      // '' = let the browser choose (it includes audio when the stream has it)
   const stamp = () => { const d = new Date(); return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`; };
   // guard (low-end machines): the frame time of the game while it plays is kept (C.tick, from main.js, only while the replay is not on); if the replay's
   // frame time, averaged over 90 frames of footage, is more than double that AND slower than 22 fps, the recording is stopped and thrown away, and no more
@@ -55,17 +58,27 @@ export function createClip({ getCanvas, audio, tape, extra }) {      // closeout
       cv = document.createElement('canvas'); cv.width = W; cv.height = H; g = cv.getContext('2d', { alpha: false });
       g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
       stream = cv.captureStream(30);
+      // clipsound: the audio track goes in BEFORE the recorder exists (a track added after start() is ignored). A CLONE: teardown stops the clone, never the tap's own track.
       let as = null; try { as = audio && audio.clipStream ? audio.clipStream() : null; } catch {}
-      if (as) for (const t of as.getAudioTracks()) stream.addTrack(t);
-      C.mime = pick(); const opt = { videoBitsPerSecond: 4e6, audioBitsPerSecond: 128e3 }; if (C.mime) opt.mimeType = C.mime;
-      rec = new MediaRecorder(stream, opt); C.mime = rec.mimeType || C.mime || 'video/webm';
+      if (as) for (const t of as.getAudioTracks()) { try { if (t.readyState === 'live') stream.addTrack(t.clone()); } catch {} }
+      try { if (audio && audio.ctx && audio.ctx.state !== 'running') audio.ctx.resume(); } catch {}      // clipsound: the recorder starts anyway (the track is already in it, so nothing is lost; a context that wakes late only leaves the first frames quiet)
+      const withAudio = stream.getAudioTracks().length > 0; C.audioInfo = { hasAudioTrack: withAudio, peakDb: -Infinity, ctxState: audio && audio.ctx ? audio.ctx.state : 'none' };
+      try { audio && audio.clipLevel && audio.clipLevel(true); } catch {}
+      C.mime = pick(withAudio); const opt = { videoBitsPerSecond: 4e6, audioBitsPerSecond: 128e3 }; if (C.mime) opt.mimeType = C.mime;
+      try { rec = new MediaRecorder(stream, opt); } catch (e1) { if (!opt.mimeType) throw e1; delete opt.mimeType; rec = new MediaRecorder(stream, opt); }      // clipsound: a type the browser would not take: let it choose (iOS: mp4)
+      C.mime = rec.mimeType || opt.mimeType || '';
       chunks = []; cancelled = false; C.blob = null; C.file = null; C.frames = 0; C.error = '';
       rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
       done = new Promise((res) => { rec.onstop = () => res(); rec.onerror = () => res(); });
-      rec.start(1000); C.active = true; C.state = 'recording'; tag(C.tagged); emit();
+      rec.start(1000); meter(true); C.active = true; C.state = 'recording'; tag(C.tagged); emit();
       return true;
     } catch (e) { C.error = String(e && e.message || e); C.active = false; C.state = 'idle'; try { rec && rec.state !== 'inactive' && rec.stop(); } catch {} rec = null; return false; }
   };
+  // clipsound: self-check. The peak of the tap while recording; read at finish. Nothing shows to the player; window.__rex.clip.audioInfo holds it.
+  let mt = null;
+  function meter(on) {
+    try { clearInterval(mt); mt = null; if (on && audio && audio.clipLevel) mt = setInterval(() => { try { const p = audio.clipLevel(false); if (C.audioInfo) { if (p > C.audioInfo.peakDb) C.audioInfo.peakDb = p; const st = audio.ctx && audio.ctx.state; if (st && st !== 'running') { C.audioInfo.suspect = true; C.audioInfo.ctxState = st; try { audio.ctx.resume(); } catch {} } } } catch {} }, 40); } catch {}
+  }
   /** The tape is held (T, the note box): the recorder waits too. */
   C.pause = (on) => { try { if (!rec) return; if (on && rec.state === 'recording') rec.pause(); else if (!on && rec.state === 'paused') { rec.resume(); lastF = 0; } } catch {} };
   /** Copy the game canvas onto the clip canvas. Call straight after the render call, every frame while recording or while the card is on. */
@@ -177,7 +190,7 @@ export function createClip({ getCanvas, audio, tape, extra }) {      // closeout
   /** The pad: A saves, B goes back. */
   C.panelPad = (a, b) => { if (!rp) return false; if (b) { const x = rp.querySelector('#cpBack'); x && x.click(); } else if (a) { rp.querySelector('#cpGo').click(); } return true; };
   let gen = 0;      // bumped whenever a recording is thrown away, so a finish still in flight does not publish it
-  function teardown() { tag(false); C.active = false; tp = null; try { if (stream) for (const t of stream.getTracks()) t.stop(); } catch {} stream = null; cv = null; g = null; rec = null; }
+  function teardown() { meter(false); tag(false); C.active = false; tp = null; try { if (stream) for (const t of stream.getTracks()) t.stop(); } catch {} stream = null; cv = null; g = null; rec = null; }
   /** The card is over (or the tape, with no card): finish the file in the background. Resolves true when C.blob is ready; C.state is 'finishing' meanwhile. */
   C.finish = async () => {
     if (!C.active) return false;
@@ -187,10 +200,14 @@ export function createClip({ getCanvas, audio, tape, extra }) {      // closeout
     if (my !== gen) return false;      // cancelled or discarded meanwhile
     teardown();
     if (cancelled || !chunks.length) { C.state = 'idle'; emit(); return false; }
-    const base = C.mime.split(';')[0] || 'video/webm', ext = /mp4/.test(base) ? 'mp4' : 'webm';
+    const base = ((chunks[0] && chunks[0].type) || C.mime || 'video/webm').split(';')[0] || 'video/webm', ext = /mp4/.test(base) ? 'mp4' : 'webm';      // clipsound: the type the recorder really produced, so an mp4 is never named .webm
     C.blob = new Blob(chunks, { type: base }); C.name = `rex-encounter-${stamp()}.${ext}`;
     try { C.file = new File([C.blob], C.name, { type: base }); } catch { C.file = null; }
-    chunks = []; C.state = 'ready'; emit(); return true;
+    chunks = []; C.state = 'ready';
+    try { const a = C.audioInfo; if (a) { try { const p = audio.clipLevel(true); if (p > a.peakDb) a.peakDb = p; } catch {} a.mime = C.mime; a.bytes = C.blob.size; a.silent = !a.hasAudioTrack || a.peakDb < -60; console.info('[clip] audio ' + JSON.stringify({ hasAudioTrack: a.hasAudioTrack, peakDb: Math.round(a.peakDb * 10) / 10, ctx: a.ctxState, mime: a.mime, bytes: a.bytes })); } } catch {}
+    // clipsound: an automatic recording that came out silent although the tape held sounds (a context that was not running: phones) is dropped quietly; SAVE CLIP then records it again with a real gesture behind it
+    try { const a = C.audioInfo; if (a && a.silent && !C.tagged && !C.live && tape && tape.ev && tape.ev.some((x) => x.f >= (tape.s0 || 0))) { C.silentDropped = true; a.dropped = true; C.blob = null; C.file = null; C.state = 'idle'; emit(); return false; } } catch {}
+    emit(); return true;
   };
   /** Escape, a skipped replay, a lost tab, the frame-time guard: throw the recording away. (The card on screen is not touched: C.dropCard.) */
   C.cancel = () => {
@@ -203,15 +220,21 @@ export function createClip({ getCanvas, audio, tape, extra }) {      // closeout
    *  `auto`: not from a click (at the end of a re-recording): the share sheet is only tried while the browser still counts the original click, else { needsPress }. */
   C.deliver = async (auto = false) => {
     const blob = C.blob, name = C.name; if (!blob) return { ok: false };
+    const iosLike = (() => { try { return /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); } catch { return false; } })();
+    const viaShare = async () => {
+      try {
+        if (C.file && navigator.canShare && navigator.canShare({ files: [C.file] }) && navigator.share) {
+          if (auto && !(navigator.userActivation && navigator.userActivation.isActive)) return { ok: false, needsPress: true };
+          await navigator.share({ files: [C.file], title: 'Rex Encounter' }); return { ok: true, how: 'share' };
+        }
+      } catch (e) { if (e && e.name === 'AbortError') return { ok: false, declined: true }; }
+      return null;
+    };
+    if (iosLike) { const r = await viaShare(); if (r) return r; }      // clipsound: on a phone the share sheet comes first (called before anything is awaited, inside the tap)
     // (a) the Claude artifact's downloads capability
     if (C.dl) { try { await C.dl.save({ filename: name, data: blob }); return { ok: true, how: 'claude' }; } catch (e) { if (e && e.code === 'declined') return { ok: false, declined: true }; } }
     // (b) the system share sheet (needs the user gesture this was called from)
-    try {
-      if (C.file && navigator.canShare && navigator.canShare({ files: [C.file] }) && navigator.share) {
-        if (auto && !(navigator.userActivation && navigator.userActivation.isActive)) return { ok: false, needsPress: true };
-        await navigator.share({ files: [C.file], title: 'Rex Encounter' }); return { ok: true, how: 'share' };
-      }
-    } catch (e) { if (e && e.name === 'AbortError') return { ok: false, declined: true }; }
+    if (!iosLike) { const r = await viaShare(); if (r) return r; }
     // (c) a plain download link
     if (linkOK) try {
       const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; a.style.display = 'none'; document.body.appendChild(a); a.click();

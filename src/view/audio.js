@@ -242,9 +242,26 @@ export class Audio {
   setVolume(k, v) { this.vol[k] = v; try { localStorage.setItem('dino.vol', JSON.stringify(this.vol)); } catch {} this._applyVol(); }
   _applyVol() {
     if (!this.ctx) return; const t = this.ctx.currentTime, P = (a, v) => a.setTargetAtTime(v, t, 0.05);
-    P(this.master.gain, this.on ? this.vol.master : 0);
+    P(this.master.gain, this.on && !this._away ? this.vol.master : 0);      // _away: the page is not in front (away())
     P(this.busAmb.gain, this.vol.amb); P(this.busCre.gain, this.vol.cre); P(this.busFx.gain, this.vol.fx);
     P(this.sendAmb.gain, this.vol.amb); P(this.sendCre.gain, this.vol.cre); P(this.sendFx.gain, this.vol.fx);
+  }
+  /** The page is not the one in front (tab hidden, window blurred, page frozen or hidden by pagehide): fade the master out, then suspend the
+   *  context (a suspended context also stops the iOS media elements' feed). grace: ms to wait before suspending (a blur may be a
+   *  momentary prompt; back() inside it cancels). The game's own mute and volumes are untouched: _applyVol keeps the master at 0 while away. */
+  away(grace = 120, tc = 0.03) {
+    const c = this.ctx; if (!c || this.offline) return;
+    this._away = true; clearTimeout(this._susT);
+    try { const g = this.master.gain, t = c.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.setTargetAtTime(0, t, tc); } catch {}
+    this._susT = setTimeout(() => { this._susT = 0; if (!this._away) return; try { if (this._silentEl && !this._silentEl.paused) this._silentEl.pause(); if (this._streamEl && !this._streamEl.paused) this._streamEl.pause(); } catch {} try { if (c.state === 'running') c.suspend(); } catch {} }, grace);
+  }
+  /** The page is back in front: fade the master back to its set volume (about 0.2 s) and, if allowed (not paused by the game), ask the
+   *  context to run. A resume without a gesture may be refused (iOS): the gesture path (needsUnlock) restores it at the next tap. */
+  back(wake = true) {
+    const c = this.ctx; if (!c || this.offline) return;
+    clearTimeout(this._susT); this._susT = 0; if (!this._away) return; this._away = false;
+    try { const g = this.master.gain, t = c.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.setTargetAtTime(this.on ? this.vol.master : 0, t, 0.07); } catch {}
+    if (wake && c.state !== 'running') this._wake();
   }
   /** Resume a suspended or interrupted context; must be reached from inside a gesture (touchend / pointerup / click) to work on iOS. */
   _wake() {
@@ -332,15 +349,42 @@ export class Audio {
         const hp = c.createBiquadFilter(), lp = c.createBiquadFilter(), g = c.createGain(); hp.type = 'highpass'; hp.frequency.value = 300; lp.type = 'lowpass'; lp.frequency.value = 3200; g.gain.value = 0.6;
         if (this._direct) this.out.disconnect(c.destination);
         this.out.connect(hp); hp.connect(lp); lp.connect(g); g.connect(c.destination); this._mic = { hp, g };
-        if (this.clipDest) { try { this.out.disconnect(this.clipDest); } catch {} try { g.connect(this.clipDest); } catch {} }      // clip: the recording takes the filtered sound
       } else if (!on && this._mic) { const m = this._mic; this._mic = null; this.out.disconnect(m.hp); m.g.disconnect(); if (this._direct) this.out.connect(c.destination); }
       if (this._mic) this._mic.g.gain.setTargetAtTime(mute ? 0 : 0.6, c.currentTime, 0.03);
     } catch (e) { this._mic = null; this._directOn(); }
+    this._clipMic(on, mute);      // replay: the recording's own copy of the camera microphone (never rebuilt, so the recording cannot lose its feed)
   }
-  /** clip: a MediaStream of what the speakers get now (after the camera microphone when it is on), for src/view/clip.js. Null without Web Audio. */
-  clipStream() {
-    const c = this.ctx; if (!c || !c.createMediaStreamDestination) return null;
-    try { if (!this.clipDest) this.clipDest = c.createMediaStreamDestination(); if (this._mic) { try { this._mic.g.connect(this.clipDest); } catch {} } else if (this.out) this.out.connect(this.clipDest); return this.clipDest.stream; } catch { return null; }
+  _clipMic(on, mute) { this._tapOn = !!on; this._tapMute = !!mute; const T = this._tap; if (!T || !this.ctx) return; try { const t = this.ctx.currentTime; T.dry.gain.setTargetAtTime(on ? 0 : 1, t, 0.03); T.wet.gain.setTargetAtTime(on ? (mute ? 0 : 0.6) : 0, t, 0.03); } catch {} }      // clip
+  /** clip: one long-lived tap per context. It listens BEFORE the player's volume and mute (this.lim, ahead of this.master) so a muted or quiet player still gets
+   *  a clip, and before the tab-hide fade of the master. Camera microphone copy (band-pass, x0.6) while the replay is on, then make-up gain, a gentle compressor
+   *  and a -1 dB limiter so the track sits at a steady level. Null without Web Audio or before the graph exists. */
+  _clipTap() {      // clip
+    const c = this.ctx; if (!c || !c.createMediaStreamDestination || !this.lim) return null;
+    if (this._tap && this._tap.ctx === c && this._tap.src === this.lim) return this._tap;
+    try {
+      const T = { ctx: c, src: this.lim, peak: 0 };
+      T.inp = c.createGain(); T.dry = c.createGain(); T.wet = c.createGain(); T.dry.gain.value = this._tapOn ? 0 : 1; T.wet.gain.value = this._tapOn ? (this._tapMute ? 0 : 0.6) : 0;
+      const hp = c.createBiquadFilter(), lp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 300; lp.type = 'lowpass'; lp.frequency.value = 3200;
+      T.mk = c.createGain(); T.mk.gain.value = 1.6;
+      const comp = c.createDynamicsCompressor(); comp.threshold.value = -20; comp.knee.value = 12; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.25;
+      const lim = c.createDynamicsCompressor(); lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.1;
+      T.an = c.createAnalyser(); T.an.fftSize = 2048; T.buf = new Float32Array(T.an.fftSize); T.dest = c.createMediaStreamDestination();
+      this.lim.connect(T.inp); T.inp.connect(T.dry); T.inp.connect(hp); hp.connect(lp); lp.connect(T.wet); T.dry.connect(T.mk); T.wet.connect(T.mk);
+      T.mk.connect(comp); comp.connect(lim); lim.connect(T.an); lim.connect(T.dest);
+      this._tap = T; return T;
+    } catch { this._tap = null; return null; }
+  }
+  /** clip: a MediaStream (one audio track, live for the life of the context) of the game's mix, for src/view/clip.js. Also tries to wake a suspended context. Null without Web Audio. */
+  clipStream() {      // clip
+    const T = this._clipTap(); if (!T) return null;
+    try { if (this.ctx.state !== 'running') this._wake(); } catch {}
+    return T.dest.stream;
+  }
+  /** clip: peak level (dB, -Infinity for silence) since the last call with reset; sampled from the tap's analyser. */
+  clipLevel(reset) {      // clip
+    const T = this._tap; if (!T) return -Infinity;
+    try { T.an.getFloatTimeDomainData(T.buf); let m = 0; for (let i = 0; i < T.buf.length; i++) { const v = Math.abs(T.buf[i]); if (v > m) m = v; } if (m > T.peak) T.peak = m; } catch {}
+    const r = T.peak > 0 ? 20 * Math.log10(T.peak) : -Infinity; if (reset) T.peak = 0; return r;
   }
   /** Which path the player is hearing, in words (for the #audio readout). */
   carrier() {
@@ -355,7 +399,7 @@ export class Audio {
   _rebuild() {
     const old = this.ctx; this.dbg.rebuilds++;
     try { if (this._streamEl) { const el = this._streamEl; this._streamEl = null; el.pause(); el.srcObject = null; el.remove(); } } catch {}
-    this.msd = null; this._streamPlaying = false; this._direct = true; this.out = null;
+    this.msd = null; this._streamPlaying = false; this._direct = true; this.out = null; this._tap = null;      // clip: the tap belonged to the closed context
     try { old.onstatechange = null; const p = old.close(); if (p && p.catch) p.catch(() => {}); } catch {}
     this.ctx = null; this.layers = {}; this.breathL = null; this.hissL = null; this.voices = 0; this.st = null;
     this.queue = this.queue.filter((j) => !j.ir);
