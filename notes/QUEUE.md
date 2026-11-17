@@ -111,3 +111,7 @@ Then, on the plan: "the doors currently are janky and i dont ever use them, we c
 "* lets talk about the scenario, because lack of goal bothered one of my playtesters, even though most players just enjoy clowning around with the rex. i like the "distract it from eating the kids for X minutes" scenario idea"
 "* the arena and/or spawn position i find to be overly big and boring, i end up dashing over to the ruins or the barn from the start point most times because that gives opportunities for fooling around with the rex. the bamboo LODs as cones are terrible. i have no idea if the arena has anything else in other areas because i never go to it. thoughts?"
 "* the rex model is missing a pubic bone hump between the legs I think?"
+
+## Owner, 2026-11-17
+"the growl noises are getting fully-open flapping jaws, which isnt right at all. i would expect that to be closed and barely twitching. need to refine the procedural animator."
+"please help me stay on track that its best to release things janky and let people see iteration over time, rather than striving to perfect before launch"

@@ -60,7 +60,7 @@ It is one app, not yet packages. The seams are already clean enough to split lat
 
 ## Open work (newest first; details in `notes/QUEUE.md`)
 
-**The owner will post this publicly soon as a rough alpha: the PRIORITY HIT LIST at the top of `notes/TODO.md` comes first. The hosted "Rex Sandbox" artifact is public: republishing needs `shared_live: "public"` and the title.** **Start with `notes/TODO.md`: the owner's latest playtest notes as numbered to-do items with status. Mark an item as yours before working on it.**
+**Release rule (owner, 2026-11-17): "its best to release things janky and let people see iteration over time, rather than striving to perfect before launch". Ship what is fun and not broken; do not polish before launch. Only three things block a release: it crashes or freezes, it leaks someone's data, or it stops being fun. Everything else goes out rough and gets a to-do line. When reporting to him, say which of your caveats are blockers and which are just rough.** **The owner will post this publicly soon as a rough alpha: the PRIORITY HIT LIST at the top of `notes/TODO.md` comes first. The hosted "Rex Sandbox" artifact is public: republishing needs `shared_live: "public"` and the title.** **Start with `notes/TODO.md`: the owner's latest playtest notes as numbered to-do items with status. Mark an item as yours before working on it.**
 
 Built 2026-11-15 evening by three subagents in parallel, merged and tested together (review, corner, crashread, platform, mind all 3, Saltline: no failures), now in the hosted arena. **Owner has played it (21:45): crash collisions "working pretty well now", window intrusion "kinda works", kill cam "quite funny already" and to become automatic (in progress).**
 
