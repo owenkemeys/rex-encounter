@@ -151,3 +151,8 @@ Owner 2026-11-17: "Please make the finishing card 5s long, and place it at the e
 "Phone control layout needs a revamp - a right stick for look direction instead of dragging on the screen generally, and I don't know how to handle all these control buttons.."
 "Whether the video clips record with sound is hit and miss also btw. But the clips are hilarious often and the finisher cards really tie it up. Amazing work"
 "Audio less clips were on phone" / "We only offer flare as a throwable, so no need for a cycle function" / "Torch and whistle/shout are frequent tools they need to be in easy access too"
+
+## Owner, 2026-11-17 (later)
+"Can you put some demos in the debug menu to show splaying scenarios, former and current?"
+With two phone screenshots: "The touch UI layout came out really weird, please neaten up and make logical, both orientations too" / ""Struggle" button is horrid and unneeded too" / "Oh no i simply cropped the screenshots to the gamepad area only"
+"The mute status should be a visible icon whilst muted, implicitly encouraging a tap to restore sound" / "iPhone but we should cover both of course"

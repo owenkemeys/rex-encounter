@@ -132,9 +132,14 @@ const V = () => new Vector3();
 const t0 = V(), t1 = V(), t2 = V(), t3 = V(), t4 = V(), t5 = V(), _tf = V(), _tu = V();
 
 export class Creature {
+  get gaitLegacy() { return this._gl; }
+  set gaitLegacy(on) { on = !!on; if (on !== this._gl) { this._gl = on; this.H = on ? this.HL : this.H0; } }
   constructor(terrain, { x = 0, z = 0, yaw = 0, seed = 1, species = TYRANNOSAURUS } = {}) {
     this.species = species;
     this.H = { ...HIPS_DEFAULT, ...(species.hips || {}) };
+    // the gait as it was before 2026-11-17 ("Gait: no hip drop or wide splay in fast turns"): `sim.gaitLegacy = true` swaps in HL, in which each of that
+    // commit's rules is off (and lungeSide is 1), so the debug tools' gait demos (src/gaitdemo.js) and test/splay.mjs (GAIT=legacy) can show old against new
+    this.H0 = this.H; this.HL = { ...this.H0, reachLift: 0, reachMargin: 0, hurryMargin: 0, hurryMax: 1.8, swingHurry: { ...this.H0.swingHurry, k: 1, min: 0 }, sinkMax: [1e3, 1e3, 1.5, 3.5], roomSink: 1e3, lungeSide: 1, footGap: { ...this.H0.footGap, crossFar: 0 } }; this._gl = false;
     this.FT = { ...FOOT_DEFAULT, ...(species.foot || {}) };
     this.terrain = terrain;
     this.nav = terrain.obstacles ? new Nav(terrain, species.navBody) : null;      // navBody: the radius the route planner keeps clear round its bulk (species)
@@ -939,7 +944,7 @@ export class Creature {
       // the foot whose leg is running out of reach goes first (_support's supGo): the other must carry the hips while it swings. The
       // foot with the larger `need` (a fresh landing, heading lagging round a bend) used to be lifted instead, leaving the exhausted
       // leg alone under the hips for a whole swing: they sank 0.5-1.9 m (cap in _balance) and the stance spanned 2 m.
-      if (A.planted && B.planted && this.supGo && best !== this.supGo && spd > 0.5 && this.supGo.room < (spd + (this.supU || 0)) * this.H.reachLift) best = this.supGo;
+      if (this.H.reachLift && A.planted && B.planted && this.supGo && best !== this.supGo && spd > 0.5 && this.supGo.room < (spd + (this.supU || 0)) * this.H.reachLift) best = this.supGo;
       const other = this.feet[best === A ? 1 : 0];
       const since = this.t - Math.max(A.tLand, B.tLand);
       const turnK = sstep(0.1, 0.3, Math.abs(this.om)) * (1 - m);
@@ -1017,7 +1022,7 @@ export class Creature {
     const hold = still && sore && this.holdFootReq && !this.lying && Math.abs(this.vT) < 0.05 && sw.t / sw.T > 0.3 && sw.t / sw.T < 0.6;
     // a swing that would come down after the standing leg has run out of length is hurried (_support: the other foot's room)
     const ot0 = this.feet[s === 1 ? 1 : 0], sp0 = Math.abs(this.v) + (this.supU || 0);
-    const hurry = Math.max(ot0.planted && isFinite(ot0.room) && sp0 > 0.5 ? clamp((sw.T - sw.t) / Math.max(0.12, (ot0.room - this.H.hurryMargin) / sp0), 1, this.H.hurryMax) : 1, ot0.planted && sp0 > 1.5 ? 1 + (this.H.hurryMax - 1) * Math.max(clamp(((this.sink || 0) - 0.03) / 0.2, 0, 1) * sstep(3, 4.5, sp0), sstep(this.H.needHurry[0], this.H.needHurry[1], ot0.need || 0) * sstep(0.2, 0.6, Math.abs(this.om))) : 1);      // (a stance foot that wants off and the hips sinking over it both hurry the swing)
+    const hurry = Math.max(ot0.planted && isFinite(ot0.room) && sp0 > 0.5 ? clamp((sw.T - sw.t) / Math.max(0.12, (ot0.room - this.H.hurryMargin) / sp0), 1, this.H.hurryMax) : 1, ot0.planted && sp0 > 1.5 && !this._gl ? 1 + (this.H.hurryMax - 1) * Math.max(clamp(((this.sink || 0) - 0.03) / 0.2, 0, 1) * sstep(3, 4.5, sp0), sstep(this.H.needHurry[0], this.H.needHurry[1], ot0.need || 0) * sstep(0.2, 0.6, Math.abs(this.om))) : 1);      // (a stance foot that wants off and the hips sinking over it both hurry the swing)
     sw.rate = (sw.rate ?? 1) + ((hold ? 0 : Math.max(hurry, this.freeze && still ? 1.5 : 1)) - (sw.rate ?? 1)) * (1 - Math.exp(-dt / 0.12));      // a held foot slows to a stop, it does not snap still
     sw.t += sw.rate * dt * (1 - 0.3 * this.stalk * (1 - Math.abs(sw.t / sw.T - 0.5) * 2));
     const u = Math.min(sw.t / sw.T, 1);

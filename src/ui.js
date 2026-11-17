@@ -33,7 +33,7 @@ export const KIT = { torch: true, flares: 3, stones: 0, meat: 0 };
 const KEYS = {
   kb: { move: 'W A S D', run: 'Shift', crouch: 'C', jump: 'Space', look: 'mouse', zoom: 'right mouse / Z', use: 'click', items: 'wheel / 1 2 3', call: 'Q', act: 'E', torch: 'F', note: 'T', clip: 'R', pause: 'Esc', peek: 'Tab', again: 'Enter', struggle: 'W A S D' },
   pad: { move: 'left stick', run: 'L3', crouch: 'B', jump: 'A', look: 'right stick', zoom: 'LT', use: 'RT', items: 'LB / RB', call: 'X', act: 'D-pad up', torch: 'Y', note: 'R3', clip: 'pause card', pause: 'Start', peek: 'View', again: 'A', struggle: 'left stick' },
-  touch: { move: 'left stick', run: 'stick to the rim', crouch: 'crouch', jump: 'jump', look: 'right stick', zoom: 'zoom', use: 'flare', items: 'item', call: 'call', act: 'pop-up button', torch: 'torch', note: 'note', clip: 'clip', pause: '\u2016', peek: '?', again: '', struggle: 'struggle button' },
+  touch: { move: 'left stick', run: 'stick to the rim', crouch: 'crouch', jump: 'jump', look: 'right stick', zoom: 'zoom', use: 'flare', items: 'item', call: 'call', act: 'pop-up button', torch: 'torch', note: 'note', clip: 'clip', pause: '\u2016', peek: '?', again: '', struggle: 'jump, or waggle a stick' },
 };
 const itemNames = () => [KIT.flares > 0 && 'flare', KIT.stones > 0 && 'stone', KIT.meat > 0 && 'meat'].filter(Boolean);
 const useName = () => (itemNames().length > 1 ? 'throw what is in hand' : 'throw a ' + itemNames()[0]);
@@ -50,7 +50,7 @@ const TEACH = {
   crouch: '{crouch} to crouch', zoom: 'hold {zoom} to zoom', run: 'hold {run} to run', torch: '{torch} for the torch', peek: 'hold {peek} for the controls',
   struggle: 'work {struggle} hard to get free',
 };
-const TEACH_TOUCH = { use: 'tap {use} to throw one', call: 'tap {call} to call. hold it to shout', zoom: 'tap {zoom} to look closer', crouch: 'tap {crouch} to crouch', torch: 'tap {torch} for the torch', run: 'push the left stick to the rim to run', peek: 'tap {peek} for the controls', struggle: 'tap struggle, again and again' };
+const TEACH_TOUCH = { use: 'tap {use} to throw one', call: 'tap {call} to call. hold it to shout', zoom: 'tap {zoom} to look closer', crouch: 'tap {crouch} to crouch', torch: 'tap {torch} for the torch', run: 'push the left stick to the rim to run', peek: 'tap {peek} for the controls', struggle: 'mash jump to struggle' };
 const DONE = 2, SHOW = 3;
 
 export function createUI(o) {

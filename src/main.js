@@ -17,6 +17,8 @@ import { pickRespawn } from './paddock.js';
 import * as JMP from './jump.js';      // the on-foot jump (pure numbers; test/jump.mjs)
 import { createUI, KIT as KIT_START } from './ui.js';
 import { tune, tuneGroup } from './view/tune.js';      // tune
+import { touchLayout } from './touchlayout.js';
+import { GAIT_DEMOS, GAIT_CAM, GaitMeter } from './gaitdemo.js';      // gait demos
 import { detectQuality, backendPreference, QualityController, qualityMenu } from './view/quality.js';
 import { createTelemetry, NO_TELEMETRY } from './telemetry.js';
 
@@ -486,7 +488,7 @@ async function boot() {
   function start(fs) {
     if (S.started) return;
     S.started = true; document.body.classList.add('started'); audio.resume();
-    if (S.dev === 'touch') { try { if (localStorage.getItem('dh.thint') !== '1') { localStorage.setItem('dh.thint', '1'); const h = $('tHint'); h.hidden = false; setTimeout(() => { h.hidden = true; }, 3000); } } catch {} }      // once: the two sticks and the cluster, named for three seconds
+    if (S.dev === 'touch') { try { if (localStorage.getItem('dh.thint') !== '1') { localStorage.setItem('dh.thint', '1'); applyLayout(); const h = $('tHint'); h.hidden = false; setTimeout(() => { h.hidden = true; }, 3000); } } catch {} }      // once: the two sticks and the cluster, named for three seconds
     // fullscreen is its own explicit action (pause card), never part of this gesture
     lockPointer(); S.invite = true; S.startedAt = performance.now(); S.clock0 = S.clock;
     try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch {}
@@ -592,7 +594,7 @@ async function boot() {
   // options on the pause card: look speed, the camcorder look (post.setVHS, if the renderer offers it)
   { const el = $('pSens'); if (el) { el.value = Math.log2(S.sens); el.addEventListener('input', () => { S.sens = 2 ** +el.value; try { localStorage.setItem('dh.sens', S.sens.toFixed(3)); } catch {} }); } }
   { const el = $('pInvert'); el.checked = S.invert; el.addEventListener('change', () => { audio.resume(); S.invert = el.checked; try { localStorage.setItem('dh.invert', S.invert ? '1' : '0'); } catch {} }); }
-  { const el = $('pTLook'); if (el) { el.value = S.touchLook; el.addEventListener('change', () => { S.touchLook = el.value === 'drag' ? 'drag' : 'stick'; releaseTouch(); try { localStorage.setItem('dh.tlook', S.touchLook); } catch {} }); }
+  { const el = $('pTLook'); if (el) { el.value = S.touchLook; el.addEventListener('change', () => { S.touchLook = el.value === 'drag' ? 'drag' : 'stick'; document.body.dataset.tlook = S.touchLook; releaseTouch(); try { localStorage.setItem('dh.tlook', S.touchLook); } catch {} }); }
     const ar = $('pARun'); if (ar) { ar.checked = S.runLock; ar.addEventListener('change', () => { S.runLock = ar.checked; try { localStorage.setItem('dh.arun', S.runLock ? '1' : '0'); } catch {} }); } }
   { const el = $('pVHS'); let on = true; try { on = localStorage.getItem('dh.vhs') !== '0'; } catch {}      // VHS mode starts on; only an explicit choice turns it off
     const setVHS = (v) => { try { if (post && typeof post.setVHS === 'function') post.setVHS(v); } catch {} };
@@ -647,6 +649,7 @@ async function boot() {
     S.dev = d; const b = document.body; b.dataset.dev = d; b.classList.toggle('touch', d === 'touch'); b.classList.toggle('pad', d === 'pad');
     if (padRef) padRef.on = d === 'pad';
     if (uiRef) uiRef.devChanged();
+    try { applyLayout(); } catch {}
   }
   let padRef = null, uiRef = null;
   document.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') setDev('touch'); else if (e.pointerType === 'mouse') setDev('kb'); }, true);
@@ -658,31 +661,41 @@ async function boot() {
   // the look stick's feel: deflection sets turn rate. sens: rad/s at the rim (before the look-speed setting); vert: vertical share; curve: exponent
   const TL = { sens: 3.4, vert: 0.6, curve: 3, dead: 0.08, smooth: 0.06 };      // tune: the touch look stick (turn rate at the rim, vertical share, response curve exponent, dead zone, smoothing time)
   { const G = 'Player'; tune(G, 'Touch look stick: turn rate at the rim (rad/s)', TL, 'sens', 0.5, 8, 0.1, null, 'touchLook.sens'); tune(G, 'Touch look stick: vertical share', TL, 'vert', 0.2, 1.2, 0.05, null, 'touchLook.vert'); tune(G, 'Touch look stick: response curve exponent', TL, 'curve', 1, 5, 0.1, null, 'touchLook.curve'); tune(G, 'Touch look stick: dead zone', TL, 'dead', 0, 0.3, 0.01, null, 'touchLook.dead'); tune(G, 'Touch look stick: smoothing (s)', TL, 'smooth', 0, 0.3, 0.01, null, 'touchLook.smooth'); }      // tune
-  S.lk = null;
-  const setU = () => { const u = clamp(Math.min(innerWidth, innerHeight) / 390, 0.85, 1.35); document.documentElement.style.setProperty('--u', u.toFixed(3)); return u; };
-  let U = setU(); window.addEventListener('resize', () => { U = setU(); });
-  const ring = (el, x, y) => { el.style.left = x + 'px'; el.style.top = y + 'px'; el.classList.add('on'); };
-  const stickAt = (e) => { const r = stick.getBoundingClientRect(), R = r.width / 2; let x = (e.clientX - r.left - R) / R, y = (e.clientY - r.top - R) / R; const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } S.stick.x = x; S.stick.y = y; if (!S.stick.run && l > 0.88) { S.stick.run = true; ui.taught('run'); } else if (S.stick.run && l < 0.75) S.stick.run = false; stick.classList.toggle('run', S.stick.run || (S.runLock && l > 0.15)); nub.style.transform = `translate(${x * R * 0.64}px, ${y * R * 0.64}px)`; };
-  const stickEnd = (e) => { if (e && e.pointerId !== S.stick.id) return false; S.stick.id = null; S.stick.x = S.stick.y = 0; S.stick.run = false; stick.classList.remove('run', 'on'); stick.style.left = stick.style.top = ''; nub.style.transform = ''; return true; };
-  const lookAt = (e) => { const L = S.lk; if (!L) return; let x = (e.clientX - L.ox) / L.R, y = (e.clientY - L.oy) / L.R; const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } L.x = x; L.y = y; lnub.style.transform = `translate(${x * L.R * 0.64}px, ${y * L.R * 0.64}px)`; };
-  const lookEnd = (e) => { if (!S.lk || (e && e.pointerId !== S.lk.id)) return false; S.lk = null; lstick.classList.remove('on'); lstick.style.left = lstick.style.top = ''; lnub.style.transform = ''; return true; };
+  S.lk = null; document.body.dataset.tlook = S.touchLook;
+  // the whole layout comes from touchLayout(): fixed sticks in the bottom corners, buttons on an arc round each. Re-applied on resize and rotation.
+  let LAY = null;
+  const probe = document.createElement('div'); probe.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)'; document.body.appendChild(probe);
+  const place = (el, x, y, w, h) => { const st = el.style; st.left = x + 'px'; st.top = y + 'px'; if (w != null) { st.width = w + 'px'; st.height = h + 'px'; } };
+  const applyLayout = () => {
+    const cs = getComputedStyle(probe), ins = { top: Math.max(10, parseFloat(cs.paddingTop) || 0), right: Math.max(10, parseFloat(cs.paddingRight) || 0), bottom: Math.max(10, parseFloat(cs.paddingBottom) || 0), left: Math.max(10, parseFloat(cs.paddingLeft) || 0) };
+    // innerWidth/Height: the visible frame (the host's own bars are already outside it)
+    const L = LAY = touchLayout(innerWidth, innerHeight, ins), root = document.documentElement.style;
+    for (const [el, c] of [[stick, L.left], [lstick, L.right]]) { place(el, c.cx, c.cy, c.r * 2, c.r * 2); }
+    for (const n of [nub, lnub]) { n.style.width = n.style.height = L.knob + 'px'; }
+    for (const [id, c] of [['tJump', L.buttons.jump], ['tCrouch', L.buttons.crouch], ['tItem', L.buttons.flare], ['tTorch', L.buttons.torch], ['tCall', L.buttons.call]]) { place($(id), c.cx, c.cy, c.r * 2, c.r * 2); $(id).style.fontSize = Math.round(c.r * 0.46) + 'px'; }
+    const P = L.pill; place($('tAct'), P.x, P.y, P.w, P.h);
+    const H = L.hint, hs = $('hint').style; if (!document.body.classList.contains('touch')) hs.cssText = ''; else { hs.left = H.x + 'px'; hs.width = H.w + 'px'; hs.top = 'auto'; hs.bottom = (innerHeight - (H.y + H.h)) + 'px'; hs.maxWidth = 'none'; hs.transform = 'none'; hs.textAlign = 'center'; hs.fontSize = '12px'; hs.letterSpacing = '0.08em'; }
+    root.setProperty('--tbar', (L.topbar.y + L.topbar.h) + 'px');
+    const h1 = $('tHint').querySelector('.h1'), h2 = $('tHint').querySelector('.h2'), h3 = $('tHint').querySelector('.h3'); place(h1, L.left.cx, L.left.cy); place(h2, L.right.cx, L.right.cy); place(h3, P.x, P.y - 4, P.w, null);
+    if (S.lk) lookEnd(); if (S.stick.id != null) stickEnd();
+  };
+  window.addEventListener('resize', () => applyLayout()); window.addEventListener('orientationchange', () => setTimeout(applyLayout, 120)); if (window.visualViewport) window.visualViewport.addEventListener('resize', () => applyLayout());
+  const ring = (el) => { el.classList.add('on'); };
+  const stickAt = (e) => { const r = stick.getBoundingClientRect(), R = r.width / 2; let x = (e.clientX - r.left - R) / R, y = (e.clientY - r.top - R) / R; const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } S.stick.x = x; S.stick.y = y; if (!S.stick.run && l > 0.88) { S.stick.run = true; ui.taught('run'); } else if (S.stick.run && l < 0.75) S.stick.run = false; stick.classList.toggle('run', S.stick.run || (S.runLock && l > 0.15)); const t = R - LAY.knob / 2; nub.style.transform = `translate(calc(-50% + ${x * t}px), calc(-50% + ${y * t}px))`; };
+  const stickEnd = (e) => { if (e && e.pointerId !== S.stick.id) return false; S.stick.id = null; S.stick.x = S.stick.y = 0; S.stick.run = false; stick.classList.remove('run', 'on'); nub.style.transform = ''; return true; };
+  const lookAt = (e) => { const L = S.lk; if (!L) return; const r = lstick.getBoundingClientRect(); let x = (e.clientX - r.left - L.R) / L.R, y = (e.clientY - r.top - L.R) / L.R; const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } L.x = x; L.y = y; const t = L.R - LAY.knob / 2; lnub.style.transform = `translate(calc(-50% + ${x * t}px), calc(-50% + ${y * t}px))`; };
+  const lookEnd = (e) => { if (!S.lk || (e && e.pointerId !== S.lk.id)) return false; S.lk = null; lstick.classList.remove('on'); lnub.style.transform = ''; return true; };
   const releaseTouch = () => { stickEnd(); lookEnd(); };
-  /** A finger went down on the view. Left 40% (below the top bar): the move stick appears under it. Right 45%: the look stick (unless "touch look" is drag).
-   *  Returns true when the touch is taken. Buttons never get here: they sit above the stage. */
+  /** A finger went down on the view. Inside the move stick's base (plus a 20 px halo): it drives the move stick; inside the look stick's: the look stick
+   *  (unless "touch look" is drag). The bases never move. Buttons never get here: they sit above the stage. Returns true when the touch is taken. */
   const stickDown = (e) => {
-    if (!S.started || S.paused || S.dead || S.frozen || S.replay || S.clipLive) return false;
-    const W = innerWidth, H = innerHeight, top = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--st')) || 10) + 56, yMin = Math.max(top, H > W ? H * 0.35 : 0), x = e.clientX, y = e.clientY;
-    const left = x < W * 0.4 && y >= yMin, right = x > W * 0.55 && y >= yMin, R = 62 * U;
-    if (left) {
-      if (S.stick.id != null) return true; takeOver(); S.stick.id = e.pointerId; try { stage.setPointerCapture(e.pointerId); } catch {}
-      const cx = clamp(x, R + 4, W - R - 4), cy = clamp(y, R + 4, H - R - 4); ring(stick, cx, cy); stickAt(e); return true;
-    }
-    if (S.touchLook === 'stick' && right) {
-      if (S.lk) return true; takeOver(); try { stage.setPointerCapture(e.pointerId); } catch {}
-      const cx = clamp(x, R + 4, W - R - 4), cy = clamp(y, R + 4, H - R - 4); S.lk = { id: e.pointerId, ox: cx, oy: cy, R, x: 0, y: 0, sx: 0, sy: 0 }; ring(lstick, cx, cy); lookAt(e); return true;
-    }
+    if (!S.started || S.paused || S.dead || S.frozen || S.replay || S.clipLive || !LAY) return false;
+    const x = e.clientX, y = e.clientY, hit = (c) => Math.hypot(x - c.cx, y - c.cy) <= c.r + LAY.halo;
+    if (hit(LAY.left)) { if (S.stick.id != null) return true; takeOver(); S.stick.id = e.pointerId; try { stage.setPointerCapture(e.pointerId); } catch {} ring(stick); stickAt(e); return true; }
+    if (S.touchLook === 'stick' && hit(LAY.right)) { if (S.lk) return true; takeOver(); try { stage.setPointerCapture(e.pointerId); } catch {} S.lk = { id: e.pointerId, R: LAY.right.r, x: 0, y: 0, sx: 0, sy: 0 }; ring(lstick); lookAt(e); return true; }
     return false;
   };
+  applyLayout();
   /** Per frame: the look stick turns you. Smoothed, dead zone, then a curve: fine near the centre, quick at the rim; pitch slower than yaw. */
   const lookStickTick = (dt) => {
     const L = S.lk; if (!L || S.clipLive || S.paused || S.mode === 'observe') return;
@@ -697,8 +710,7 @@ async function boot() {
   press('tItem', () => { audio.resume(); takeOver(); act.use(); });      // the flare button throws
   press('tCall', () => { audio.resume(); act.callDown(); }, () => act.callUp());      // tap: whistle; hold: shout
   press('tAct', () => { audio.resume(); act.interact(); });
-  press('tJump', () => { audio.resume(); if (S.mode === 'foot') S.jumpReq = true; });
-  press('tStruggle', () => { if (S.mode === 'foot' && !arena.victim('you').free) { arena.struggle('you', 1); ui.taught('struggle'); } });
+  press('tJump', () => { audio.resume(); if (S.mode === 'foot') { if (!arena.victim('you').free) { arena.struggle('you', 1); ui.taught('struggle'); } else S.jumpReq = true; } });      // held by the animal: a jump press is a struggle press, as Space is
   $('tCall').addEventListener('pointerleave', () => act.callUp());
   // start, pause, fullscreen
   $('startGo').addEventListener('click', (e) => { e.stopPropagation(); start(false); });
@@ -800,8 +812,54 @@ async function boot() {
   for (const [id, k] of [['cHead', 'headon'], ['cGlance', 'glancing'], ['cCorner', 'corner'], ['cBarn', 'barn'], ['cGate', 'gate'], ['cPost', 'post'], ['cBamboo', 'bamboo'], ['cAgain', null]]) { const el = $(id); if (el) el.addEventListener('click', () => { audio.resume(); crashTest(k || crashLast); }); }
   { const m = location.hash.match(/crash=(headon|glancing|corner|barn|gate|post|bamboo)/); if (m) { const wait = setInterval(() => { if (S.started && !S.paused) { clearInterval(wait); setTimeout(() => crashTest(m[1]), 3000); } }, 250); } }
 
+  // ------------------------------------------------------------ gait demos (debug drawer; #gait=corner|hairpin|steer|rush|stop, add &ab for A/B)
+  // The splaying situations (src/gaitdemo.js) as scripted body-only runs on open flat ground, the camera low and three-quarter front, 12 m from the turn.
+  // The old gait (sim.gaitLegacy) is on only while a demo runs and only for the demo's animal: gaitTick sets the flag from the run every frame, so it is
+  // off the moment a demo ends, is interrupted (pause, death, another mode) or the page does anything else; normal play never sees it.
+  const GD = { legacy: false, slow: false, ab: false }, gmeter = new GaitMeter();
+  let gaitRun = null, gaitLast = 'corner', gaitFlash = 0, gaitCam = null;
+  const gaitSet = (id, on, text) => { const el = $(id); if (el) { el.setAttribute('aria-pressed', String(on)); el.textContent = text; } };
+  const gaitDemo = (key, phase = 0) => {
+    const D = GAIT_DEMOS[key] || GAIT_DEMOS[gaitLast]; if (!D) return; gaitLast = GAIT_DEMOS[key] ? key : gaitLast;
+    const prev = gaitRun ? gaitRun.prev : { mode: S.mode, ts: S.timeScale };
+    crashRun = null; ui.set && ui.set('panel', false);
+    setMind(false); setMode('fly'); S.stalk = false; S.pace = 8; S.goal = null;
+    const legacy = GD.ab ? phase === 0 : GD.legacy; sim.gaitLegacy = legacy;
+    sim.reset(D.start[0], D.start[1], D.start[2]);
+    gaitRun = { key, D, phase, legacy, st: {}, t0: sim.t, prev }; gmeter.reset(); gaitFlash = 0; gaitCam = null;
+    S.timeScale = GD.slow ? 0.5 : prev.ts; $('speed').value = String(S.timeScale);
+    const cap = $('gaitCap'); cap.textContent = legacy ? 'OLD GAIT' : 'CURRENT GAIT'; cap.classList.toggle('old', legacy); cap.hidden = false; $('gaitHud').hidden = false;
+  };
+  const gaitEnd = () => {
+    const R = gaitRun; gaitRun = null; sim.gaitLegacy = false; $('gaitCap').hidden = true; $('gaitHud').hidden = true;
+    if (!R) return;
+    S.goal = null; setMind(true); S.timeScale = R.prev.ts; $('speed').value = String(S.timeScale); if (R.prev.mode !== 'fly') setMode(R.prev.mode);
+  };
+  const gaitTick = (dtReal) => {
+    if (!gaitRun) { if (sim.gaitLegacy) sim.gaitLegacy = false; return; }
+    const R = gaitRun, t = sim.t - R.t0;
+    if (S.dead || S.paused || S.mode !== 'fly') { gaitEnd(); return; }
+    if (t > R.D.dur) { if (GD.ab && R.phase === 0) gaitDemo(R.key, 1); else gaitEnd(); return; }
+    sim.gaitLegacy = R.legacy;
+    // camera: P is the first turn; it stands at P + off (low, ahead and to the outside) and follows a share of the animal's way slowly; the aim follows the hips a little faster
+    const C = GAIT_CAM, [ax, az] = R.D.at, k = 1 - Math.exp(-dtReal / C.tau), ka = 1 - Math.exp(-dtReal / C.aimTau), f = S.fly;
+    const dx = ax + C.off[0] + C.follow * (sim.x - ax), dz = az + C.off[2] + C.follow * (sim.z - az), dy = terrain.height(dx, dz) + C.off[1];
+    if (!gaitCam) { gaitCam = { x: dx, y: dy, z: dz, ax: sim.x, ay: sim.py.x, az: sim.z }; }
+    gaitCam.x += (dx - gaitCam.x) * k; gaitCam.y += (dy - gaitCam.y) * k; gaitCam.z += (dz - gaitCam.z) * k;
+    gaitCam.ax += (sim.x - gaitCam.ax) * ka; gaitCam.ay += (sim.py.x - gaitCam.ay) * ka; gaitCam.az += (sim.z - gaitCam.az) * ka;
+    f.x = gaitCam.x; f.y = gaitCam.y; f.z = gaitCam.z; f.yaw = Math.atan2(-(gaitCam.ax - f.x), -(gaitCam.az - f.z)); f.pitch = Math.atan2(gaitCam.ay - f.y, Math.hypot(gaitCam.ax - f.x, gaitCam.az - f.z));
+    const m = gmeter, now = performance.now(); if (m.bad) gaitFlash = now + 700;
+    $('ghHip').textContent = m.hip.toFixed(2) + ' m'; $('ghSt').textContent = m.stance.toFixed(2) + ' m'; $('ghEp').textContent = String(m.episodes); $('ghSplay').classList.toggle('on', now < gaitFlash);
+  };
+  for (const [id, k] of [['gdCorner', 'corner'], ['gdHairpin', 'hairpin'], ['gdSteer', 'steer'], ['gdRush', 'rush'], ['gdStop', 'stop'], ['gdAgain', null]]) { const el = $(id); if (el) el.addEventListener('click', () => { audio.resume(); gaitDemo(k || gaitLast); }); }
+  { const g = $('gdGait'); if (g) g.addEventListener('click', () => { GD.legacy = !GD.legacy; gaitSet('gdGait', GD.legacy, 'gait: ' + (GD.legacy ? 'old' : 'current')); }); }
+  { const g = $('gdSlow'); if (g) g.addEventListener('click', () => { GD.slow = !GD.slow; gaitSet('gdSlow', GD.slow, 'slow motion ½×: ' + (GD.slow ? 'on' : 'off')); if (gaitRun) { S.timeScale = GD.slow ? 0.5 : gaitRun.prev.ts; $('speed').value = String(S.timeScale); } }); }
+  { const g = $('gdAB'); if (g) g.addEventListener('change', () => { GD.ab = g.checked; }); }
+  { const m = location.hash.match(/gait=(corner|hairpin|steer|rush|stop)/); if (m) { GD.ab = /[&#]ab\b/.test(location.hash); const wait = setInterval(() => { if (S.started && !S.paused) { clearInterval(wait); setTimeout(() => gaitDemo(m[1]), 3000); } }, 250); } }
+
   function directedIntent() {
     const K = S.keys, up = K.has('arrowup'), dn = K.has('arrowdown'), lf = K.has('arrowleft'), rt = K.has('arrowright');
+    if (gaitRun) return gaitRun.D.intent(sim.t - gaitRun.t0, sim, gaitRun.st);      // a gait demo's script
     let goal = S.goal;
     if (up || dn || lf || rt) { S.goal = null; goal = { kind: 'drive', throttle: up ? 1 : dn ? -0.3 : 0, steer: (lf ? 1 : 0) - (rt ? 1 : 0) }; }
     return { goal, pace: S.pace, attention: S.mode === 'fly' || crashRun ? null : camera.position,      /* in a crash test it is not to know of you: it was watching you all the way in (owner 2026-11-15) */ faceAttention: true, curious: true, stalk: S.stalk };
@@ -885,10 +943,8 @@ async function boot() {
     }
   }
 
-  let strugShown = false;
   function moveCamera(dt) {
     const K = S.keys; lookStickTick(dt);
-    { const sg = document.body.classList.contains('touch') && S.mode === 'foot' && !S.dead && !arena.victim('you').free; if (sg !== strugShown) { strugShown = sg; $('tStruggle').hidden = !sg; } }      // held by the animal: one big button
     if (pad.on && S.mode !== 'observe') {         // look: rate grows with deflection, a little faster at the rim
       const c = S.mode === 'foot' ? S.you : S.fly, m = Math.hypot(pad.rx, pad.ry), g = 2.6 * (0.45 + 0.55 * m) * dt * S.sens / S.zoom.cur;
       c.yaw -= pad.rx * g; c.pitch = clamp(c.pitch - pad.ry * g * 0.75 * (S.invert ? -1 : 1), -1.4, 1.4);
@@ -901,6 +957,7 @@ async function boot() {
       if (!S.handled) S.handled = { yaw: Y.yaw, pitch: Y.pitch };
       const oy = Y.yaw - S.handled.yaw, op = Y.pitch - S.handled.pitch;
       const held = K.has('w') || K.has('a') || K.has('s') || K.has('d') || Math.hypot(S.stick.x, S.stick.y) > 0.5 || (pad.on && Math.hypot(pad.lx, pad.ly) > 0.5);
+      if (!V.free) for (const v of [S.stick.id != null && S.stick, S.lk]) if (v) { const m = Math.hypot(v.x, v.y); if (m > 0.7) { const ux = v.x / m, uy = v.y / m, f = v.flick; if (!f) v.flick = { x: ux, y: uy }; else if (ux * f.x + uy * f.y < -0.3) { v.flick = { x: ux, y: uy }; arena.struggle('you', 1); ui.taught('struggle'); } } }      // waggle a stick: each rim-to-rim flick is one press
       if (held && !V.free) arena.struggle('you', Math.min(0.5, dt * 2.5));      // a held key counts for a little; mashing counts for much more
       Y.x = Y.px = V.x; Y.z = Y.pz = V.z; Y.vx = Y.vz = 0; Y.push.x = Y.push.z = 0; Y.crouch = false; Y.up = null; JMP.reset(Y.J); Y.dip = 0; S.jumpReq = false;
       if (V.free) {
@@ -997,7 +1054,7 @@ async function boot() {
   function frame(dtReal) {
     dtReal = Number.isFinite(dtReal) && dtReal > 0 ? dtReal : 0;      // never a negative or NaN step (see the loop below)
     qc.begin();
-    readPad(); act.callTick(); crashTick();
+    readPad(); act.callTick(); crashTick(); gaitTick(dtReal);
     const run = S.paused || S.frozen || S.clipLive ? 0 : 1, dts = dtReal * S.timeScale * run, dtv = dtReal * Math.min(S.timeScale, 1) * run;      // paused: the world holds still
     S.wind.a += (wr() - 0.5) * dts * 0.02; S.wind.s = 2.5 + 1.5 * Math.sin(sim.t * 0.05);
     const wind = { x: Math.sin(S.wind.a) * S.wind.s, z: Math.cos(S.wind.a) * S.wind.s };
@@ -1013,6 +1070,7 @@ async function boot() {
       if (!aware() && S.noises.length) S.noises = S.noises.filter((q) => !q.you);
       for (const q of S.noises) if (q.you && clip) clip.note(q.kind);      // closeout: whistles and shouts, for the closing card
       arena.step(DT, { agents: ag, noises: S.noises, light: world.light, flash: world.flash, wind }, S.mindOn ? null : directedIntent());
+      if (gaitRun) gmeter.tick(sim, sim.t - gaitRun.t0);
       S.noises.length = 0;
       S.legT = (S.legT || 0) - DT;
       if (S.legT <= 0) { S.legT = 0.15; for (const f of sim.feet) if (!f.planted) world.trample(f.pos.x, f.pos.z, 0.9, 0.6); for (const p of herd.alive) if (p.v > 2) world.trample(p.x, p.z, 0.5, 0.4);

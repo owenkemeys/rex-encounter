@@ -10,6 +10,8 @@ import { makeTerrain } from '../src/terrain.js';
 import { Creature, DIM, PV } from '../src/sim/rex.js';
 import { Mind } from '../src/sim/mind.js';
 import { Arena } from '../src/sim/arena.js';
+// GAIT=legacy: the gait before the 2026-11-17 fix (sim.gaitLegacy; see Creature constructor)
+const mkC = (T, o) => { const c = new Creature(T, o); if (process.env.GAIT === 'legacy') c.gaitLegacy = true; return c; };
 const FX = 30, FZ = -5;      // a clear (no tree within 36 m of (30, 25)) and flat (0.5 m range) patch: hip height against the feet's ground is then not the terrain's doing
 const dt = 1 / 120, hyp = Math.hypot, LEGL = DIM.femur + DIM.tibia, STAND = 0.88, VQ = process.argv[2] === 'quiet', VV = process.argv[2] === 'v';
 const wrap = (a) => { a %= 2 * Math.PI; return a > Math.PI ? a - 2 * Math.PI : a < -Math.PI ? a + 2 * Math.PI : a; };
@@ -17,7 +19,7 @@ const LIMS = { drop: 0.25, stance: 1.5 * STAND, stretch: 0.97 };
 // baseline hip height by speed: a straight run on the same ground at each pace
 const BASE = []; {
   for (const pace of [2, 3.5, 5, 6.5, 8, 9.5]) {
-    const T = flat(makeTerrain(7)), sim = new Creature(T, { x: FX, z: FZ, yaw: 0, seed: 1 }); let hs = 0, vs = 0, n = 0;
+    const T = flat(makeTerrain(7)), sim = mkC(T, { x: FX, z: FZ, yaw: 0, seed: 1 }); let hs = 0, vs = 0, n = 0;
     for (let i = 0; i < 8 * 120; i++) { sim.step(dt, { goal: { kind: 'drive', id: 1, throttle: 1, steer: 0 }, pace, burst: pace > 9 }); sim.events.length = 0; if (i > 4 * 120) { hs += sim.py.x - (sim._dbgH ? sim._dbgH.gY : sim.groundY); vs += Math.abs(sim.v); n++; } }
     BASE.push([vs / n, hs / n]);
   }
@@ -54,7 +56,7 @@ function report(r) {
   all.push(r);
 }
 function flat(T) { if (!process.env.REAL) T.height = () => 0; return T; }      // the synthetic scenarios run on level ground (REAL=1: the map's own 0.5 m undulation): hip height against the feet's ground is then only the legs' doing
-const mkSim = (seed = 3, x = FX, z = FZ, yaw = 0) => { const T = flat(makeTerrain(7)), sim = new Creature(T, { x, z, yaw, seed }); return { T, sim }; };
+const mkSim = (seed = 3, x = FX, z = FZ, yaw = 0) => { const T = flat(makeTerrain(7)), sim = mkC(T, { x, z, yaw, seed }); return { T, sim }; };
 // 1. wide arcs: a run-up, then waypoints each turning `deg` from the last, `leg` m apart; the animal is asked to go for each in turn
 for (const deg of [60, 90, 120, 180]) for (const leg of [12, 25]) for (const sgn of [1, -1]) {
   const { sim } = mkSim(3, FX - sgn * 0.9 * leg), r = new Rec(`arc ${deg} deg leg ${leg} m ${sgn > 0 ? 'R' : 'L'}`);
@@ -69,10 +71,10 @@ for (const st of [0.3, 0.6, 1.0]) { const { sim } = mkSim(), r = new Rec(`drive 
   for (let i = 0; i < 9 * 120; i++) { const t = i * dt, s = t > 4.5 && t < 7.5 ? st : 0; sim.step(dt, { goal: { kind: 'drive', id: 1, throttle: 1, steer: s }, pace: 9.5, burst: t < 3, agitation: 0.8, attention: null }); sim.events.length = 0; if (t > 4) r.tick(sim, t, `steer ${s}`); }
   report(r); }
 // 3. corner.mjs chase and man round the corner
-for (const [lab, pace, burst] of [['corner chase', 9.5, true]]) { const T = makeTerrain(7), sim = new Creature(T, { seed: 3 }); sim.reset(-21.5, 48, 0); const r = new Rec(lab);
+for (const [lab, pace, burst] of [['corner chase', 9.5, true]]) { const T = makeTerrain(7), sim = mkC(T, { seed: 3 }); sim.reset(-21.5, 48, 0); const r = new Rec(lab);
   for (let i = 0; i < 40 * 120; i++) { const t = i * dt; if (hyp(sim.x + 46, sim.z - 77) < 5) break; sim.step(dt, { goal: { kind: 'approach', id: 1, x: -46, z: 77, stop: 0.5, quick: true }, pace, burst: burst && t < 3, agitation: 0.8, attention: null }); sim.events.length = 0; r.tick(sim, t); }
   report(r); }
-{ const T = makeTerrain(7), sim = new Creature(T, { seed: 3 }); sim.reset(-21.5, 47, 0); const r = new Rec('man round the corner');
+{ const T = makeTerrain(7), sim = mkC(T, { seed: 3 }); sim.reset(-21.5, 47, 0); const r = new Rec('man round the corner');
   const path = [{ x: -22.5, z: 60 }, { x: -23.4, z: 75.2 }, { x: -44, z: 77 }], me = { x: -22.5, z: 60 }; let k = 1;
   for (let i = 0; i < 20 * 120; i++) { const t = i * dt, g = path[k], dx = g.x - me.x, dz = g.z - me.z, d = hyp(dx, dz), st = Math.min(d, 6.2 / 120);
     if (t > 1) { me.x += dx / (d || 1) * st; me.z += dz / (d || 1) * st; if (d < 0.05 && k < path.length - 1) k++; }
@@ -80,7 +82,7 @@ for (const [lab, pace, burst] of [['corner chase', 9.5, true]]) { const T = make
   report(r); }
 // 4. with the mind: a scripted runner weaving round the Containers (as crashthoughtchase.mjs)
 for (const seed of [1, 2, 3]) {
-  const T = makeTerrain(7), sim = new Creature(T, { x: -21.5, z: 47, yaw: 0, seed }), mind = new Mind(sim, seed), A = new Arena(T, sim, mind, seed), r = new Rec(`mind chase seed ${seed}`);
+  const T = makeTerrain(7), sim = mkC(T, { x: -21.5, z: 47, yaw: 0, seed }), mind = new Mind(sim, seed), A = new Arena(T, sim, mind, seed), r = new Rec(`mind chase seed ${seed}`);
   A.herd.list.length = 0; A.herd.disabled = true; mind.hunger = 1;
   const v = A.victim('you'), path = [{ x: -22.5, z: 60 }, { x: -23.4, z: 75.2 }, { x: -44, z: 77 }, { x: -46, z: 56 }, { x: -24, z: 50 }, { x: -9, z: 70 }, { x: -22.5, z: 60 }];
   const me = { id: 'you', x: -22.5, z: 60, y: 0, vx: 0, vz: 0, speed: 0, crouch: false, fx: 0, fz: -1, lx: 1, ly: 0, lz: 0 }; me.y = T.height(me.x, me.z) + 1.65; let k = 1, deaths = 0;
