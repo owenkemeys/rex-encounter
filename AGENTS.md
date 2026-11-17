@@ -72,16 +72,16 @@ It is one app, not yet packages. The seams are already clean enough to split lat
 
 **What exists now** (built 15-17 November; almost all of it checked by tests only and then played by the owner, whose verdicts are in QUEUE): crash reactions (head-on reel, body-blow sequence, crash thoughts); the animal provokes a passive person (nudge, shove, toss), kills when hungry, reaches through windows; head leads into turns; fast-turn splay fix (`node test/splay.mjs`) with old/current "Gait demos" in the debug tools; jaw driven by the emitted voice; eyelids follow the eye; pubic keel on the model; dark storm restored (owner: "great so far, no need to change"); prop collision; jump; spawns near cover; twin-stick touch layout (`src/touchlayout.js`); sound stops when the page is inactive, with a mute icon; the security-camera death replay with a small human figure, taped flares and sounds, a closing "visitor safety notice" card (`src/view/closeout.js`), recorded by default so SAVE CLIP is instant, and clip-at-any-time (key R); stuck-animal alarm in telemetry; Saltline on the shared sim.
 
-**Next, in the owner's priority order** (details and his words in `notes/TODO.md`):
-1. Shareable replay LINKS before the public launch (T23): needs a small tape store on a free account the owner creates; nothing chosen yet. Bring him one recommendation with click-by-click steps.
-2. Check on a real iPhone what could not be tested: clip sound (fixes in `src/view/clip.js`; each clip logs `[clip] audio`), sound returning after app switch, the new touch layout's comfort, portrait.
-3. The animal's thought text can land on the touch controls (open, small).
-4. A goal: the "distract it from eating the kids for X minutes" scenario (design agreed in outline in QUEUE/TODO P5; not built).
-5. Shrink/re-centre the arena round the Barn, Ruins and Containers; bamboo (cones are ugly, stems should give way) (P6, T2).
+**Next, in the owner's priority order** (reordered by him 2026-11-17; details and his words in `notes/TODO.md` and `notes/QUEUE.md`):
+1. Strip out the doors (T21): "high priority because they mostly don't work anyway".
+2. Arena design (P6, T2): shrink/re-centre round the Barn, Ruins and Containers; bamboo (cones are ugly, stems should give way). "Arena design is more important" than replay links.
+3. Thought text placement: keep it off the touch controls, and make it readable when the rex's head is off screen ("they quickly get weird and unintuitive"). `src/thoughtplace.js`; see TODO for status.
+4. Check on a real iPhone what could not be tested: clip sound (fixes in `src/view/clip.js`; each clip logs `[clip] audio`), sound returning after app switch, the touch layout's comfort, portrait.
+5. A goal: the "distract it from eating the kids for X minutes" scenario (design agreed in outline in QUEUE/TODO P5; not built).
 6. More delightful pseudo-emergent behaviours (P7 has a candidate list).
-7. Strip out the doors (T21). Hide or keep the sandbox tools on the public page (owner undecided).
-8. The creature package (T20) and host creatures for Saltline (T16); `notes/HOSTING.md`.
-9. Body: slow-turn splay still present below 3.5 m/s (T14/T15), a long strike leaves the trailing foot at full reach, the keel clips the thighs at a run and sinks when lying, heavy brow (T17).
+7. The creature package (T20) and host creatures for Saltline (T16); `notes/HOSTING.md`. Hide or keep the sandbox tools on the public page (owner undecided).
+8. Body: slow-turn splay still present below 3.5 m/s (T14/T15), a long strike leaves the trailing foot at full reach, the keel clips the thighs at a run and sinks when lying, heavy brow (T17).
+9. LOW: shareable replay LINKS (T23). "much less important now that the video capture is excellent". Do not start without asking him.
 Older open items: strike misses a man under its chin; tail has no contact; three long stalls in Saltline; breath particles clip the snout.
 
 Housekeeping: a stale remote branch `crashes-read` can be deleted (fully merged).

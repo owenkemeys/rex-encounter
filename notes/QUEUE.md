@@ -156,3 +156,6 @@ Owner 2026-11-17: "Please make the finishing card 5s long, and place it at the e
 "Can you put some demos in the debug menu to show splaying scenarios, former and current?"
 With two phone screenshots: "The touch UI layout came out really weird, please neaten up and make logical, both orientations too" / ""Struggle" button is horrid and unneeded too" / "Oh no i simply cropped the screenshots to the gamepad area only"
 "The mute status should be a visible icon whilst muted, implicitly encouraging a tap to restore sound" / "iPhone but we should cover both of course"
+
+## Owner, 2026-11-17 (last of the session; usage limit near, next work after the weekly reset)
+"Reorg that list: shareable replay links is much less important now that the video capture is excellent / Arena design is more important / Removing the doors is high priority because they mostly don't work anyway / Thoughts staying off controls is good - also look into thought placement on screen when the rex head is offscreen as they quickly get weird and unintuitive / Yes update the Claude project side stuff to point to the repo as master / Go ahead with the small bug fixes you wanted and then we'll let you rest for the week til the reset"
