@@ -30,6 +30,26 @@ const r2 = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 
 const safe = (f, d = null) => { try { const v = f(); return v === undefined ? d : v; } catch { return d; } };
 const rid = () => Math.random().toString(36).slice(2, 6);
 
+// ---- stuck-animal alarm (T13). Pure: no DOM, importable in Node (test/stuckalarm.mjs). `makeStuck()` is the state, `stuckStep(st, x)` one sample
+// x = { t, v (m/s), hunger, thT (time of the last thought, null if none), beh, px, pz, alive, excused }. Returns n (1, 2, ...) on the sample that
+// should raise an entry, else 0. Armed when, continuously for STUCK.hold s: v < STUCK.v, hunger > STUCK.hunger, alive, not excused, no new thought,
+// same behaviour, and the animal stays within STUCK.move m of where it began. A new thought, a behaviour change or a move re-arms (the clock restarts);
+// while the state persists it repeats every STUCK.every s (the count n), at most STUCK.max per session (st.total).
+export const STUCK = { hold: 20, every: 30, max: 10, v: 0.15, hunger: 0.6, move: 0.5 };
+export const makeStuck = () => ({ since: null, beh: null, thT: null, x: 0, z: 0, n: 0, total: 0 });
+export function stuckStep(st, x) {
+  try {
+    const ok = x && x.alive && !x.excused && typeof x.v === 'number' && x.v < STUCK.v && typeof x.hunger === 'number' && x.hunger > STUCK.hunger;
+    if (!ok) { st.since = null; return 0; }
+    if (st.since === null || x.beh !== st.beh || x.thT !== st.thT || Math.hypot(x.px - st.x, x.pz - st.z) > STUCK.move) {
+      st.since = x.t; st.beh = x.beh; st.thT = x.thT; st.x = x.px; st.z = x.pz; st.n = 0; return 0;
+    }
+    if (st.total >= STUCK.max) return 0;
+    if (x.t - st.since >= STUCK.hold + st.n * STUCK.every) { st.n++; st.total++; return st.n; }
+  } catch {}
+  return 0;
+}
+
 /** A recorder that does nothing (telemetry off, or it could not be made). */
 export const NO_TELEMETRY = { frame() {}, afterDraw() {}, flush() {}, notes: 0, off: true };
 
@@ -113,6 +133,26 @@ function make(o) {
   }
   const ringCopy = () => { const out = [], nw = ring[(ringI - 1 + RING_N) % RING_N], t0 = (nw ? nw[0] : now()) - 20; for (let i = 0; i < ringLen; i++) { const r = ring[(ringI - ringLen + i + RING_N) % RING_N]; if (r && r[0] >= t0) out.push(r); } return out; };      // the 20 s before the newest row (paused or frozen: before the pause); fewer rows when frames are slow
 
+  // ------------------------------------------------------------ stuck-animal alarm: reads only, one 'stuck' entry per stuckStep hit
+  const stuck = makeStuck();
+  const STILL_OK = new Set(['feed', 'rest', 'ambush', 'prowl', 'stare', 'listen', 'watch', 'sniff', 'guard', 'pause', 'search', 'pounce']);      // stillness is meant while their timer runs (b.t < b.dur); feed and rest also have no timer worth trusting
+  function stuckPoll(t, B, beh) {
+    const P = safe(() => mind.peril), b = B || {}, lastTh = thoughts.length ? thoughts[thoughts.length - 1] : null;
+    const timed = typeof b.dur === 'number' && typeof b.t === 'number' && b.t < b.dur && !b.done;
+    const excused = !!(S.paused || safe(() => sim.act && sim.act.kind) || safe(() => mind.holding) || beh === 'feed' || beh === 'rest' || (STILL_OK.has(beh) && timed)
+      || safe(() => P && (P.stage === 'still' || P.stage === 'reach') && P.cur && P.cur.t < 20));
+    const n = stuckStep(stuck, { t, v: safe(() => Math.abs(sim.v), 99), hunger: safe(() => mind.hunger), thT: lastTh ? lastTh[0] : null, beh, px: safe(() => sim.x, 0), pz: safe(() => sim.z, 0), alive: !S.dead, excused });
+    if (!n) return;
+    const K = safe(() => mind.know) || {}, C = safe(() => sim.crashS), pl = safe(() => camera.position), M = safe(() => mind.mood) || {};
+    log('stuck', n, {
+      beh, phase: safe(() => b.phase || '', ''), bt: r1(b.t), dur: r1(b.dur), done: !!b.done, why: String(safe(() => { const L = mind.log[mind.log.length - 1]; return (L && L.name === beh && L.reason) || b.reason || b.motive || ''; }, '')).slice(0, 80),
+      seen: !!K.seen, tgt: safe(() => (K.target && K.target.id) || null), focus: safe(() => mind.focus.kind, ''), peril: safe(() => P.stage, ''), pq: safe(() => !!P.quiet), pb: safe(() => !!P.busy),
+      wary: safe(() => (mind.wary ? [r1(mind.wary.x), r1(mind.wary.z), r1(mind.wary.until)] : null)), hunger: r2(safe(() => mind.hunger)), arousal: r2(M.arousal), irr: r2(M.irritation), act: safe(() => (sim.act && sim.act.kind) || '', ''),
+      crash: C ? [r2(C.t), r2(C.dur), r2(C.reel)] : null, blink: r2(safe(() => sim.blink)), rex: [r1(safe(() => sim.x)), r1(safe(() => sim.z))], you: pl ? [r1(pl.x), r1(pl.z)] : null,
+      lastTh: lastTh ? [lastTh[0], lastTh[4]] : null, still: r1(t - stuck.since),
+    });
+  }
+
   // ------------------------------------------------------------ what happens: polled each frame (cheap compares), and wrapped calls
   const seenTh = new WeakSet(); let lastBeh = null, lastPaused = false, lastDead = false, lastMode = S.mode, lastCrouch = false, lastLock = '', lastDev = S.dev, lastSet = '', deathEvt = null, lifeT0 = 0, lastAudio = {}, audioAt = 0;
   function poll(t) {
@@ -124,6 +164,7 @@ function make(o) {
       const e = log('th', String(x.key || ''), String(x.kind || ''), String(x.text || '').slice(0, 120)); thoughts.push(e); if (thoughts.length > 8) thoughts.shift();
     }
     const B = safe(() => mind.beh), beh = (B && B.name) || safe(() => mind.label) || '';
+    try { stuckPoll(t, B, beh); } catch {}
     if (beh !== lastBeh) { const L = safe(() => mind.log[mind.log.length - 1]); log('beh', beh, safe(() => B.motive || B.phase || '', ''), L && L.name === beh ? String(L.reason || '').slice(0, 80) : ''); lastBeh = beh; }
     if (S.paused !== lastPaused) { lastPaused = S.paused; log('pause', S.paused ? 1 : 0); if (S.paused) { flush('pause'); pauseCard(); } else saveTyped(); }
     if (S.mode !== lastMode) { lastMode = S.mode; log('mode', S.mode); }

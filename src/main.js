@@ -106,9 +106,41 @@ async function boot() {
   prev.v.set(sim.pose.v); prev.s.set(sim.pose.s);
   // death cam (src/view/replay.js): the tape runs while you are on foot; "watch it back" on the death card plays it from outside
   const rec = new Replay(scene, terrain, sim.pose.v.length, sim.pose.s.length), tagEl = document.getElementById('replayTag');
+  // The replay is shot by a security camera (src/view/ptz.js picks the mount and moves the camera; post.setCCTV is the look, on whatever the VHS setting).
+  // While it runs the things in the world are the recorded ones (rec.things), live sim events are not played, and the recorded sound events are
+  // re-emitted through the usual audio calls with the listener at the camera, through a thin small-microphone filter (audio.mic). Dust, rain, the herd stay as now.
+  const rpx = Object.create(sim); rpx.head = Object.create(sim.head); rpx.head.pos = new THREE.Vector3(); rpx.act = null; rpx.headTouch = null;      // what the audio sees of the animal while it plays: the recorded head
+  let torchLive = false, micHeld = false;
   function startReplay() {
-    if (!S.dead || S.replay || !rec.play()) return false;
-    S.replay = true; document.body.classList.add('replay'); tagEl.hidden = false; return true;
+    if (!S.dead || S.replay || !rec.play(camera.aspect)) return false;
+    S.replay = true; document.body.classList.add('replay'); tagEl.hidden = false;
+    if (post && post.setCCTV) post.setCCTV(true);
+    torchLive = props.torchOn; audio.sim = rpx; if (audio.mic) audio.mic(true, false); micHeld = false;
+    return true;
+  }
+  // one recorded sound event, as the camera's microphone catches it: placed by its own position, heard from the camera
+  function hear(e) {
+    audio.src = e; const cp = camera.position, hp = rpx.head.pos, dist = cp.distanceTo(hp), at = e.x !== undefined ? Math.hypot(e.x - cp.x, (e.y ?? cp.y) - cp.y, e.z - cp.z) : dist;
+    if (e.src === 'things') {
+      if (e.type === 'impact') { if (e.kind === 'stone') audio.stoneHit(at, e); else audio.thud(Math.min(0.5, 3 / (1 + at))); if (e.first && fx.puff) fx.puff(e.x, e.y, e.z); }
+      else if (e.type === 'hit') { audio.smack(at); if (fx.puff) fx.puff(e.x, e.y, e.z); }
+      else if (e.type === 'stamped') audio.thud(0.4);
+      else if (e.type === 'ignite') audio.ignite();
+      return;
+    }
+    if (e.src === 'herd') { if (e.type === 'alarm') audio.alarm(at); if (e.type === 'killed') audio.crunch(at); return; }
+    if (e.src === 'mind') { if (e.type === 'bite') audio.crunch(at); else if (e.type === 'tear') audio.tear(at); return; }
+    if (e.src === 'victim') {
+      const near = Math.min(1, 6 / (2 + at));
+      if (e.type === 'knocked') { audio.smack(at); audio.thud(near); } else if (e.type === 'landed') audio.thud(Math.min(1, e.speed / 7) * near);
+      else if (e.type === 'seized') audio.crunch(at); else if (e.type === 'pinned') audio.thud(near);
+      return;
+    }
+    if (e.type === 'footfall') fx.footfall(e, cp, audio);
+    else if (e.type === 'roar') audio.roar(dist); else if (e.type === 'huff') audio.huff(dist);
+    else if (e.type === 'contact') { if (audio.contact) audio.contact(e, dist); if ((e.force || 0) > 2.5 && fx.burst) fx.burst(e.x, e.y || 0, e.z, e.nx || 0, e.nz || 0, clamp(((e.force || 0) - 2.5) / 6, 0.15, 1)); }
+    else if (e.type === 'growl' || e.type === 'worry') audio.growl(dist); else if (e.type === 'clack') audio.clack(dist);
+    else if (e.type === 'butt' || e.type === 'swipe' || e.type === 'toss') audio.huff(dist);
   }
   // owner: "pressing any key (except t) brings up the usual death/respawn menu, with restart replay button"
   // The key or click that ends it is swallowed (held key repeats, its keyup, the click after a tap) so it cannot press a button on the card.
@@ -116,6 +148,8 @@ async function boot() {
   function endReplay() {
     if (!S.replay) return;
     S.replay = false; rec.stop(); document.body.classList.remove('replay'); tagEl.hidden = true;
+    if (post && post.setCCTV) post.setCCTV(false);      // the player's own VHS setting is back as it was
+    props.torchOn = torchLive; audio.sim = sim; if (audio.mic) audio.mic(false, false); audio.hiss(0);
     if (!eatKey) try { document.getElementById('xAgain').focus({ preventScroll: true }); } catch {}      // after the keyup when a key ended it
   }
   window.addEventListener('keydown', (e) => {
@@ -825,6 +859,8 @@ async function boot() {
       if (S.legT <= 0) { S.legT = 0.15; for (const f of sim.feet) if (!f.planted) world.trample(f.pos.x, f.pos.z, 0.9, 0.6); for (const p of herd.alive) if (p.v > 2) world.trample(p.x, p.z, 0.5, 0.4);
         world.wake('rex', sim.x, sim.z, 1.5); if (S.mode === 'foot' && !S.you.up) world.wake('you', S.you.x, S.you.z, 0.5); }      // plants part round the body and lie in its wake
       for (const e of arena.events) {
+        if (S.mode === 'foot' && S.started) rec.event(e);      // the tape keeps the sound events, to play them back from the camera
+        if (S.replay) continue;      // the replay plays the recorded ones (hear), not these
         audio.src = e;      // places the sound of this event
         const dist = camera.position.distanceTo(sim.head.pos), at = e.x !== undefined ? Math.hypot(e.x - camera.position.x, (e.y ?? camera.position.y) - camera.position.y, e.z - camera.position.z) : dist;
         if (e.src === 'things') {
@@ -870,11 +906,20 @@ async function boot() {
     if (S.replay && !S.dead) endReplay();
     {      // (keeps appending the tail after the death while the replay already plays)
       if (S.mode === 'foot' && S.started) {
-        rec.tick(dts, S.dead, blend, rec.body(S.you, arena.victim('you'), sim, terrain));
+        rec.tick(dts, S.dead, blend, rec.body(S.you, arena.victim('you'), sim, terrain, S.replay ? torchLive : props.torchOn), things.list);
       } else if (!S.dead) rec.reset();
     }
-    let shown = blend; if (S.replay) { if (rec.update(S.frozen ? 0 : dtReal, camera)) shown = rec.pose; else endReplay(); }
-    body.glareEye = mind.dazzle || null; body.update(shown); fx.breath(body.nostril, body.snout, blend.s[1], dtv); if (audio.breathCue) { fx.snort(body.nostril, body.snout, audio.breathCue); audio.breathCue = 0; }
+    let shown = blend;
+    if (S.replay) {
+      if (rec.update(S.frozen ? 0 : dtReal, camera)) {
+        shown = rec.pose; rpx.head.pos.copy(rec.head); props.torchOn = rec.torchOn;
+        for (const e of rec.fired) hear(e);
+        if (S.frozen !== micHeld) { micHeld = S.frozen; if (audio.mic) audio.mic(true, micHeld); }      // paused: the sound is held (muted); T resumes it
+        const I = post.cctvInfo; I.cam = rec.camNo; I.label = rec.label; I.stamp = rec.stampMs; I.clock = performance.now() / 1000; I.paused = !!S.frozen; post.cctvU.burst.value = S.frozen ? 0 : rec.burst;
+      } else endReplay();
+    }
+    { const ja = sim.act; body.voiceJaw = audio.mouthOpen;      /* (in the replay too: the taped sounds are re-emitted through the mouth bus) */ body.voiceFast = audio.mouthFast; body.jawHold = !!(sim.mouthHold > 0 || (ja && ja.forced && /^(strike|seize|snap|butt)$/.test(ja.kind))); }      // jaw-from-voice
+    body.glareEye = mind.dazzle || null; body.update(shown); fx.breath(body.nostril, body.snout, shown.s[1], dtv); if (audio.breathCue) { fx.snort(body.nostril, body.snout, audio.breathCue); audio.breathCue = 0; }
 
     if (S.mode === 'observe') {
       director.update(dtReal * run, sim, mind, camera); solidify(director.cam, 0.5); S.lens = director.cam.fov;
@@ -888,7 +933,7 @@ async function boot() {
       }
     }
     else if (!S.paused && !S.frozen && !S.replay) moveCamera(dtReal);
-    lens(dtReal); if (!S.paused && !S.frozen) kitTick(dts);
+    if (!S.replay) lens(dtReal); if (!S.paused && !S.frozen) kitTick(dts);
     fx.update(dtv, camera);
     world.followLight(sim.x, sim.groundY, sim.z);
     if (world.update(dtv, camera, renderer)) {
@@ -896,11 +941,12 @@ async function boot() {
       S.thunderAt = { t: performance.now() + delay * 1000, x: sim.x + Math.sin(a) * 900, z: sim.z + Math.cos(a) * 900 };
     }
     if (S.thunderAt && performance.now() > S.thunderAt.t) { S.noises.push({ x: S.thunderAt.x, y: 300, z: S.thunderAt.z, loud: 1, kind: 'thunder' }); S.thunderAt = null; }
-    props.update(dtv, things, herd, camera, performance.now() / 1000);
-    { let h = 0; for (const o of things.list) if (o.kind === 'flare' && o.burn > 0) h = Math.max(h, 0.25 / (1 + camera.position.distanceTo(new THREE.Vector3(o.x, o.y, o.z)) * 0.25)); audio.hiss(h); }
+    { const TL = S.replay ? rec.things : things, EC = S.replay ? rec.eye : camera;      // the recorded things and the player's own torch position while the replay plays
+      props.update(dtv, TL, herd, EC, performance.now() / 1000);
+      let h = 0; for (const o of TL.list) if (o.kind === 'flare' && o.burn > 0) h = Math.max(h, 0.25 / (1 + camera.position.distanceTo(new THREE.Vector3(o.x, o.y, o.z)) * 0.25)); audio.hiss(h); }
     ov.update(sim, blend, S.mindOn ? (mind.intent.goal && mind.intent.goal.kind === 'reach' ? mind.intent.goal : null) : S.goal, null, 9);
     ov.updateSenses(sim, mind);
-    audio.breath(blend.s[1], camera.position.distanceTo(sim.head.pos));
+    audio.breath(shown.s[1], camera.position.distanceTo(S.replay ? rpx.head.pos : sim.head.pos));
     if (!S.noRender && !swapping) { try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); }
 
     S.fps += (1 / Math.max(dtReal, 1e-3) - S.fps) * 0.05;
@@ -951,7 +997,7 @@ async function boot() {
     if (!/start/.test(location.hash)) start(false);      // tests begin past the start card unless they ask to see it
     frame(1 / 30);
   } else {
-    window.__rex = { rec, setMode, get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
+    window.__rex = { audio /* jaw-from-voice */, get sim() { return sim; }, rec, setMode, get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
     let last = performance.now();
     // a rAF timestamp is when the frame began, which can be earlier than the performance.now() taken above (by seconds after a
     // long boot on a slow device): never hand the simulation a negative step (it ran the director's easing backwards, so its

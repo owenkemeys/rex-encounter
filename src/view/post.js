@@ -6,6 +6,11 @@
 // back. Soft luma with edge ringing, chroma smeared to the right, interlaced scan lines, tape snow, a wobbling time base
 // and a rolling tracking band, head-switching noise along the bottom, rare dropout streaks, slight barrel, blown
 // highlights and lifted blacks, and a burned-in REC mark and date/time stamp (`stamp: false` hides them).
+//
+// The security-camera look (`post.setCCTV(on)`, used by the death replay whatever the camcorder setting; src/view/replay.js): a different recording altogether.
+// Near-monochrome green-grey, crushed blacks and low contrast, mild barrel, ~12 frames a second (noise held between), faint scan lines, compression
+// blocks, an occasional sync tear, and a burst of static at a cut. Its lettering (camera number and name, a running time stamp, PLAYBACK) is laid over
+// the picture last, sharp, as a recorder does it. `post.cctv` carries what the lettering says; `post.vhs` reads false while it is on.
 import * as THREE from 'three/webgpu';
 import { pass, renderOutput, uniform, vec2, vec3, vec4, float, mix, dot, smoothstep, clamp, max, fract, sin, floor, abs, step, time, length, screenUV, viewportSize, texture, convertToTexture } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
@@ -58,6 +63,36 @@ function makeOSD() {
   return { tex, draw };
 }
 
+
+/** The security recorder's lettering: top left the camera number and its place, top right PLAYBACK with a blinking arrow, bottom left a running date and time.
+ *  Same counter-scale trick as the camcorder's (drawn in CSS pixels, stretched by the shader). Plain monospace, no brands. */
+function makeCCTVOSD() {
+  const W = 1280, H = 720, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'), tex = new THREE.CanvasTexture(c); tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = tex.magFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+  document.body.appendChild(probe);
+  let last = '';
+  const p2 = (n) => String(n).padStart(2, '0');
+  const draw = (o) => {
+    const vw = window.innerWidth, vh = window.innerHeight, d = new Date(o.stamp || Date.now()), blink = Math.floor((o.clock || 0) * 2) % 2 === 0;
+    const cs = getComputedStyle(probe), sa = { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
+    const key = o.cam + '|' + o.label + '|' + (o.paused ? 'P' : blink ? 'b' : 'n') + '|' + Math.floor(d.getTime() / 1000) + '|' + vw + 'x' + vh + '|' + sa.t + sa.r + sa.b + sa.l;
+    if (key === last) return; last = key;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); g.setTransform(W / vw, 0, 0, H / vh, 0, 0);
+    const fs = Math.round(Math.max(12, Math.min(18, Math.min(vw, vh) * 0.034))), lh = fs * 1.3, m = Math.max(12, Math.min(vw, vh) * 0.035);
+    const L = m + sa.l, R = vw - m - sa.r, T = m + sa.t, B = vh - m - sa.b;
+    g.font = `bold ${fs}px "Lucida Console", "Courier New", monospace`; g.textBaseline = 'top';
+    const text = (s, x, y, al = 'left', a = 1) => { g.textAlign = al; g.fillStyle = 'rgba(0,0,0,0.85)'; g.fillText(s, x + 1, y + 1); g.fillStyle = `rgba(236,244,236,${a})`; g.fillText(s, x, y); };
+    text('CAM ' + p2(o.cam), L, T); if (o.label) text(o.label, L, T + lh, 'left', 0.85);
+    text(o.paused ? '|| PAUSED' : (blink ? '\u25B6' : ' ') + ' PLAYBACK', vw / 2, T, 'center');
+    const ds = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`, ts = `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
+    text(ds + '  ' + ts, L, B - fs, 'left');
+    tex.needsUpdate = true;
+  };
+  return { tex, draw };
+}
+
 export function makePost(renderer, scene, camera, Q) {
   const low = Q.tier === 'low';
   const P = new THREE.RenderPipeline(renderer);
@@ -94,6 +129,9 @@ export function makePost(renderer, scene, camera, Q) {
 
   // ---- the camcorder look, built only when first asked for
   let vhsNode = null, osd = null, vhsOn = false, stamp = true, moodKey = 'storm';
+  let cctvNode = null, cosd = null, cctvOn = false;
+  const CU = { burst: uniform(0), fps: uniform(12) };
+  const cctvInfo = { cam: 1, label: '', stamp: 0, clock: 0, paused: false };
   const V = { year: 1996 };
   const buildVHS = () => {
     osd = makeOSD();
@@ -134,6 +172,42 @@ export function makePost(renderer, scene, camera, Q) {
     const inside = step(0, q0.x).mul(step(q0.x, 1)).mul(step(0, q0.y)).mul(step(q0.y, 1));
     vhsNode = vec4(c.mul(inside), 1);
   };
+
+  // ---- the security-camera look, built when first asked for
+  const buildCCTV = () => {
+    cosd = makeCCTVOSD();
+    const src = convertToTexture(graded), osdT = texture(cosd.tex);
+    const fr = floor(time.mul(CU.fps)), vs = viewportSize;
+    // barrel (mild), a sync tear now and then, a hard tear and roll while the burst is up
+    const cc = screenUV.sub(0.5), r2 = dot(cc, cc), q0 = cc.mul(float(1).add(r2.mul(0.07))).mul(0.99).add(0.5);
+    const tearOn = step(0.78, h1(floor(time.mul(0.45)).mul(3.1))), tearY = fract(time.mul(0.45).mul(7.0)).mul(0.9).add(0.05), tear = smoothstep(0.045, 0.0, abs(q0.y.sub(tearY))).mul(tearOn).mul(step(fract(time.mul(0.45)), 0.14));
+    const line = floor(q0.y.mul(vs.y.mul(0.5))), bj = h1(line.add(fr.mul(7.0))).sub(0.5);
+    const dx = tear.mul(float(0.035).add(bj.mul(0.03))).add(CU.burst.mul(bj).mul(0.12)).add(h1(line.mul(0.37).add(fr.mul(3.0))).sub(0.5).mul(0.0012));
+    const roll = CU.burst.mul(CU.burst).mul(0.3);
+    const q = vec2(q0.x.add(dx), fract(q0.y.add(roll)));
+    // compression blocks: 8-pixel blocks pull toward their own average now and then, and each block's level twitches a little
+    const bs = vec2(vs.x.div(8.0), vs.y.div(8.0)), bid = floor(q.mul(bs)), bc = bid.add(0.5).div(bs);
+    const sharp = src.sample(q).rgb, blocky = src.sample(bc).rgb;
+    const bh = h2(bid.add(fr.mul(0.5).floor().mul(13.0)));
+    let c = mix(sharp, blocky, bh.mul(0.5).add(0.12).mul(0.6));
+    c = c.add(bh.sub(0.5).mul(0.025));
+    // tone: near monochrome with a green-grey cast, low contrast, crushed blacks
+    const lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    c = mix(vec3(lum), c, 0.14).mul(vec3(0.80, 1.0, 0.86));
+    c = c.sub(0.5).mul(0.86).add(0.5).sub(0.06).max(0).mul(1.22);
+    // faint horizontal lines, grain that changes at the footage's own rate, a soft vignette
+    const scan = float(1).sub(step(0.5, fract(q.y.mul(vs.y).mul(0.5))).mul(0.07));
+    const gr = h2(q.mul(vs).add(fr.mul(37.0))).sub(0.5);
+    c = c.mul(scan).add(gr.mul(0.07)).mul(float(1).sub(smoothstep(0.4, 0.8, length(cc)).mul(0.4)));
+    c = c.add(vec3(0.02, 0.03, 0.025).mul(float(1).sub(lum)));
+    // static: while the burst is up the picture is noise with a ghost of the scene
+    const nz = h2(q.mul(vs.mul(0.6)).add(fr.mul(11.0))).mul(0.55).add(0.1).mul(vec3(0.85, 1.0, 0.9));
+    c = mix(c, nz, CU.burst.mul(CU.burst).mul(0.92));
+    const inside = step(0, q0.x).mul(step(q0.x, 1)).mul(step(0, q0.y)).mul(step(q0.y, 1));
+    c = clamp(c, 0, 1).mul(inside);
+    const t = osdT.sample(screenUV);      // the lettering last: straight, sharp, not distorted or noisy
+    cctvNode = vec4(mix(c, t.rgb, t.a), 1);
+  };
   // Warm the camcorder look once, off screen, when the page is idle after load: build its nodes and draw the pipeline
   // with it into a 1x1 target, so its shaders (and, on phones, the scene's materials in the pass's linear context) are
   // compiled before anyone asks. Nothing reaches the canvas; with the look off nothing of it runs per frame afterwards.
@@ -152,7 +226,9 @@ export function makePost(renderer, scene, camera, Q) {
   if (!/novhswarm/.test(location.hash)) setTimeout(() => idle(warm, { timeout: 4000 }), 2500);
   const api = {
     pipe: P, bloom: B, U, warm,
-    get vhs() { return vhsOn; },
+    get vhs() { return vhsOn && !cctvOn; },      // false while the security-camera look is on: the camcorder's lettering is not on that picture
+    get cctv() { return cctvOn; },
+    cctvInfo, cctvU: CU,
     get chain() { return chainKey; },
     /** The quality level's post stack: MSAA samples on the scene pass, bloom, grade. The light build keeps drawing straight
      *  to the canvas. */
@@ -163,7 +239,8 @@ export function makePost(renderer, scene, camera, Q) {
       if (key !== chainKey) {
         chainKey = key; graded = chain(key);
         if (vhsNode) { vhsNode = null; if (vhsOn) buildVHS(); }      // the camcorder look reads the graded picture: rebuild it on the new one
-        P.outputNode = vhsOn ? vhsNode : graded; P.needsUpdate = true;
+        cctvNode = null; if (cctvOn) buildCCTV();
+        P.outputNode = cctvOn ? cctvNode : vhsOn ? vhsNode : graded; P.needsUpdate = true;
         if (key === 'bloom') api.setMood(moodKey);
       }
     },
@@ -172,7 +249,13 @@ export function makePost(renderer, scene, camera, Q) {
     setVHS(on, opts = {}) {
       vhsOn = !!on; if (opts.stamp !== undefined) stamp = !!opts.stamp; if (opts.year) V.year = opts.year;
       if (vhsOn && !vhsNode) buildVHS();
-      P.outputNode = vhsOn ? vhsNode : graded; P.needsUpdate = true;
+      if (!cctvOn) { P.outputNode = vhsOn ? vhsNode : graded; P.needsUpdate = true; }
+    },
+    /** The security-camera look on or off, whatever the camcorder setting; off puts back whichever of the camcorder look or the plain grade was on. */
+    setCCTV(on) {
+      on = !!on; if (on === cctvOn) return; cctvOn = on;
+      if (on && !cctvNode) buildCCTV();
+      P.outputNode = on ? cctvNode : vhsOn ? vhsNode : graded; P.needsUpdate = true; CU.burst.value = 0;
     },
     setMood(key) {
       moodKey = key;
@@ -182,8 +265,8 @@ export function makePost(renderer, scene, camera, Q) {
       B.strength.value = G.bloom; B.threshold.value = G.thr;
     },
     render() {
-      if (low && !vhsOn) { renderer.render(scene, camera); return; }
-      if (vhsOn) osd.draw(stamp, V.year);
+      if (low && !vhsOn && !cctvOn) { renderer.render(scene, camera); return; }
+      if (cctvOn) cosd.draw(cctvInfo); else if (vhsOn) osd.draw(stamp, V.year);
       P.render();
     },
   };

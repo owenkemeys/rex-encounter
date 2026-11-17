@@ -40,11 +40,18 @@ const TIER = {
   rain_roof: 1, bed_hiss: 1, bird: 1, thunder_far: 3, thunder_mid: 3, thunder_near: 3, huff: 1, growl: 1, roar: 2, clack: 1, sniff: 1, rumble: 2, snort: 1, thud: 1, shout: 2, smack: 2, tear: 2, gulp: 2, chew: 2,
 };
 
-/** A place sound comes from: in -> [proximity shelf] -> lowpass (air + occlusion) -> gain (distance) -> panner -> bus, with a reverb send. */
+/** Mouth sounds (the animal's voice, breath, sniffs, huffs, the scream) reach the speakers this long after the analyser that drives the jaw hears them,
+ *  so the jaw leads the sound by it (owner: "precede the actual audio by a fraction"). 50 to 90 ms; one named place. */
+export const MOUTH_LEAD = 0.07;
+/** Jaw follower: attack / release time constants (s), the level (dBFS of the 250 Hz to 3 kHz RMS (a rumble or a growl's low end is chest, not mouth) at the mouth emitters' inputs) that is silence and the level that is a full gape; the curve between is level^pow. */
+const MOUTH = { atk: 0.015, rel: 0.12, fast: 0.006, floorDb: -45, fullDb: -16, pow: 2.2, noseFloorDb: -50, noseFullDb: -30 };
+
+/** A place sound comes from: in -> [mouth delay] -> [proximity shelf] -> lowpass (air + occlusion) -> gain (distance) -> panner -> bus, with a reverb send. */
 class Emitter {
-  constructor(A, { hrtf = false, shelf = false, pan = true, bus, send, ref = 4 }) {
+  constructor(A, { hrtf = false, shelf = false, pan = true, bus, send, ref = 4, mouth = false }) {
     const c = A.ctx; this.A = A; this.ref = ref; this.busy = 0; this.pos = { x: 0, y: 0, z: 0 };
     this.in = c.createGain(); let n = this.in;
+    if (mouth) { this.dl = c.createDelay(0.5); this.dl.delayTime.value = MOUTH_LEAD; this.in.connect(this.dl); n = this.dl; if (A.mouthTap) this.in.connect(A.mouthTap); }      // jaw-from-voice: the analyser hears `in` now, the room hears it MOUTH_LEAD later (direct path and reverb send both)
     if (shelf) { this.sh = c.createBiquadFilter(); this.sh.type = 'lowshelf'; this.sh.frequency.value = 110; n.connect(this.sh); n = this.sh; }
     this.lp = c.createBiquadFilter(); this.lp.type = 'lowpass'; this.lp.Q.value = 0.5; this.lp.frequency.value = 18000; n.connect(this.lp);
     this.g = c.createGain(); this.lp.connect(this.g);
@@ -298,6 +305,18 @@ export class Audio {
   }
   _directOff() { if (this._direct && this.out && this.ctx) { try { this.out.disconnect(this.ctx.destination); this._direct = false; } catch {} } }
   _directOn() { if (!this._direct && this.out && this.ctx && this.ctx.state !== 'closed') { try { this.out.connect(this.ctx.destination); this._direct = true; } catch {} } }
+  // replay: the security camera's microphone. on: what reaches the speakers goes through a thin band (about 300 Hz to 3.2 kHz) and a little quieter; mute holds it silent (the replay is paused).
+  mic(on, mute) {
+    const c = this.ctx; if (!c || !this.out) return;
+    try {
+      if (on && !this._mic) {
+        const hp = c.createBiquadFilter(), lp = c.createBiquadFilter(), g = c.createGain(); hp.type = 'highpass'; hp.frequency.value = 300; lp.type = 'lowpass'; lp.frequency.value = 3200; g.gain.value = 0.6;
+        if (this._direct) this.out.disconnect(c.destination);
+        this.out.connect(hp); hp.connect(lp); lp.connect(g); g.connect(c.destination); this._mic = { hp, g };
+      } else if (!on && this._mic) { const m = this._mic; this._mic = null; this.out.disconnect(m.hp); m.g.disconnect(); if (this._direct) this.out.connect(c.destination); }
+      if (this._mic) this._mic.g.gain.setTargetAtTime(mute ? 0 : 0.6, c.currentTime, 0.03);
+    } catch (e) { this._mic = null; this._directOn(); }
+  }
   /** Which path the player is hearing, in words (for the #audio readout). */
   carrier() {
     if (!this.ctx) return 'none: no audio context yet (tap to start)';
@@ -407,12 +426,20 @@ export class Audio {
       this._applyVol();
       // places: the head (voice, breath, sniffing), each foot, a small pool for everything else, and you
       const hr = !low;
-      this.head = new Emitter(this, { hrtf: hr, shelf: hr, bus: this.busCre, send: this.sendCre, ref: 5 });
+      // jaw-from-voice: everything the mouth or nose makes goes into the `mouth` emitters (head: voice, breath, sniffs; selfMouth: the scream); their input is tapped
+      // by two analysers (voice band, hiss band) and reaches the room MOUTH_LEAD later. headHit is the head as a thing that bumps (contact, bite impacts): not delayed, not tapped.
+      this.mouthTap = c.createGain(); this.mouthTap.gain.value = 1; this.anV = c.createAnalyser(); this.anV.fftSize = 1024; this.anN = c.createAnalyser(); this.anN.fftSize = 1024;
+      { const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 250; hp.Q.value = 0.9; const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3000; lp.Q.value = 0.7; this.mouthTap.connect(hp); hp.connect(lp); lp.connect(this.anV); }
+      { const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500; hp.Q.value = 0.7; this.mouthTap.connect(hp); hp.connect(this.anN); }
+      this._M = { t: null, buf: new Float32Array(1024), bufN: new Float32Array(1024), v: 0, f: 0, n: 0 }; this.mouthOpen = 0; this.mouthFast = 0; this.noseOpen = 0;
+      this.head = new Emitter(this, { hrtf: hr, shelf: hr, bus: this.busCre, send: this.sendCre, ref: 5, mouth: true });
+      this.headHit = new Emitter(this, { hrtf: hr, shelf: hr, bus: this.busCre, send: this.sendCre, ref: 5 });
       this.feet = [0, 1].map(() => new Emitter(this, { hrtf: hr, shelf: hr, bus: this.busCre, send: this.sendCre, ref: 4 }));
       this.pool = Array.from({ length: low ? 3 : 6 }, () => new Emitter(this, { hrtf: false, bus: this.busFx, send: this.sendFx, ref: 2.5 }));
       this.creaturePool = Array.from({ length: low ? 1 : 2 }, () => new Emitter(this, { hrtf: hr, bus: this.busCre, send: this.sendCre, ref: 4 }));
       this.ambPool = Array.from({ length: low ? 2 : 4 }, () => new Emitter(this, { hrtf: false, bus: this.busAmb, send: this.sendAmb, ref: 3 }));
       this.self = new Emitter(this, { pan: false, bus: this.busFx, send: this.sendFx, ref: 1 }); this.self.set(1, 0, c.currentTime);
+      this.selfMouth = new Emitter(this, { pan: false, bus: this.busFx, send: this.sendFx, ref: 1, mouth: true }); this.selfMouth.set(1, 0, c.currentTime);
       // ambience: everything outdoors goes through one lowpass that closes when you are under a roof
       this.ambOut = c.createGain(); this.ambLP = c.createBiquadFilter(); this.ambLP.type = 'lowpass'; this.ambLP.frequency.value = 18000; this.ambLP.Q.value = 0.5;
       this.ambOut.connect(this.ambLP); this.ambLP.connect(this.busAmb);
@@ -609,7 +636,7 @@ export class Audio {
     if (key === 'huff' || key === 'snort' || key === 'sniff') this.breathCue = key === 'sniff' ? -1 : 1;      // -1: a sniff (effects.snort draws its inhales on SNIFF_RHYTHM)
     if (!this._ok()) return;
     const p = this._where(dist, 'head'), L = this._L(), d = Math.hypot(p.x - L.x, p.y - L.y, p.z - L.z), h = this.sim ? this.sim.head.pos : null;
-    const near = !h || Math.hypot(p.x - h.x, p.y - h.y, p.z - h.z) < 3, em = near ? this.head : this._free(this.creaturePool, 3);
+    const near = !h || Math.hypot(p.x - h.x, p.y - h.y, p.z - h.z) < 3, em = near ? (key === 'crunch' || key === 'tear' ? this.headHit : this.head) : this._free(this.creaturePool, 3);      // crunch and tear are flesh and bone giving way, not a voice: no jaw drive
     const at = Math.max(this.ctx.currentTime, this._arrive(d) - pre);
     if (near) { em.place(p.x, p.y, p.z, at); em.set(d, this.st.occ, at); } else this._place(em, p, at);
     this.st.vocal = this.ctx.currentTime;
@@ -624,11 +651,11 @@ export class Audio {
    *  `monster_roar`, its first seconds); nothing else it does is this loud. */
   scream() {
     if (!this._ok()) return; const c = this.ctx, t = c.currentTime;
-    this._play('roar', this.self, t, 1.5, 1.04, 3);
+    this._play('roar', this.selfMouth, t, 1.5, 1.04, 3);
     const m = this.clips && this.clips.monster_roar;
     if (m) {
       if (!this._scrBuf) { const n = Math.min(m.x.length, Math.round(m.sr * 2.4)), b = c.createBuffer(1, n, m.sr), y = b.getChannelData(0), f = m.sr * 0.25; for (let i = 0; i < n; i++) y[i] = m.x[i] * Math.min(1, (n - i) / f, i / 64); this._scrBuf = b; }
-      const s = c.createBufferSource(), g = c.createGain(); s.buffer = this._scrBuf; g.gain.value = 1.4; s.connect(g); g.connect(this.self.in || this.self); s.start(t);
+      const s = c.createBufferSource(), g = c.createGain(); s.buffer = this._scrBuf; g.gain.value = 1.4; s.connect(g); g.connect(this.selfMouth.in); s.start(t);
     }
     this.st.vocal = t; this.st.hush = t + 25;
   }
@@ -640,7 +667,7 @@ export class Audio {
   clack(dist, force = 0.6) {
     if (!this._ok()) return; const F = clamp(force, 0.1, 1);
     const p = this._where(dist, 'head'), L = this._L(), d = Math.hypot(p.x - L.x, p.y - L.y, p.z - L.z), h = this.sim ? this.sim.head.pos : null;
-    const near = !h || Math.hypot(p.x - h.x, p.y - h.y, p.z - h.z) < 3, em = near ? this.head : this._free(this.creaturePool, 3);
+    const near = !h || Math.hypot(p.x - h.x, p.y - h.y, p.z - h.z) < 3, em = near ? this.headHit : this._free(this.creaturePool, 3);      // teeth meeting: an impact, so neither delayed nor opening the jaw (it is the jaw closing)
     const at = Math.max(this.ctx.currentTime + 0.06, this._arrive(d)), dest = em.in || em, R = this.R, side = this._jit(0.06), G = 2 * (0.7 + 0.5 * F) * this._db(1.5);
     if (near) { em.place(p.x, p.y, p.z, at); em.set(d, this.st.occ, at); } else this._place(em, p, at);
     this.st.vocal = this.ctx.currentTime; const room = this.voices < (this.low ? 14 : 32) - 6;
@@ -826,7 +853,7 @@ export class Audio {
     const L = this._L(), d = dist ?? Math.hypot(x - L.x, y - L.y, z - L.z), T = this.terrain;
     let mat = e.mat || null; if (!mat && T) { let bd = 1e9; for (const S of T.structures || []) { const dd = Math.hypot(S.cx - x, S.cz - z) - Math.max(S.hw, S.hd); if (dd < bd && dd < 3) { bd = dd; mat = S.mat; } } }
     const kind = /steel|container|fence|glass/.test(mat || '') ? 'metal' : /concrete|block|rock|pipe|stone/.test(mat || '') || e.surface === 'rock' ? 'hard' : mat ? 'wood' : 'soft';
-    const f = clamp((e.force ?? 0.4) / 1.5, 0.12, 1), em = this.head, at = Math.max(this.ctx.currentTime, this._arrive(d)), c = this.ctx, R = this.R, dest = em.in;
+    const f = clamp((e.force ?? 0.4) / 1.5, 0.12, 1), em = this.headHit, at = Math.max(this.ctx.currentTime, this._arrive(d)), c = this.ctx, R = this.R, dest = em.in;
     em.place(x, y, z, at); em.set(d, this.st.occ, at);
     const g = (0.15 + 0.55 * f) * this._db(2), side = this._jit(0.06);
     // a hard hit, or any hit of the trunk or hips: the weight of the animal landing on the thing (owner 2026-11-15: the crash was "a
@@ -870,8 +897,22 @@ export class Audio {
     if (kind === 'hard') this._burst(dest, at, 0.025, 'bandpass', 2400 * side, 1.2, 0.5 * g, 0.001);
     if (kind === 'metal') { this._burst(dest, at, 0.12, 'bandpass', 430 * side * (0.85 + 0.3 * R()), 2.2, 1.3 * g, 0.003); this._burst(dest, at + 0.002, 0.07, 'bandpass', 1200 * side * (0.85 + 0.3 * R()), 1.8, 0.6 * g, 0.002); }      // a dull clank (it was three sine partials: a chime)
   }
+  /** jaw-from-voice: read the analysers (they hear the mouth sounds MOUTH_LEAD before the room does) and follow the level: fast attack, slower release,
+   *  a floor under which breathing at rest does nothing and a soft knee up to a full gape. `mouthOpen` 0..1 (smoothed), `mouthFast` (nearly raw, for the flutter
+   *  of a roar's tremolo), `noseOpen` 0..1 (hiss-band energy while the voice band is quiet: sniffs and huffs). All 0 when sound is off or the context is not running. */
+  _mouthStep() {
+    const M = this._M, c = this.ctx; if (!M || !this.anV) return;
+    if (!this._ok()) { this.mouthOpen = this.mouthFast = this.noseOpen = 0; M.v = M.f = M.n = 0; M.t = null; return; }
+    const t = c.currentTime, dt = M.t === null ? 1 / 60 : t - M.t; if (dt < 0.002) return; M.t = t; const k = (tau) => 1 - Math.exp(-Math.min(dt, 0.1) / tau);
+    const rms = (an, buf) => { an.getFloatTimeDomainData(buf); let e = 0; for (let i = 0; i < buf.length; i++) e += buf[i] * buf[i]; return Math.sqrt(e / buf.length); };
+    const map = (r, lo, hi, pw) => { const u = clamp((20 * Math.log10(r + 1e-9) - lo) / (hi - lo), 0, 1); return pw ? Math.pow(u, pw) : u * u * (3 - 2 * u); };
+    const rv = rms(this.anV, M.buf), rn = rms(this.anN, M.bufN), x = map(rv, MOUTH.floorDb, MOUTH.fullDb, MOUTH.pow), xn = map(rn, MOUTH.noseFloorDb, MOUTH.noseFullDb); M.dbV = 20 * Math.log10(rv + 1e-9); M.dbN = 20 * Math.log10(rn + 1e-9);      // (dbV, dbN: the raw levels, for test/jaw_audio.py)
+    M.v += (x - M.v) * k(x > M.v ? MOUTH.atk : MOUTH.rel); M.f += (x - M.f) * k(MOUTH.fast); M.n += (xn * (1 - M.v) - M.n) * k(xn > M.n ? MOUTH.atk : MOUTH.rel);
+    this.mouthOpen = M.v; this.mouthFast = M.f; this.noseOpen = M.n;
+  }
   _frame() {
     if (!this.ctx || !this.st) return;
+    this._mouthStep();
     const c = this.ctx, t = c.currentTime, S = this.st, dt = clamp(t - S.t, 0, 0.25); S.t = t;
     // a new touch of its head on something solid (rex.js resets headTouch.kn at each contact event): heard even where nothing routes
     // the event here; one routed through contact(e) in the same moment is not doubled

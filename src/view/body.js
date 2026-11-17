@@ -305,6 +305,8 @@ const LID_TAU = 0.1;          // s: time constant of the lids easing after the b
 const LID_YAW_MAX = 0.45, LID_PITCH_MAX = 0.4;     // rad: furthest the opening's centre may leave the resting gaze (no gap at brow or cheek)
 const LID_CANT = 0;           // rad: outer corner raised about the lid's own axis (the rim line is level in the skull at 0)
 
+/** The widest the voice alone opens the jaw (rad): a bit under the sim's roar gape (0.8). */
+const VOICE_GAPE = 0.75;
 export class RexBody {
   constructor(Q = { tier: 'high' }) {
     const lo = Q.tier === 'low';
@@ -414,17 +416,27 @@ export class RexBody {
     this.fix = null; this._sacT = 0; this._sacV = new THREE.Vector3(); this.nostril = new THREE.Vector3(); this.snout = new THREE.Vector3(0, 0, 1);
   }
 
+  /** Fed by main.js each frame (jaw-from-voice): voiceJaw = audio.mouthOpen (0..1), voiceFast = audio.mouthFast, jawHold = the sim is biting or holding something. */
+  voiceJaw = 0; voiceFast = 0; jawHold = false;
   setWet(k) { this.wet.value = k; }
 
   update(pose) {
-    boneMatrices(pose, this.mats);
+    // jaw-from-voice: the drawn jaw is the larger of the sim's and what the sound being made asks for (audio.mouthOpen, which leads the sound by MOUTH_LEAD), with the
+    // roar's fast tremolo on top. Never against a bite: `jawHold` (set by main.js while something is held or a strike/seize/snap is under way) and a jaw the sim is
+    // closing fast both shut the voice out at once; it comes back over ~80 ms.
+    const sj = pose.s[PS.JAW] || 0, nw = performance.now(), jdt = Math.max(1e-3, Math.min(0.1, (nw - (this._jT ?? nw - 16)) / 1000)); this._jT = nw;
+    const closing = (sj - (this._jP ?? sj)) / jdt < -1.2; this._jP = sj;
+    if (this.jawHold || closing) this._vk = 0; else this._vk = Math.min(1, (this._vk ?? 1) + jdt / 0.08);
+    const vo = this.voiceJaw || 0; let ja = null;
+    if (vo > 0.004 && this._vk > 0) { const fl = Math.max(-0.4, Math.min(0.4, (this.voiceFast || 0) - vo)); ja = Math.max(sj, VOICE_GAPE * this._vk * Math.max(0, Math.min(1, vo + 0.6 * fl))); }
+    boneMatrices(pose, this.mats, ja);
     for (let i = 0; i < BONE_COUNT; i++) { const b = this.bones[i]; b.matrix.copy(this.mats[i]); b.matrixWorldNeedsUpdate = true; }
     const H = this.mats[BONE.SKULL], Jm = this.mats[BONE.JAW];
     this.upperTeeth.matrix.copy(H); this.upperTeeth.matrixWorldNeedsUpdate = true;
     this.lowerTeeth.matrix.copy(Jm); this.lowerTeeth.matrixWorldNeedsUpdate = true;
     if (this.tongue) { this.tongue.matrix.copy(Jm); this.tongue.matrixWorldNeedsUpdate = true; }
     this.nostril.set(0, 0.22, 1.74).applyMatrix4(H); this.snout.set(0, -0.35, 1).normalize().transformDirection(H);
-    this.jawU.value = pose.s[PS.JAW] || 0;
+    this.jawU.value = ja ?? sj;
     const S = pose.s, blink = S[PS.BLINK] > 0.5 ? 1 : 0, rd = (i) => (i !== undefined && S.length > i ? S[i] || 0 : 0);
     const squint0 = Math.min(1, Math.max(rd(PS.SQUINT), this.glare || 0)), droop = rd(PS.LID);
     this._hi.copy(H).invert();
