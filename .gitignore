@@ -1,5 +1,6 @@
 node_modules/
 dist/app.js
+dist/app.size
 variants/*/dist/app.js
 __pycache__/
 *.pyc

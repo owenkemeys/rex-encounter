@@ -37,6 +37,8 @@ let SEED = pickSeed();      // a new one for each scenario: every page load and 
 
 async function boot() {
   let canvas = $('view'), renderer, backend, swapping = false;
+  // the loading bar (index.html fills the first half as the code arrives): each step is shown before the next one holds the page
+  const bootAt = (f) => { const i = document.querySelector('#bootBar i'); if (i) i.style.width = (f * 100).toFixed(1) + '%'; return new Promise((ok) => setTimeout(ok, 0)); };
   // WebGPU first, WebGL2 if it is missing. If the WebGPU device dies mid-session the page
   // restarts itself on the WebGL2 path.
   // A GPU that an earlier session found slower on WebGPU than on WebGL2 starts on WebGL2 (#webgpu forces WebGPU back).
@@ -60,12 +62,13 @@ async function boot() {
     location.reload();
   }
   await makeRenderer(location.hash.includes('webgl') || (!location.hash.includes('webgpu') && !TEST && backendPreference(Q.hints.gpu) === 'webgl'));
+  await bootAt(0.56);
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 1200);
   camera.rotation.order = 'YXZ';
-  const terrain = makeTerrain(7);
-  const world = buildWorld(scene, terrain, Q);
+  const terrain = makeTerrain(7); await bootAt(0.62);
+  const world = buildWorld(scene, terrain, Q); await bootAt(0.72);
   const post = makePost(renderer, scene, camera, Q), draw = () => (post ? post.render() : renderer.render(scene, camera));
   // the quality loops; the backend trial: WebGPU that cannot hold the frame rate even at the bottom of the low level is
   // compared once against WebGL2 on this GPU (a reload while still on the start card, else on the next load); the faster wins
@@ -98,7 +101,7 @@ async function boot() {
   const GATE = OPEN && SPOTS && SPOTS.gate && !/crash|nogate/.test(location.hash) ? SPOTS.gate : null;
   const body = new RexBody(Q); scene.add(body.group);
   const fx = new Effects(scene, terrain), audio = new Audio(), ov = new Overlays(scene, terrain);
-  const props = new Props(scene, terrain, Q);
+  const props = new Props(scene, terrain, Q); await bootAt(0.78);
   // the gatehouse feed: the hut's own cameras (SE and SW corners) while one can see the animal, and still while it is round the hut out of
   // their sight (the owner: never cut away to the paddock while it is at the hut); a pole camera out where the director would stand only
   // when it has gone off. The splash uses `director` (observe mode later, 'o' or watching after a death, frames as before); the monitor on
@@ -1314,7 +1317,8 @@ async function boot() {
   watchBody(renderer, body);      // self-check a few frames in: is the skin visible and drawing? (window.__bodyCheck, #perf)
   document.body.dataset.mode = 'observe'; document.body.dataset.mind = 'on'; document.body.classList.toggle('gatestart', !!GATE); S.gateStart = !!GATE;
   const KEEP = new Set(Object.keys(S));      // settings and session fields: what startOver leaves in S
-  $('boot').remove();
+  await bootAt(0.9);      // the rest is the first picture (its shaders): the loading screen goes once it is drawn
+  let unboot = () => { $('boot').remove(); unboot = () => {}; };
   if (TEST) {
     window.__dino = {
       ui, start, setPaused, takeOver, renderer, scene, get sim() { return sim; }, get mind() { return mind; }, S, get director() { return director; }, camera, setMode, setMind, reachTo, fx, ov, body, act, world, applyMood, arena, props, qc, post, Q, get backendNow() { return backend; },
@@ -1323,14 +1327,14 @@ async function boot() {
     };
     window.__dino.backend = backend;
     if (!/start/.test(location.hash)) start(false);      // tests begin past the start card unless they ask to see it
-    frame(1 / 30);
+    frame(1 / 30); unboot();
   } else {
     window.__rex = { clip, audio /* jaw-from-voice */, get seed() { return SEED; }, get sim() { return sim; }, rec, setMode, desk, get director() { return director; }, get feedDir() { return feedDir; }, get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
     let last = performance.now();
     // a rAF timestamp is when the frame began, which can be earlier than the performance.now() taken above (by seconds after a
     // long boot on a slow device): never hand the simulation a negative step (it ran the director's easing backwards, so its
     // look point and lens blew up before the start card was dismissed, and the takeover inherited a ground-facing, whited-out view)
-    const loop = (now) => { const dt = clamp((now - last) / 1000, 0, 0.1); last = Math.max(last, now); frame(dt); requestAnimationFrame(loop); };
+    const loop = (now) => { const dt = clamp((now - last) / 1000, 0, 0.1); last = Math.max(last, now); frame(dt); unboot(); requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
   }
 }
