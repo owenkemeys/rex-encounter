@@ -148,6 +148,10 @@ class Prim {
       const yn = Math.max(-1, Math.min(1, p.y / (a[1] + a[3]))), bx = a[0] * (1 - a[4] * Math.max(yn, 0) - a[5] * Math.max(-yn, 0));
       return sdRoundBox(p.x, p.y, p.z, Math.max(bx, 0.004), a[1], a[2], a[3]);
     }
+    if (this.kind === 'vee') {   // a V-bottomed prism: apex line along z at the origin, sides rising `a[0]` per metre out, up to `a[1]`, cut at |x| = a[2], |z| = a[3], one half (a[5])
+      const s = a[0], r = a[4], ax = Math.abs(p.x), sm = (u, v) => { const h = Math.max(r - Math.abs(u - v), 0) / r; return Math.max(u, v) + h * h * r * 0.25; };     // its edges rounded over `r`
+      return Math.max(sm(sm((s * ax - p.y) / Math.hypot(1, s), ax - a[2]), sm(p.y - a[1], Math.abs(p.z) - a[3])), -a[5] * p.x);     // a[5]: the half on that side of the midline
+    }
     if (this.kind === 'cone') return sdCone(p.x, p.y, p.z, 0, 0, 0, 0, a[0], 0, a[1], a[2]);
     if (this.kind === 'slit') {
       // behind the last upper teeth (z < WEB.z) the lip cut stops short of the outer skin: what is left there, a wall from the
@@ -398,6 +402,9 @@ export const PUBIS = { len: PUBIS_LEN, shaftFwd: PUBIS_LEN * Math.sin(PUBIS_TILT
   // is one solid wedge, widest at the hips and narrowing down to the boot. A stack of `n` lobes from `top` to `bottom` (drops below the hip joint,
   // m), half width `wTop` to `wLow`, half height `h`, half length `len` [bottom, top] centred `fwd` ahead of the hip; they belong to the pelvis
   // alone within `own` x the keel's reach (small, so that no thigh skin is taken)
+  // the inner thighs' V (`vee`, owner 2026-11-18): its point `drop` below the hip joints, `fwd` ahead of them, its sides rising `slope` per metre out to `half`
+  // (inside the thighs) and up to `top`, `len` fore and aft, its edges rounded over `round`; one half a side, `femur` of it on that side's thigh
+  vee: { drop: 1.25, slope: 0.55, top: 0.6, half: 0.5, fwd: 0.05, len: 0.6, round: 0.2, k: 0.15, femur: 0.5 },
   wedge: { n: 7, top: -0.3, bottom: -1.02, wTop: 0.55, wLow: 0.09, h: 0.14, len: [0.5, 0.7], fwd: 0.1, own: 0.55 } };
 { const G = TUNE_G, R = 'reload', rg = (v) => (v >= 0 ? [v * 0.4, v * 2.5 + 0.02] : [v * 2.5 - 0.02, v * 0.4]);      // tune
   const T = (label, o, k, code) => { const r = rg(o[k]); tune(G, label, o, k, r[0], r[1], 0.005, null, code, R); };      // tune
@@ -405,6 +412,7 @@ export const PUBIS = { len: PUBIS_LEN, shaftFwd: PUBIS_LEN * Math.sin(PUBIS_TILT
   T('Pubic keel: half width (m)', PUBIS, 'w', 'pubis.w'); T('Pubic keel: half height (m)', PUBIS, 'h', 'pubis.h'); T('Pubic keel: runs into the belly over (m)', PUBIS, 'front', 'pubis.front'); T('Pubic keel: runs up to the tail over (m)', PUBIS, 'back', 'pubis.back');      // tune
   T('Pubic keel: seam softness beside the midline (m)', PUBIS, 'seam', 'pubis.seam'); T('Between the thighs: fog rim kept', PUBIS, 'rim', 'pubis.rim');      // tune
   T('Pubic keel: blend softness', PUBIS, 'k', 'pubis.k'); T('Pubic keel: sag', PUBIS, 'sag', 'pubis.sag'); T('Pubic keel: belly fullness', PUBIS, 'belly', 'pubis.belly'); T('Pubic shaft: forward lean (m)', PUBIS, 'shaftFwd', 'pubis.shaftFwd');      // tune
+  T('Inner thighs: V slope (rise per m out)', PUBIS.vee, 'slope', 'pubis.vee.slope'); T('Inner thighs: V point below the hips (m)', PUBIS.vee, 'drop', 'pubis.vee.drop'); T('Inner thighs: V half width (m)', PUBIS.vee, 'half', 'pubis.vee.half'); T('Inner thighs: V half length (m)', PUBIS.vee, 'len', 'pubis.vee.len');      // tune
   T('Pubic wedge: half width at the hips (m)', PUBIS.wedge, 'wTop', 'pubis.wedge.wTop'); T('Pubic wedge: half width at the keel (m)', PUBIS.wedge, 'wLow', 'pubis.wedge.wLow'); T('Pubic wedge: half length at the keel (m)', PUBIS.wedge.len, 0, 'pubis.wedge.len0'); T('Pubic wedge: half length at the hips (m)', PUBIS.wedge.len, 1, 'pubis.wedge.len1');      // tune
   T('Ischium: length (m)', PUBIS.isch, 'len', 'pubis.isch.len'); T('Ischium: angle (rad)', PUBIS.isch, 'ang', 'pubis.isch.ang'); T('Ischium: half width (m)', PUBIS.isch, 'w', 'pubis.isch.w'); T('Ischium: half height (m)', PUBIS.isch, 'h', 'pubis.isch.h');      // tune
 }      // tune
@@ -476,6 +484,11 @@ function buildPrims(pose, B, coarse = false, cell = 0.04) {
     // the ischium: down and back from the socket, a small tip under the tail base (two lobes along its line)
     const I = PB.isch;
     for (const q of [0.8, 1]) lobe(-I.len * q * Math.cos(I.ang), -I.len * q * Math.sin(I.ang) * 0.9 + 0.02, I.w, I.h, 0.2, PB.k, 0.12);
+    // the inner thighs (owner 2026-11-18, annotated: a broad V, not two deep slots): everything above a V whose point runs along the keel's
+    // bottom and whose sides rise to the thighs' inner faces is solid, so the thighs run down and in to the keel
+    // One half a side, weighted between the pelvis and that side's femur (like the thigh's top, SKIN3), so the skin shears as the leg swings
+    for (let k = 0; k < 2; k++) { const Q = PB.vee, sd = Math.sign(V().fromArray(v, (PV.LEG + k * LEG.SIZE) * 3).sub(hm).dot(pl)) || 1;
+      add('vee', frame(V().copy(hm).addScaledVector(pu, -Q.drop).addScaledVector(tilt, Q.fwd), pl, pu, tilt), [Q.slope, Q.top, Q.half, Q.len, Q.round, sd], [[IDX.PELVIS, 1 - Q.femur], [BONE.leg(k, 0), Q.femur]], { k: Q.k, sigma: 0.1 }); }
   }
   // anatomical landmarks: the hip shelf over the ilium, shoulders, throat
   {
@@ -731,7 +744,7 @@ export function buildRexGeometry(simPose, { cell = 0.04 } = {}) {
   // bounds
   const lo = V().set(Infinity, Infinity, Infinity), hi = V().set(-Infinity, -Infinity, -Infinity);
   for (const p of prims) {
-    const a = p.args, r = p.kind === 'cone' ? a[0] + Math.max(a[1], a[2]) : p.kind === 'box' || p.kind === 'tbox' ? Math.hypot(a[0], a[1], a[2]) + a[3] : p.kind === 'slit' ? 0 : Math.max(a[0], a[1], a[2]);
+    const a = p.args, r = p.kind === 'cone' ? a[0] + Math.max(a[1], a[2]) : p.kind === 'box' || p.kind === 'tbox' ? Math.hypot(a[0], a[1], a[2]) + a[3] : p.kind === 'slit' ? 0 : p.kind === 'vee' ? Math.hypot(a[1], a[2], a[3]) : Math.max(a[0], a[1], a[2]);
     p.rad = r + p.k + cell * 2;
     if (p.kind === 'cone') p.c.copy(V(0, a[0] / 2, 0).applyMatrix4(p.m)), p.rad = a[0] / 2 + Math.max(a[1], a[2]) + p.k + cell * 2;
     if (p.op === 'add') { lo.min(V().copy(p.c).subScalar(p.rad)); hi.max(V().copy(p.c).addScalar(p.rad)); }
