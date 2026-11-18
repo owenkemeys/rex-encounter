@@ -830,7 +830,7 @@ export class Mind {
     // (owner, after playing it: "i saw very few crash related thoughts ever": in a chase it is wound up nearly every time (91% of 11 knocks in
     //  a 5 min scripted chase), and it then said nothing or "not care". It still says something that reads as the knock: it hit, it presses on)
     if (wound) { this._say('crash', lvl === 'light' ? ['bump', 'bump. keep go', 'clip. go'] : ['ow. no stop', 'hit. keep go', 'hard thing. still chase', 'ow. not care. go', 'hit. no stop']); return; }
-    if (lvl === 'light') { this._say('crash', ['bump', 'bump. side', 'bump. ok']); return; }
+    if (lvl === 'light') { this._say('crash', ['bump. side', 'bump. ok']); return; }
     this.onPain(lvl === 'reel' ? 1.6 : 1);      // (painSpike: it feeds irritation as it fades)
     this.wary = { x: this.sim.x, z: this.sim.z, until: t + 20 };
     this._say('crash', lvl === 'reel' ? ['OW. head hurt', 'OW. head. hurt', 'ow! head hurt'] : ['ow. hard thing', 'ow. that hurt', 'ow. hard thing there']);
@@ -844,7 +844,7 @@ export class Mind {
     // 'contact' event itself goes to the view, not here): felt, a beat of surprise, remembered for a thought
     { const C = sim.crashS; if (C && typeof C.t === 'number') { if (C.t < (this._crashT0 ?? 99) - 0.01 && C.dur > 0) { const k = clamp((C.dur - 0.5) / 0.1, 1, 9); this.mem.crash = { t: this.t, k, hard: k >= 2.5 }; if (k >= 2) this.crashBeat = { t: this.t, until: this.t + Math.min(1.4, 0.5 + 0.12 * k), k }; this._onCrash(C, k); } this._crashT0 = C.t; } }
     // its head met something solid (rex.js: headTouch.kn goes back to 0 at each new touch): felt, remembered for a moment (a thought)
-    { const C = sim.headTouch; if (C && typeof C.kn === 'number') { if (C.kn < (this._bumpKn ?? 99) - 0.005 && this.t - (this.mem.bump ? this.mem.bump.t : -99) > 1) this.mem.bump = { t: this.t, part: C.part, hard: (sim.headPress || 0) > 1.5 }; this._bumpKn = C.kn; } }
+    { const C = sim.headTouch; if (C && typeof C.kn === 'number') { if (C.kn < (this._bumpKn ?? 99) - 0.005 && this.t - (this.mem.bump ? this.mem.bump.t : -99) > 1) this.mem.bump = { t: this.t, part: C.part, hard: (sim.headPress || 0) > 1.5, reach: !!(this.beh && this.beh.name === 'besiege' && this.beh.phase === 'probe') }; this._bumpKn = C.kn; } }
     const eyeTo = (x, y, z) => {
       const dx = x - h.pos.x, dy = y - h.pos.y, dz = z - h.pos.z, d = Math.hypot(dx, dy, dz) || 1, ang = Math.acos(clamp((dx * h.f.x + dy * h.f.y + dz * h.f.z) / d, -1, 1));
       const field = ang < SN.sharp ? 1 : ang < SN.mid ? 0.7 : ang < SN.field ? 0.3 : 0;
@@ -1024,7 +1024,11 @@ export class Mind {
       K.gait = steps ? (steps.fast ? 'run' : 'walk') : null;
     } else if (old) {
       // nothing reaches it: you are where it last had you, carried on the way you were going
-      K.target = { ...old, x: old.x + pv.vx * dt, z: old.z + pv.vz * dt, via };
+      // (a wall stops it: at the gatehouse you stopped by the west window out of its sight, the belief walked on west through the
+      //  wall, and it took you to have come out and went off to ambush you outside)
+      let nx = old.x + pv.vx * dt, nz = old.z + pv.vz * dt; const S0 = this.T.insideStructure ? this.T.insideStructure(old.x, old.z, old.y) : null;
+      if (S0 && this.T.insideStructure(nx, nz, old.y) !== S0) { nx = old.x; nz = old.z; pv.vx = 0; pv.vz = 0; }
+      K.target = { ...old, x: nx, z: nz, via };
     } else K.target = { ...a, vx: 0, vz: 0, speed: 0, via };
   }
   /** Where you tend to be: places it has seen you more than once (what an ambush is built on). */
@@ -1780,6 +1784,15 @@ export class Mind {
         const P = c.seen && a ? { x: a.x, y: a.y, z: a.z } : b.seenP && Math.hypot(this.sum.x - b.seenP.x, this.sum.z - b.seenP.z) < 2.5 ? { ...b.seenP } : inS === S ? { x: this.sum.x, y: this.T.height(this.sum.x, this.sum.z) + 1.0, z: this.sum.z } : { x: S.cx, y: this.T.height(S.cx, S.cz) + 1.0, z: S.cz };
         const name = S.name || 'there';      // naming only (the readout's name, not the animal's)
         I.noIdle = true; I.look = { ...P, lock: true };
+        // (the owner, 2026-11-18, at the gatehouse: "investigating HIM, not the building") its attention is on you in there, not on
+        // the walls. What it notices about you, for the thoughts (mind.fev): that you are in there, that you moved across, that the
+        // head did not reach, that it goes to another way in or waits by one, that you have gone quiet
+        const fv = this.fev || (this.fev = {}), inside = c.enclosed === S || c.beliefIn === S || inS === S, sure = c.seen || (inside && this.sum.cert > 0.5);
+        const fo = b.fo || (b.fo = { mk: { ...P }, said: false, quiet: false, waitSaid: false, chk: b.t + R.range(1, 2) });
+        if (c.seen) { b.seenAt = b.t; fo.quiet = false; }
+        if (inside && sure && !fo.said) { fo.said = true; fv.inT = this.t; }
+        if (c.seen && inside && Math.hypot(P.x - fo.mk.x, P.z - fo.mk.z) > 1.5) { fo.mk = { ...P }; fv.movedT = this.t; }
+        if (!c.seen && inside && this.sum.cert > 0.5 && b.t - (b.seenAt ?? 0) > 6 && !fo.quiet) { fo.quiet = true; fv.quietT = this.t; }
         // (re)plan when there is no plan, the target has moved, or the places are used up; the search is spread over ticks
         const moved = b.planP && Math.hypot(P.x - b.planP.x, P.y - b.planP.y, P.z - b.planP.z) > 1.3;
         if (!b.pg && (!b.spots || moved || b.si >= b.spots.length) && b.phase !== 'wait') {
@@ -1788,9 +1801,17 @@ const used = this._siegeUsed(S);      // (ways in it has already had its head at
 b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { avoid: b.avoid, keep: [{ x: P.x, z: P.z, y0: Math.min(P.y, gP + 0.85), y1: Math.max(P.y, gP + 1.7), r: 1.55 }], bias: (E) => { let k = 0; for (const U of used) { const dd = Math.hypot(U.x - E.x, U.z - E.z); if (dd < 3.5) k += 1.6 * (1 - dd / 3.5); } return k; } }) : null;
           if (!b.pg) { b.phase = 'wait'; b.at = b.t; }
         }
-        if (b.pg) { for (let i = 0; i < 2; i++) { const r = b.pg.next(); if (r.done) { b.spots = r.value; b.si = 0; b.pg = null; this._reach().plan(this.T, sim.nav, { x: sim.x, z: sim.z }, b.planP, b.spots, this.t); b.planned = (b.planned || 0) + 1; if (b.phase !== 'wait') { b.phase = b.spots.length ? 'go' : 'wait'; b.at = b.t; } break; } } }
+        if (b.pg) { for (let i = 0; i < 2; i++) { const r = b.pg.next(); if (r.done) { b.spots = r.value; b.si = 0; b.pg = null; this._reach().plan(this.T, sim.nav, { x: sim.x, z: sim.z }, b.planP, b.spots, this.t); b.planned = (b.planned || 0) + 1;
+            // planned afresh because you moved: the gap it has its head at stays its gap unless another is nearer you by a clear margin
+            // (then that is a move round to it); kept, the head stays at it and turns to you there, no walk back to line up again
+            const L = b.lastE, k0 = L && b.spots.length ? b.spots.findIndex((q) => Math.hypot(q.E.x - L.x, q.E.z - L.z) < 2.5) : -1;
+            let keep = false;
+            if (k0 > 0 && Math.hypot(b.spots[k0].E.x - P.x, b.spots[k0].E.z - P.z) - 1.2 < Math.hypot(b.spots[0].E.x - P.x, b.spots[0].E.z - P.z)) { b.spots.unshift(b.spots.splice(k0, 1)[0]); keep = true; }
+            else if (k0 === 0) keep = true;
+            else if (L && b.spots.length && sure && inside) { fv.otherT = this.t; fv.otherK = 'switch'; b.needWd = true; }
+            if (b.phase !== 'wait') { const was = b.phase; b.phase = !b.spots.length ? 'wait' : keep && was === 'probe' ? 'probe' : 'go'; if (b.phase !== was || !keep) { b.at = b.t; b.fitT = 0; } } break; } } }
         const sp = b.spots && b.si < b.spots.length ? b.spots[b.si] : null;
-        if (sp) b.shape = sp.shape;      // what the way in looks like, for the thoughts (low, narrow, roofed, under...)
+        if (sp) { b.shape = sp.shape; b.lastE = sp.E; }      // what the way in looks like, for the thoughts (low, narrow, roofed, under...)
         // before the body moves off, a head that is in among things comes back out the way it went in (along the planned axis, or
         // straight back along the skull), however it got there
         const withdraw = () => {
@@ -1799,6 +1820,18 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
           b.wd = { H: { x: h.pos.x - d.x * bk, y: h.pos.y - d.y * bk + 0.15, z: h.pos.z - d.z * bk }, d, low: sim.lowness, back: 0.3, key: 'w' + b.t.toFixed(2), until: b.t + 8, from: b.t, best: 99 };
         };
         const fail = (w) => { withdraw(); if (sp) { b.avoid.push({ ...sp.E, s: sp.eye, w }); this._siegeUse(S, sp.E); } b.lined = false; b.si++; b.tried++; b.sub = 'shift'; const nx = b.spots && b.spots[b.si]; b.phase = nx && Math.hypot(nx.B.x - sim.x, nx.B.z - sim.z) < 1.0 ? 'probe' : 'go'; b.at = b.t; b.fitT = 0; };
+        // the way in it works is the one nearest where it believes you are: every second or two it asks whether another gap it
+        // has found (not this one) is nearer you by a clear margin, and if so draws its head out and goes round to that one, planned
+        // afresh for where you are now (the margin keeps it from flipping between two gaps while you stand between them)
+        if (b.needWd) { b.needWd = false; withdraw(); b.thereT = 0; b.lined = false; b.sub = 'shift'; }
+        if (b.t > fo.chk) {
+          fo.chk = b.t + R.range(1, 2);
+          if (sp && b.spots && !b.pg && !b.wd && (b.phase === 'go' || b.phase === 'probe') && b.sub !== 'strike' && b.sub !== 'close' && sure && inside) {
+            let bd = Math.hypot(sp.E.x - P.x, sp.E.z - P.z) - 1.2, best = null;
+            for (const q of b.spots) { if (Math.hypot(q.E.x - sp.E.x, q.E.z - sp.E.z) < 2.5) continue; const dq = Math.hypot(q.E.x - P.x, q.E.z - P.z); if (dq < bd) { bd = dq; best = q; } }
+            if (best) { withdraw(); b.spots = null; b.planP = null; b.thereT = 0; b.lined = false; b.phase = 'go'; b.at = b.t; b.fitT = 0; b.sub = 'shift'; fv.otherT = this.t; fv.otherK = 'switch'; break; }
+          }
+        }
         if (b.wd && b.phase !== 'wait') {
           // first the head comes back out the way it went in, the body still; only then does it move off
           // (when the neck has drawn back all it can and the head is still in, the body backs a step straight out behind it)
@@ -1820,7 +1853,7 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
           // work below turns it onto the line and walks it in, as a driver follows a lane)
           const fx = Math.sin(sp.yaw), fz = Math.cos(sp.yaw), bk = { x: sp.B.x - fx * (sp.back + 2.5), z: sp.B.z - fz * (sp.back + 2.5) };
           const efB = (sp.B.x - fx * sp.back - sim.x) * fx + (sp.B.z - fz * sp.back - sim.z) * fz;      // how far behind the lining-up stance, along the line
-          I.goal = { kind: 'move', id: b.gen * 1000 + b.si, x: bk.x, z: bk.z, last: true }; I.pace = c.seen ? 2.0 : 1.6;
+          I.goal = { kind: 'move', id: b.gen * 1000 + b.si, x: bk.x, z: bk.z, last: true }; I.pace = fv.otherT === this.t || (fv.otherK === 'switch' && this.t - fv.otherT < 20 && sure) ? 2.6 : c.seen ? 2.0 : 1.6;      // (round to the gap nearest you: brisk)
           // (walking round to the next way in, its eyes go to that gap when the wall is between it and you: a head turned at you
           //  through the planks dragged its snout along them, NOTES4)
           { const hp = sim.head.pos; if (this.T.segClear && !this.T.segClear(hp.x, hp.y, hp.z, P.x, P.y, P.z, 0.12)) I.look = Math.hypot(bk.x - sim.x, bk.z - sim.z) > 3 ? { x: bk.x + Math.sin(sp.yaw) * 6, y: hp.y, z: bk.z + Math.cos(sp.yaw) * 6, lock: true } : { x: sp.E.x, y: sp.E.y, z: sp.E.z, lock: true }; }      // (on the way: where it walks; at the stance: the gap)
@@ -1891,6 +1924,8 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
             //  him, over and over, the body standing 5 m off the wall. Through a gap it closes up first, the body stepping up behind the head, and only
             //  bites when the jaws can reach; a body that will not come on any nearer, or a way that does not take it, is given up for the next place)
             const tipD = a ? Math.hypot(sim.head.pos.x + sim.head.f.x * this.sp.dims.headLen - a.x, sim.head.pos.y + sim.head.f.y * this.sp.dims.headLen - (a.y - 0.4), sim.head.pos.z + sim.head.f.z * this.sp.dims.headLen - a.z) : 99;
+            // (its head is in the gap and you are still beyond its jaws: the reach falls short; once a visit, for the thoughts)
+            if (b.shortAt !== b.thereT && c.seen && sure && inside && tipD > 1.5 && b.t - b.thereT > 1.5) { b.shortAt = b.thereT; fv.shortT = this.t; }
             const closing = !!a && (thru || c.aff.reach) && tipD > 1.5 && !(b.strikeAt !== undefined && b.t - b.strikeAt < 1.4);
             if (closing) {
               if (b.closeT === undefined || tipD < (b.closeBest ?? 99) - 0.1) { b.closeBest = tipD; b.closeT = b.t; }
@@ -1923,6 +1958,11 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
           if (b.tried >= 7 && !c.seen) { b.phase = 'wait'; b.at = b.t; b.k = b.exitK !== undefined && b.exitK >= 0 ? b.exitK : 0; b.memoWait = b.exitK !== undefined && b.exitK >= 0; }
         } else if (b.phase !== 'wait') { b.phase = 'wait'; b.at = b.t; b.k = 0; }
         if (b.phase === 'wait') {
+          if (!fo.waitSaid && inside && sure) {      // (it will have you when you come out: one way out of two or more it can watch)
+            fo.waitSaid = true; fv.otherT = this.t; const G = [];
+            for (const E of [...(b.spots || []).map((q) => q.E), ...this._siegeUsed(S), ...S.openings.filter((o) => !o.up)]) if (!G.some((g) => Math.hypot(g.x - E.x, g.z - E.z) < 2.5)) G.push(E);
+            fv.otherK = G.length >= 2 ? 'watch' : 'wait';
+          }
           // the oldest trick: stand back from the way out, and wait
           // (NOTES4: it had stood 9 m straight out in front of a door, in full view of it, and given each up in ~25 s: now it waits
           //  close beside the way out nearest where it believes you are, out of the line through it, where you will hear its breath;
