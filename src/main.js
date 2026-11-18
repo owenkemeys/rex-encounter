@@ -1143,7 +1143,7 @@ async function boot() {
     if (S.replay || S.clipLive) return;
     const sc = desk.screenAt(), near = camera.position.distanceTo(sc) < FEED_NEAR, lowOver = Q.tier === 'low' && M.t > FEED_LOW;
     if (!near || lowOver || S.mode !== 'foot') { if (!M.off) { M.off = true; desk.noSignal((feedDir.cam.mount && feedDir.cam.mount.cam) || 1); } return; }
-    frus.setFromProjectionMatrix(frusM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    camera.updateMatrixWorld(); frus.setFromProjectionMatrix(frusM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
     if (!frus.containsPoint(sc)) return;      // close but looking away: nothing drawn, the screen keeps what it had
     if (M.acc < 1 / FEED_HZ) return;
     feedDir.update(Math.min(M.acc, 1), sim, mind, desk.feedCam); feedDir.noises.length = 0; feedDir.drop = null; M.acc = 0;
@@ -1274,7 +1274,7 @@ async function boot() {
     ov.update(sim, blend, S.mindOn ? (mind.intent.goal && mind.intent.goal.kind === 'reach' ? mind.intent.goal : null) : S.goal, null, 9);
     ov.updateSenses(sim, mind);
     audio.breath(shown.s[1], camera.position.distanceTo(S.replay ? rpx.head.pos : sim.head.pos));
-    if (!S.noRender && !swapping) { try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.gate && post) { if (post.cctv) desk.grab(canvas, performance.now() / 1000); else if (++gateWarm === 3 && post.setCCTV) post.setCCTV(true); } if (desk && S.gate) monitorTick(dtReal); }      // clip: copy the picture right after the render
+    if (!S.noRender && !swapping) { if (desk && S.gate) monitorTick(dtReal); try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.gate && post && !post.cctv && ++gateWarm === 3 && post.setCCTV) post.setCCTV(true); }      // the monitor before the frame that shows it; clip: copy the picture right after the render
 
     S.fps += (1 / Math.max(dtReal, 1e-3) - S.fps) * 0.05;
     // hold the frame rate: resolution (fast) and the quality level (slow), from measured frame times (src/view/quality.js)
