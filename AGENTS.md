@@ -17,7 +17,7 @@ npm i
 npm start            # builds dist/app.js, serves dist/ on http://localhost:8080
 ```
 
-Useful URL hashes: `#tune` (tuning sliders), `#debug` (debug drawer, crash tests, gait demos, note box), `#webgl` (force WebGL2), `#perf`, `#quality-low|medium|high`, `#crash=headon|glancing|corner|barn|gate|post|bamboo` (run one crash test after load).
+Useful URL hashes: `#tune` (tuning sliders), `#debug` (debug drawer, crash tests, gait demos, note box), `#webgl` (force WebGL2), `#perf`, `#quality-low|medium|high`, `#crash=headon|glancing|corner|barn|gate|post|bamboo` (run one crash test after load). `#nogate` (the old open-field opening instead of the gatehouse start).
 In play: backtick opens the debug drawer; the pause card has a "debug tools" button for phones.
 
 `dist/app.js` is build output and is not committed. Everything else in `dist/` (page, audio, assets) is source.
@@ -75,7 +75,7 @@ It is one app, not yet packages. The seams are already clean enough to split lat
 **Next, in the owner's priority order** (reordered by him 2026-11-17, late; details and his words in `notes/TODO.md` and `notes/QUEUE.md`):
 1. Incident number on the closeout card = all-time play session number (N1): per-device count now, a global counter with a fallback next.
 2. iPhone clip-sound check: the owner trials it himself and reports back (fixes in `src/view/clip.js`; each clip logs `[clip] audio`). Also unchecked on a real iPhone: sound returning after app switch, the touch layout's comfort, portrait.
-3. Gatehouse start, agreed design in `notes/TODO.md`: CCTV monitor splash, look-up transition, rex peers in the window, its pull toward the kids, hold its attention. Build in that order; the owner plays each step before the next.
+3. Gatehouse start, agreed design in `notes/TODO.md` (step 1, the CCTV splash and look-up, built 2026-11-17, awaiting the owner): CCTV monitor splash, look-up transition, rex peers in the window, its pull toward the kids, hold its attention. Build in that order; the owner plays each step before the next.
 4. Ocarina-style reactive ground fog (N2): feasibility to check.
 5. New pseudo-emergent behaviours (P7 has a candidate list).
 Parked: the doors (T21), for a general asset pass ("the doors actually work more than i thought, just that some are janky").

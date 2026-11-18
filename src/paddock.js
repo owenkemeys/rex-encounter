@@ -88,7 +88,10 @@ export const LAYOUT = {
   // animal about 38 m off on the Lawn in plain view. A respawn takes whichever of `respawn` is farthest from the animal (at least
   // 40 m, out of its sight line if one is) so a new life is never a second death; `spawn` above is the fallback.
   spawns: {
-    first: { you: { x: -4, z: 58 }, rex: { x: -4, z: 20 } },      // between the Barn (17 m E) and the Containers (20 m W), the berm 12 m ahead; the animal faces you, the berm's end clear of the line
+    first: { you: { x: -4, z: 58 }, rex: { x: -4, z: 20 } },
+    // the gatehouse start (main.js GATE): the opening is the gatehouse's security camera on the animal sniffing round outside; on
+    // "click to begin" you are the guard at the monitor (at `guard`, facing the wide east window) and look up from it
+    gate: { guard: { x: -6.6, z: 95 }, window: { x: -4, z: 95 }, rex: { x: 7, z: 89, yaw: -2.2 }, near: { x: 1.5, z: 91 }, cam: { x: -3.7, y: 3.6, z: 92.3 } },      // between the Barn (17 m E) and the Containers (20 m W), the berm 12 m ahead; the animal faces you, the berm's end clear of the line
     respawn: [
       { name: 'the Barn', x: 30, z: 49 },            // 14 m off its south face
       { name: 'the Ruins', x: -30, z: 20 },          // 16 m off their east side
@@ -280,7 +283,7 @@ export function makePaddock(seed = 7) {
   // ---- the Gatehouse by the shut main gate
   {
     const S = frame('gatehouse', 'gatehouse', 'the Gatehouse', -7, 95, 0, 3, 2.5, 3, { mat: 'concrete', doorMat: 'steel' });
-    rect(S, 3, 2.5, 3, 0.3, [[2, 0.6, 1.0, 0, 2.1, { tag: 'S', type: 'person', state: 'open' }], [1, 0, 1.7, 0.9, 2.7, { tag: 'wE', type: 'shutter', leaves: 2, state: 'open' }], [3, 0, 1.0, 0.9, 2.1]], 'concrete');
+    rect(S, 3, 2.5, 3, 0.3, [[2, 0.6, 1.0, 0, 2.1, { tag: 'S', type: 'person', state: 'closed' }], [1, 0, 1.7, 0.9, 2.7, { tag: 'wE', type: 'shutter', leaves: 2, state: 'open' }], [3, 0, 1.0, 0.9, 2.1]], 'concrete');
     S.roof = 3; S.hide = { x: -7.6, z: 95.6 }; roofOf(S, 0.3);
     for (let lz = -2.5; lz <= 2.51; lz += 0.7) slabL(S, -3, lz, 3, lz, 0.5, 3.0, 3.3, 'concrete');      // a concrete roof the head cannot come down through
     refuges.push({ name: 'gatehouse', of: 'gatehouse', rect: [-9.7, 92.8, -4.3, 97.2], y: null });
