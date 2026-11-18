@@ -388,20 +388,22 @@ export const FOOTSKIN = { width: [0.102, 0.114, 0.102], pad: 0.06, top: 0.062, p
 // pelvis' frame: `fwd` ahead (+) or behind, `drop` below. `soft`: flesh under the bone. `toe`, `heel`: the boot's flat bottom from its
 // front toe to its back end, relative to the shaft's end. `w`, `h`: half width and half height of the keel's section.
 // `front`, `back`: the distance over which it runs into the belly ahead and up to the tail base behind. `cleft`: half widths (m) between which its blend with other shapes fades to a hard join (it blends with the belly on the midline, not with the thighs); `own`: how far (m) from its own lobes a vertex still belongs to the pelvis alone.
+// `seam`: the softness (m) of that join beside the midline (it was 0.004, a hard crease). `rim`: how much of the hide's fog rim (body.js) is left in the occluded space between the thighs.
 const FEMUR = TYRANNOSAURUS.dims.femur, PUBIS_LEN = 0.9 * FEMUR, PUBIS_TILT = 12 * Math.PI / 180;
 export const PUBIS = { len: PUBIS_LEN, shaftFwd: PUBIS_LEN * Math.sin(PUBIS_TILT), drop: PUBIS_LEN * Math.cos(PUBIS_TILT) + 0.06 + 0.0, boot: 0.62 * PUBIS_LEN, toe: 0.2, heel: 0.59,
-  w: 0.06, h: 0.15, front: 0.8, back: 0.35, k: 0.15, sag: 0.05, belly: 0.8, cleft: [0.1, 0.18], own: [0.09, 0.17],
+  w: 0.06, h: 0.15, front: 0.8, back: 0.35, k: 0.15, sag: 0.05, belly: 0.8, cleft: [0.1, 0.18], seam: 0.04, rim: 0.1, own: [0.09, 0.17],
   isch: { len: 0.75 * FEMUR, ang: 50 * Math.PI / 180, w: 0.09, h: 0.09 },
   // the wedge (owner: "it was actually more of a hoop that even had a void between it and the pelvis"): the pubis is buried in the body wall,
   // the space between its shaft, the belly ahead and the ischium behind is muscle and the floor of the body cavity, so between the legs the trunk
   // is one solid wedge, widest at the hips and narrowing down to the boot. A stack of `n` lobes from `top` to `bottom` (drops below the hip joint,
   // m), half width `wTop` to `wLow`, half height `h`, half length `len` [bottom, top] centred `fwd` ahead of the hip; they belong to the pelvis
   // alone within `own` x the keel's reach (small, so that no thigh skin is taken)
-  wedge: { n: 7, top: -0.3, bottom: -1.0, wTop: 0.22, wLow: 0.1, h: 0.14, len: [0.5, 0.7], fwd: 0.1, own: 0.55 } };
+  wedge: { n: 7, top: -0.3, bottom: -1.02, wTop: 0.55, wLow: 0.09, h: 0.14, len: [0.5, 0.7], fwd: 0.1, own: 0.55 } };
 { const G = TUNE_G, R = 'reload', rg = (v) => (v >= 0 ? [v * 0.4, v * 2.5 + 0.02] : [v * 2.5 - 0.02, v * 0.4]);      // tune
   const T = (label, o, k, code) => { const r = rg(o[k]); tune(G, label, o, k, r[0], r[1], 0.005, null, code, R); };      // tune
   T('Pubic boot: how far it drops (m)', PUBIS, 'drop', 'pubis.drop'); T('Pubic boot: length of the boot (m)', PUBIS, 'boot', 'pubis.boot'); T('Pubic boot: toe (forward point)', PUBIS, 'toe', 'pubis.toe'); T('Pubic boot: heel (rear point)', PUBIS, 'heel', 'pubis.heel');      // tune
   T('Pubic keel: half width (m)', PUBIS, 'w', 'pubis.w'); T('Pubic keel: half height (m)', PUBIS, 'h', 'pubis.h'); T('Pubic keel: runs into the belly over (m)', PUBIS, 'front', 'pubis.front'); T('Pubic keel: runs up to the tail over (m)', PUBIS, 'back', 'pubis.back');      // tune
+  T('Pubic keel: seam softness beside the midline (m)', PUBIS, 'seam', 'pubis.seam'); T('Between the thighs: fog rim kept', PUBIS, 'rim', 'pubis.rim');      // tune
   T('Pubic keel: blend softness', PUBIS, 'k', 'pubis.k'); T('Pubic keel: sag', PUBIS, 'sag', 'pubis.sag'); T('Pubic keel: belly fullness', PUBIS, 'belly', 'pubis.belly'); T('Pubic shaft: forward lean (m)', PUBIS, 'shaftFwd', 'pubis.shaftFwd');      // tune
   T('Pubic wedge: half width at the hips (m)', PUBIS.wedge, 'wTop', 'pubis.wedge.wTop'); T('Pubic wedge: half width at the keel (m)', PUBIS.wedge, 'wLow', 'pubis.wedge.wLow'); T('Pubic wedge: half length at the keel (m)', PUBIS.wedge.len, 0, 'pubis.wedge.len0'); T('Pubic wedge: half length at the hips (m)', PUBIS.wedge.len, 1, 'pubis.wedge.len1');      // tune
   T('Ischium: length (m)', PUBIS.isch, 'len', 'pubis.isch.len'); T('Ischium: angle (rad)', PUBIS.isch, 'ang', 'pubis.isch.ang'); T('Ischium: half width (m)', PUBIS.isch, 'w', 'pubis.isch.w'); T('Ischium: half height (m)', PUBIS.isch, 'h', 'pubis.isch.h');      // tune
@@ -740,15 +742,33 @@ export function buildRexGeometry(simPose, { cell = 0.04 } = {}) {
   const idx = (i, j, k) => i + nx * (j + ny * k);
   const smin = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; };
   const smax = (a, b, k) => -smin(-a, -b, k);
-  // the pubic boot is added last, and blends only on the midline (PUBIS.cleft): beside it the thighs' inner faces stay their own smooth slabs
-  for (const p of prims.filter((q) => !q.boot).concat(prims.filter((q) => q.boot))) {
-    if (p.op === 'cut') continue;
-    const i0 = Math.max(0, Math.floor((p.c.x - p.rad - lo.x) / cell)), i1 = Math.min(nx - 1, Math.ceil((p.c.x + p.rad - lo.x) / cell));
-    const j0 = Math.max(0, Math.floor((p.c.y - p.rad - lo.y) / cell)), j1 = Math.min(ny - 1, Math.ceil((p.c.y + p.rad - lo.y) / cell));
-    const k0 = Math.max(0, Math.floor((p.c.z - p.rad - lo.z) / cell)), k1 = Math.min(nz - 1, Math.ceil((p.c.z + p.rad - lo.z) / cell));
+  const span = (p) => [Math.max(0, Math.floor((p.c.x - p.rad - lo.x) / cell)), Math.min(nx - 1, Math.ceil((p.c.x + p.rad - lo.x) / cell)),
+    Math.max(0, Math.floor((p.c.y - p.rad - lo.y) / cell)), Math.min(ny - 1, Math.ceil((p.c.y + p.rad - lo.y) / cell)),
+    Math.max(0, Math.floor((p.c.z - p.rad - lo.z) / cell)), Math.min(nz - 1, Math.ceil((p.c.z + p.rad - lo.z) / cell))];
+  for (const p of prims) {
+    if (p.op === 'cut' || p.boot) continue;
+    const [i0, i1, j0, j1, k0, k1] = span(p);
     for (let k = k0; k <= k1; k++) for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const d = p.sd(lo.x + i * cell, lo.y + j * cell, lo.z + k * cell), n = idx(i, j, k);
-      F[n] = smin(F[n], Math.max(d, -0.5), p.boot ? Math.max(0.004, p.k * (1 - ss(PUBIS.cleft[0], PUBIS.cleft[1], Math.abs(lo.x + i * cell)))) : p.k);
+      F[n] = smin(F[n], Math.max(d, -0.5), p.k);
+    }
+  }
+  // the pubic boot and its wedge are added last, as one shape of their own: its lobes blend smoothly with each other (each one
+  // laid straight onto the body with a hard join, the wedge's flanks were a stack of beads with dark pits between them and the
+  // thighs), then the whole keel joins the body softly only on the midline (PUBIS.cleft): beside it the thighs' inner faces stay
+  // their own smooth slabs
+  { const boot = prims.filter((q) => q.boot && q.op !== 'cut');
+    if (boot.length) {
+      let I0 = nx, I1 = 0, J0 = ny, J1 = 0, K0 = nz, K1 = 0;
+      for (const p of boot) { const [i0, i1, j0, j1, k0, k1] = span(p); I0 = Math.min(I0, i0); I1 = Math.max(I1, i1); J0 = Math.min(J0, j0); J1 = Math.max(J1, j1); K0 = Math.min(K0, k0); K1 = Math.max(K1, k1); }
+      const bx = I1 - I0 + 1, by = J1 - J0 + 1, bz = K1 - K0 + 1, FB = new Float32Array(bx * by * bz).fill(0.5), bi = (i, j, k) => (i - I0) + bx * ((j - J0) + by * (k - K0));
+      for (const p of boot) {
+        const [i0, i1, j0, j1, k0, k1] = span(p);
+        for (let k = k0; k <= k1; k++) for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const n = bi(i, j, k); FB[n] = smin(FB[n], Math.max(p.sd(lo.x + i * cell, lo.y + j * cell, lo.z + k * cell), -0.5), p.k); }
+      }
+      for (let k = K0; k <= K1; k++) for (let j = J0; j <= J1; j++) for (let i = I0; i <= I1; i++) {
+        const n = idx(i, j, k); F[n] = smin(F[n], FB[bi(i, j, k)], Math.max(PUBIS.seam, PUBIS.k * (1 - ss(PUBIS.cleft[0], PUBIS.cleft[1], Math.abs(lo.x + i * cell)))));
+      }
     }
   }
   // field lookups in head space (bind pose: the jaw is shut, so skull and jaw share the frame)
@@ -1230,7 +1250,7 @@ export function paintRex(g, { lo = false } = {}) {
   // skin folds: where the hide bunches (neck base, throat, armpit, elbow, knee, ankle, groin) a mask, and a coordinate
   // along the bone chain the vertex rides (arc length down the spine into the head, or down a leg or arm), so the creases
   // run across the neck or limb the way skin bunches when it bends, and stay put on the skin under skinning
-  const fold = new Float32Array(nv), fs = new Float32Array(nv);
+  const fold = new Float32Array(nv), fs = new Float32Array(nv), rim = new Float32Array(nv).fill(1);
   const PI = g.paintIndex || g.skinIndex, PW = g.paintWeight || g.skinWeight;
   const B = g.bind, bAxis = [], bPos = [], cum = new Float32Array(BONE_COUNT), chain = new Int8Array(BONE_COUNT);
   for (let b = 0; b < BONE_COUNT; b++) {
@@ -1238,6 +1258,12 @@ export function paintRex(g, { lo = false } = {}) {
     bAxis.push(limbY ? [e[4], e[5], e[6]] : [e[8], e[9], e[10]]); bPos.push([e[12], e[13], e[14]]);
   }
   const dist = (a, b) => Math.hypot(bPos[a][0] - bPos[b][0], bPos[a][1] - bPos[b][1], bPos[a][2] - bPos[b][2]);
+  // between the thighs (owner 2026-11-18: "large strange spherical-ish voids carved out of the pubic keel and the thighs"): the
+  // walls of the deep space between the legs face across it, so from behind or below they are seen edge-on, and the hide's
+  // fog-coloured fresnel rim (body.js, meant for the silhouette against the storm) lit them as pale streaked hollows. That
+  // space is occluded, the storm's light cannot reach it: `rim` (0..1, per vertex) takes the rim away there
+  const hipA = bPos[BONE.leg(0, 0)], hipB = bPos[BONE.leg(1, 0)], hip0 = [0, 1, 2].map((c) => (hipA[c] + hipB[c]) / 2), hipW = Math.abs(hipA[0] - hipB[0]) / 2;
+  const groin = (x, y, z) => ss(hipW * 1.3, hipW * 0.9, Math.abs(x - hip0[0])) * ss(hip0[1] - 0.1, hip0[1] - 0.4, y) * ss(1.4, 1.0, Math.abs(z - hip0[2]));
   for (let b = 1; b < SPINE_N; b++) cum[b] = cum[b - 1] + dist(b, b - 1);
   cum[BONE.SKULL] = cum[SPINE_N - 1] + dist(BONE.SKULL, SPINE_N - 1); cum[BONE.JAW] = cum[BONE.SKULL];
   for (let k = 0; k < 2; k++) {
@@ -1348,6 +1374,7 @@ export function paintRex(g, { lo = false } = {}) {
     const mot = tag === 3 ? 0.95 + 0.1 * n2 : 0.82 + 0.3 * n2 + (lo ? 0.3 : 0.12) * (n1 - 0.5);
     // (the toes and the ankle are all crease to a hand's-breadth probe: their occlusion is halved near the ground)
     const ao = 1 - 0.62 * g.cavity[i] * (1 - 0.8 * webM) * (1 - 0.5 * ss(1.0, 0.3, y));
+    rim[i] = tag === 0 ? 1 - (1 - PUBIS.rim) * groin(x, y, z) * ss(0.3, 0.7, g.cavity[i]) : 1;
     rough[i] = r + 0.08 * (n2 - 0.5);
     // scale size (0 = the big pebbles of the back and flanks, 1 = fine): finer down the belly and inner thighs,
     // on the neck toward the head, and on the lower legs and feet
@@ -1394,5 +1421,5 @@ export function paintRex(g, { lo = false } = {}) {
       rough[i] = t === 5 ? 0.32 : t === 6 ? 0.6 : 0.66; face[i] = 1; scute[i] = 0; scl[i] = 1; fold[i] = -g.webU[i]; fs[i] = 0;
     }
   }
-  return { color: col, rough, scl, face, scute, fold, fs };
+  return { color: col, rough, scl, face, scute, fold, fs, rim };
 }

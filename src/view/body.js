@@ -110,7 +110,7 @@ function skinMaterial(wet, lo, E, NOS, jaw) {
   // geometric specular anti-aliasing: where the surface normal turns fast across a pixel (the jaw, lips, throat creases
   // at range) widen the highlight instead of letting it break into bright stair-stepped flecks
   const nVar = fwidth(normalView).length();
-  const V = normalize(cameraPosition.sub(positionWorld)), fr = pow(float(1).sub(clamp(dot(normalWorld, V), 0, 1)), 4);
+  const V = normalize(cameraPosition.sub(positionWorld)), fr = pow(float(1).sub(clamp(dot(normalWorld, V), 0, 1)), 4).mul(attribute('rim', 'float'));      // rim: none in the occluded space between the thighs (rexgeo paintRex)
   if (lo) {
     // phones: one cell field (pebbles, coarser than the high tier's), the folds (a sine: nearly free), no undulation
     // phones: pebbles on the body; on the head, where the player looks from a metre or two, a finer field of its own with
@@ -339,18 +339,18 @@ export class RexBody {
     // pipelines failed validation and the body vanished, leaving the eyes and teeth. WebGL2 (16 attributes) never noticed.
     // Now: position, normal, color, this, skinIndex, skinWeight = 6 buffers. The attribute names are unchanged.
     {
-      const n = geo.position.length / 3, S = 12, a = new Float32Array(n * S), P = geo.restTex || geo.position, H = geo.headPos;
-      const one = [paint.rough, paint.scl, paint.face, paint.scute, paint.fold, paint.fs];
+      const n = geo.position.length / 3, S = 13, a = new Float32Array(n * S), P = geo.restTex || geo.position, H = geo.headPos;
+      const one = [paint.rough, paint.scl, paint.face, paint.scute, paint.fold, paint.fs, paint.rim];
       for (let i = 0; i < n; i++) {
         const o = i * S;
         a[o] = P[i * 3]; a[o + 1] = P[i * 3 + 1]; a[o + 2] = P[i * 3 + 2];
         a[o + 3] = H[i * 3]; a[o + 4] = H[i * 3 + 1]; a[o + 5] = H[i * 3 + 2];
-        for (let k = 0; k < 6; k++) a[o + 6 + k] = one[k][i];
+        for (let k = 0; k < 7; k++) a[o + 6 + k] = one[k][i];
       }
       const ib = new THREE.InterleavedBuffer(a, S);
       g.setAttribute('rest', new THREE.InterleavedBufferAttribute(ib, 3, 0));
       g.setAttribute('hp', new THREE.InterleavedBufferAttribute(ib, 3, 3));
-      ['rough', 'scl', 'face', 'scute', 'fold', 'fs'].forEach((k, j) => g.setAttribute(k, new THREE.InterleavedBufferAttribute(ib, 1, 6 + j)));
+      ['rough', 'scl', 'face', 'scute', 'fold', 'fs', 'rim'].forEach((k, j) => g.setAttribute(k, new THREE.InterleavedBufferAttribute(ib, 1, 6 + j)));
     }
     g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(geo.skinIndex, 4));
     g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(geo.skinWeight, 4));
