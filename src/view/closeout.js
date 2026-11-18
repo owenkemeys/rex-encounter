@@ -194,8 +194,6 @@ export function pick(fx, rng = Math.random, recent = []) {
 /** The sentence only. The index of the phrasing chosen is left in `advice.lastIndex` for the caller's `recent` list. */
 export function advice(fx, rng = Math.random, recent = []) { const r = pick(fx, rng, recent); advice.lastIndex = r.index; return r.text; }
 advice.lastIndex = -1;
-/** "No. 0047": the session's death count plus a stable-looking offset. */
-export const incidentNo = (deaths) => String(40 + Math.max(1, deaths | 0)).padStart(4, '0');
 
 // ------------------------------------------------------------------ the card
 const CREAM = '#f3e9c9', INK = '#1d2a22', AMBER = '#f2a21b', BOX = '#18231c';

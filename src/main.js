@@ -21,6 +21,7 @@ import { touchLayout } from './touchlayout.js';
 import { GAIT_DEMOS, GAIT_CAM, GaitMeter } from './gaitdemo.js';      // gait demos
 import { detectQuality, backendPreference, QualityController, qualityMenu } from './view/quality.js';
 import { createTelemetry, NO_TELEMETRY } from './telemetry.js';
+import { countRun } from './runs.js';
 
 const DT = 1 / 120;
 const PERSON_SLOPE = 1.0, PERSON_DROP = 2.2;      // steepest ground (rise over run) a person on foot can scramble up: the Bluff, the Overlook's faces and the Crags are not
@@ -266,7 +267,7 @@ async function boot() {
         if (d < 18 || S.mode === 'fly') { const a = sim.psi + 0.5; x = sim.x + Math.sin(a) * 35; z = sim.z + Math.cos(a) * 35; }
         Y.x = Y.px = x; Y.z = Y.pz = z; Y.yaw = Math.atan2(-(sim.x - x), -(sim.z - z)); Y.pitch = 0.12;
       }
-      S.footSince = S.footSince ?? performance.now();
+      if (S.footSince == null) { S.footSince = performance.now(); countRun(); }
       if (S.awareAt === undefined) S.awareAt = S.clock + 1;
     } else if (m === 'fly') {
       const f = S.fly; f.x = camera.position.x; f.y = Math.max(camera.position.y + 3, terrain.height(camera.position.x, camera.position.z) + 4); f.z = camera.position.z;
@@ -397,6 +398,7 @@ async function boot() {
     respawn() {
       // a new life (victim.js): whole, at a start point well away from the animal, which keeps everything it knows of you
       const V = arena.victim('you'), pk = SPOTS && SPOTS.respawn && pickRespawn(terrain, SPOTS.respawn, sim.x, sim.z, sim.head.pos.y), far = !pk && OPEN && Math.hypot(sim.x - OPEN.x, sim.z - OPEN.z) > 40, { x, z } = pk ? arena.respawn('you', pk.x, pk.z) : far ? arena.respawn('you', OPEN.x, OPEN.z) : arena.respawn('you');      // the farthest respawn spot 40 m or more from it, unseen first; else the old rule
+      if (S.footSince != null) countRun();
       if (S.mode !== 'foot') setMode('foot');
       const Y = S.you; Y.x = Y.px = x; Y.z = Y.pz = z; Y.up = null; JMP.reset(Y.J); Y.dip = 0; S.jumpReq = false; Y.crouch = false; S.crouchToggle = false; Y.eye = 1.7; S.handled = null;
       Y.yaw = Math.atan2(-(sim.x - x), -(sim.z - z)); Y.pitch = 0.08; Y.vx = Y.vz = 0;
