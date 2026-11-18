@@ -27,7 +27,9 @@ export function makeGatehouseDesk(scene, terrain, G) {
   const smat = new THREE.MeshBasicNodeMaterial({ toneMapped: false });
   smat.colorNode = (() => {
     const st = texture(tex, uv()).rgb.mul(vec3(0.72, 0.78, 0.72));
-    const lv = texture(rt.texture, uv()).rgb, l = clamp(dot(lv, vec3(0.299, 0.587, 0.114)).mul(uGain), 0, 1).pow(0.8);
+    // a render target's rows run top-down in three's node textures on both backends (TextureNode.setupUV flips them for WebGL2 to match
+    // WebGPU; QuadMesh's uv runs top-down to suit), so on a plane, whose uv runs bottom-up, it is sampled flipped to stand upright
+    const lv = texture(rt.texture, uv().flipY()).rgb, l = clamp(dot(lv, vec3(0.299, 0.587, 0.114)).mul(uGain), 0, 1).pow(0.8);
     const scan = float(0.82).add(sin(uv().y.mul(FH * Math.PI)).mul(0.5).add(0.5).mul(0.18));
     return mix(st, vec3(l.mul(0.78), l.mul(0.9), l.mul(0.78)).mul(scan), uLive);
   })();

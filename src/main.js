@@ -1,3 +1,4 @@
+import './newplayer.js';      // '#newplayer': wipe first-visit state before anything reads storage
 import * as THREE from 'three/webgpu';
 import { makeTerrain } from './terrain.js';
 import { RexSim, DIM } from './sim/rex.js';
@@ -90,8 +91,9 @@ async function boot() {
   const SP = FIRST ? { you: FIRST.you, rex: { x: FIRST.rex.x, z: FIRST.rex.z, yaw: Math.atan2(FIRST.you.x - FIRST.rex.x, FIRST.you.z - FIRST.rex.z) } } : terrain.paddock && terrain.paddock.LAYOUT && terrain.paddock.LAYOUT.spawn;
   const OPEN = TEST ? null : SP ? { x: SP.you.x, z: SP.you.z, rx: SP.rex.x, rz: SP.rex.z, yaw: SP.rex.yaw } : { x: -18, z: -4, rx: 12, rz: -4, yaw: 0.4 };
   // The gatehouse start (paddock.js LAYOUT.spawns.gate; '#nogate' or a crash test gives the old opening): the splash is the gatehouse's
-  // security camera, live, on the animal sniffing round outside; "click to begin" cuts to you, the guard, looking down at that monitor,
-  // and you look up from it. A beat later it comes to the window. Respawns use the usual spots, never the hut.
+  // security camera, live: the animal comes in from the paddock east of the hut and sniffs round it. "click to begin" only takes the card
+  // away (the feed carries on, with sound); the first move or look (takeOver) cuts to you, the guard, looking down at that monitor, and you
+  // look up from it, out of the east window it is coming to. Respawns use the usual spots, never the hut.
   const GATE = OPEN && SPOTS && SPOTS.gate && !/crash|nogate/.test(location.hash) ? SPOTS.gate : null;
   const sim = new RexSim(terrain, GATE ? { x: GATE.rex.x, z: GATE.rex.z, yaw: GATE.rex.yaw, seed: SEED } : { x: OPEN ? OPEN.rx : 0, z: OPEN ? OPEN.rz : 0, yaw: OPEN ? OPEN.yaw : 0.4, seed: SEED });
   const mind = new Mind(sim, SEED);
@@ -114,7 +116,7 @@ async function boot() {
     if (Math.hypot(sm.x - GATE.guard.x, sm.z - GATE.guard.z) < 22) return at(cur || HUTCAMS[0]);      // round the back of the hut: stay on the hut
     const s = D._spot(sm, md); return { ...s, y: s.y + 3.3, cam: 3 + ((Math.abs(Math.round(s.x * 7 + s.z * 3)) % 7)), label: 'PADDOCK' };
   };
-  if (GATE) { const m = gateMount(director); director.mount = (sm, md) => (S.started ? null : m(sm, md)); director.tooClose = 6; }
+  if (GATE) { const m = gateMount(director); director.mount = (sm, md) => (S.gate ? null : m(sm, md)); director.tooClose = 6; }
   const feedDir = GATE ? new Director(terrain, SEED + 3) : null;
   if (feedDir) { feedDir.mount = gateMount(feedDir); feedDir.tooClose = 6; }
   if (GATE) { const c = director.cam, M = GATE.cam; c.x = M.x; c.z = M.z; c.y = terrain.height(M.x, M.z) + M.y; c.cut = true; c.mount = { ...HUTCAMS[0], y: c.y }; }
@@ -520,11 +522,10 @@ async function boot() {
     if (S.dev === 'touch') { try { if (localStorage.getItem('dh.thint') !== '1') { localStorage.setItem('dh.thint', '1'); applyLayout(); const h = $('tHint'); h.hidden = false; setTimeout(() => { h.hidden = true; }, 3000); } } catch {} }      // once: the two sticks and the cluster, named for three seconds
     // fullscreen is its own explicit action (pause card), never part of this gesture
     lockPointer(); S.invite = true; S.startedAt = performance.now(); S.clock0 = S.clock;
-    if (GATE) gateBegin();
     try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch {}
     window.focus();
   }
-  // the gatehouse start: the cut from the feed to the guard at the monitor; the head comes up off the screen over GATE_LOOK s
+  // the gatehouse start: the first move or look cuts from the feed to the guard at the monitor; the head comes up off the screen over GATE_LOOK s
   const GATE_LOOK = { hold: 0.7, tilt: 0.9 };
   function gateBegin() {
     const G = GATE, Y = S.you;
@@ -569,7 +570,8 @@ async function boot() {
     const upd = () => { el.textContent = 'pointer lock: ' + (locked() ? 'locked' : 'unlocked') + ' · asks ' + S.lock.asks + ' ok ' + S.lock.ok + (canLock ? '' : ' · unsupported') + (S.lock.last ? ' · last: ' + S.lock.last : ''); };
     setInterval(upd, 400); upd(); }
   // the first move or look from observe mode steps you out from where the camera stands
-  const takeOver = () => { if (S.mode === 'observe' && S.started && !S.paused && !S.dead && !ui.flags.panel) setMode('foot'); };
+  // (the gatehouse start: the first one is the cut from the feed to the guard at the monitor)
+  const takeOver = () => { if (S.mode === 'observe' && S.started && !S.paused && !S.dead && !ui.flags.panel) { if (GATE && !S.gate) gateBegin(); else setMode('foot'); } };
   // no selecting, dragging or context menus over the game (the drawer's own controls still work)
   const formy = (t) => t && t.closest && t.closest('input, select, textarea');
   for (const ev of ['contextmenu', 'selectstart', 'dragstart']) document.addEventListener(ev, (e) => { if (!formy(e.target)) e.preventDefault(); });
@@ -1142,7 +1144,7 @@ async function boot() {
     S.acc += dts; S.clock += dts;
     let n = 0;
     const ag = agents();
-    if (fidget && !S.started && S.acc >= DT) { const q = fidget.tick(sim.t, sim); if (q) S.noises.push(q); }      // the gatehouse splash: the guard inside is not quite still
+    if (fidget && !S.gate && S.acc >= DT) { const q = fidget.tick(sim.t, sim); if (q) S.noises.push(q); }      // the gatehouse splash: the guard inside is not quite still
     while (S.acc >= DT && n < 12) {
       S.acc -= DT; n++;
       prev.v.set(sim.pose.v); prev.s.set(sim.pose.s);
@@ -1228,7 +1230,7 @@ async function boot() {
         if (m) { I.cam = m.cam; I.label = m.label; } I.stamp = Date.now(); I.clock = performance.now() / 1000; I.paused = false; I.live = true;
         post.cctvU.burst.value = Math.max(0, post.cctvU.burst.value - dtReal * 2.5);
       }
-      if (GATE && !S.started) { director.noises.length = 0; director.drop = null; }      // the splash: no stones, meat or flares to draw it off the hut
+      if (GATE && !S.gate) { director.noises.length = 0; director.drop = null; }      // the feed: no stones, meat or flares to draw it off the hut
       const D = director.drop; director.drop = null;
       if (D) {
         // meat goes upwind, so the scent comes to it; a flare goes where it can see it
@@ -1253,7 +1255,7 @@ async function boot() {
     ov.update(sim, blend, S.mindOn ? (mind.intent.goal && mind.intent.goal.kind === 'reach' ? mind.intent.goal : null) : S.goal, null, 9);
     ov.updateSenses(sim, mind);
     audio.breath(shown.s[1], camera.position.distanceTo(S.replay ? rpx.head.pos : sim.head.pos));
-    if (!S.noRender && !swapping) { try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.started && post) { if (post.cctv) desk.grab(canvas, performance.now() / 1000); else if (++gateWarm === 3 && post.setCCTV) post.setCCTV(true); } if (desk && S.started) monitorTick(dtReal); }      // clip: copy the picture right after the render
+    if (!S.noRender && !swapping) { try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.gate && post) { if (post.cctv) desk.grab(canvas, performance.now() / 1000); else if (++gateWarm === 3 && post.setCCTV) post.setCCTV(true); } if (desk && S.gate) monitorTick(dtReal); }      // clip: copy the picture right after the render
 
     S.fps += (1 / Math.max(dtReal, 1e-3) - S.fps) * 0.05;
     // hold the frame rate: resolution (fast) and the quality level (slow), from measured frame times (src/view/quality.js)
@@ -1291,7 +1293,7 @@ async function boot() {
 
   qualityMenu(qc);
   watchBody(renderer, body);      // self-check a few frames in: is the skin visible and drawing? (window.__bodyCheck, #perf)
-  document.body.dataset.mode = 'observe'; document.body.dataset.mind = 'on';
+  document.body.dataset.mode = 'observe'; document.body.dataset.mind = 'on'; document.body.classList.toggle('gatestart', !!GATE); S.gateStart = !!GATE;
   $('boot').remove();
   if (TEST) {
     window.__dino = {

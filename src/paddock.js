@@ -90,10 +90,11 @@ export const LAYOUT = {
   spawns: {
     first: { you: { x: -4, z: 58 }, rex: { x: -4, z: 20 } },
     // the gatehouse start (main.js GATE): the opening is the gatehouse's security camera on the animal sniffing round outside; on
-    // "click to begin" you are the guard at the monitor (at `guard`, facing the wide east window) and look up from it. It starts 7 m off the
-    // hut's SE corner, facing it (owner: "the gag is that you're watching it sniff around you from outside"); cam and cam2 are the hut's own
+    // the first move or look you are the guard at the monitor (at `guard`, facing the wide east window) and look up from it. It starts out in the
+    // paddock 38 m east of the hut, in sight of that window, and walks in (owner: "approaching from a distance, so we can see it move before it
+    // starts its investigation"; src/gatesplash.js draws it); cam and cam2 are the hut's own
     // cameras on its SE and SW corners (main.js gateMount)
-    gate: { guard: { x: -6.6, z: 95 }, window: { x: -4, z: 95 }, rex: { x: 0, z: 89.5, yaw: -0.9 }, cam: { x: -3.7, y: 3.6, z: 92.3 }, cam2: { x: -10.3, y: 3.6, z: 92.3 } },      // between the Barn (17 m E) and the Containers (20 m W), the berm 12 m ahead; the animal faces you, the berm's end clear of the line
+    gate: { guard: { x: -6.6, z: 95 }, window: { x: -4, z: 95 }, rex: { x: 31, z: 93, yaw: -1.57 }, cam: { x: -3.7, y: 3.6, z: 92.3 }, cam2: { x: -10.3, y: 3.6, z: 92.3 } },      // between the Barn (17 m E) and the Containers (20 m W), the berm 12 m ahead; the animal faces you, the berm's end clear of the line
     respawn: [
       { name: 'the Barn', x: 30, z: 49 },            // 14 m off its south face
       { name: 'the Ruins', x: -30, z: 20 },          // 16 m off their east side

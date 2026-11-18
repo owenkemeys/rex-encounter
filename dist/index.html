@@ -236,6 +236,9 @@ body.locked[data-mode="foot"] #crosshair, body.hover[data-mode="foot"] #crosshai
 .chk { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--ink-dim); text-transform: lowercase; cursor: pointer; }
 #start { display: grid; background: radial-gradient(ellipse at 50% 55%, rgba(10,11,9,0.25), rgba(10,11,9,0.7)); cursor: pointer; }
 body.started #start { display: none; }
+/* the gatehouse start: the card sits bottom right, off the live feed's middle where the animal is framed */
+body.gatestart #start { place-items: end end; background: linear-gradient(to left, rgba(10,11,9,0.55), rgba(10,11,9,0) 55%); }
+body.gatestart #start .card { width: min(360px, 100%); }
 #startGo span { display: none; } body:not([data-dev]) #startGo .kd, body[data-dev="kb"] #startGo .kd, body[data-dev="touch"] #startGo .tp, body[data-dev="pad"] #startGo .pd { display: inline; }
 #start .opts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 22px; margin-top: 12px; }
 #start .opts .prow { margin: 0; flex: 1 1 180px; }

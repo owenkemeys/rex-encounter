@@ -1,42 +1,51 @@
-// Gatehouse start (step 1): the guard stands at the monitor inside the Gatehouse; the animal sniffs about outside unaware for
-// SPLASH s (the CCTV splash), then the player looks up (arena.opening at the guard: the chair scrape and a step) and becomes
-// sensible to it. Does it stay round the hut during the splash (the guard's small sounds, src/gatesplash.js), does its head come to the
-// east window, how soon, and does it get him straight away? No teleport at the cut: it is wherever the splash left it.
+// Gatehouse start: the animal starts out in the paddock east of the hut, 35-60 m off, in sight of the east window; the guard's small
+// sounds from the hut (src/gatesplash.js) carry out of the open window and draw it in, and it works round the hut. The player takes over
+// at SPLASH s (the CCTV feed until then; arena.opening at the guard after the look-up) and becomes sensible to it.
+// Reports the approach (time to come within 12 m of the hut, which of the hut's openings its snout reaches first), whether it is in the
+// window's view at the cut, how soon its head is at the east window, and whether it gets him straight away. No teleport anywhere.
 //   node test/gatehouse.mjs [seed|all] [secs] [splash]
 import { makeTerrain } from '../src/terrain.js';
 import { Creature } from '../src/sim/rex.js';
 import { Mind } from '../src/sim/mind.js';
 import { Arena } from '../src/sim/arena.js';
 import { gateFidget } from '../src/gatesplash.js';
-const arg = process.argv[2] || 'all', SECS = +(process.argv[3] || 30), SPLASH = +(process.argv[4] || 12), dt = 1 / 120, hyp = Math.hypot;
+const arg = process.argv[2] || 'all', SECS = +(process.argv[3] || 30), SPLASH = +(process.argv[4] || 15), dt = 1 / 120, hyp = Math.hypot;
 const seeds = arg === 'all' ? [1, 2, 3, 4, 5, 6, 7, 8] : [+arg];
 const T = makeTerrain(7), G = T.paddock.LAYOUT.spawns.gate;
+const HUT = (T.structures || []).find((s) => Math.hypot(s.cx - G.guard.x, s.cz - G.guard.z) < 3 && s.openings), door = HUT.openings[0];
+const OPEN = [['east window', G.window.x, G.window.z], ['door', door.x, door.z], ['west window', 2 * HUT.cx - G.window.x, G.window.z]];
+const ey = T.height(G.guard.x, G.guard.z) + 1.7;
 const rows = [];
 for (const seed of seeds) {
-  const me = { id: 'you', x: G.guard.x, z: G.guard.z, y: T.height(G.guard.x, G.guard.z) + 1.7, vx: 0, vz: 0, speed: 0, crouch: false, fx: 1, fz: 0, lx: 1, ly: 0, lz: 0 };
+  const me = { id: 'you', x: G.guard.x, z: G.guard.z, y: ey, vx: 0, vz: 0, speed: 0, crouch: false, fx: 1, fz: 0, lx: 1, ly: 0, lz: 0 };
   const sim = new Creature(T, { x: G.rex.x, z: G.rex.z, yaw: G.rex.yaw, seed }), mind = new Mind(sim, seed), A = new Arena(T, sim, mind, seed);
-  let inView = null, atWin = null, held = null, minTip = 99, minWin = 99, lookT = null, nearN = 0, splN = 0, cutD = null, sawClose = null;
+  const startD = hyp(sim.x - HUT.cx, sim.z - HUT.cz);
+  let inView = null, atWin = null, held = null, minTip = 99, lookT = null, cutD = null, cutSee = false, t12 = null, first = null, sawClose = null, track = [];
   const fid = gateFidget(G, T, seed);
   for (let i = 0; i < (SPLASH + SECS) * 120; i++) {
     const t = i * dt, on = t >= SPLASH;
-    if (on && lookT === null) { lookT = t; cutD = hyp(sim.x - G.guard.x, sim.z - G.guard.z); A.opening({ x: me.x, z: me.z }); }
-    if (!on && i % 12 === 0) { splN++; if (hyp(sim.x - G.guard.x, sim.z - G.guard.z) < 12) nearN++; }
+    const h = sim.head.pos, F = sim.head.f, HL = sim.sp ? sim.sp.dims.headLen : 1.1, tip = { x: h.x + F.x * HL, z: h.z + F.z * HL };
+    // in the window's view: a clear line from the guard's eye, through the east window, to its head
+    const ang = Math.abs(Math.atan2(h.z - me.z, h.x - me.x) - Math.atan2(G.window.z - me.z, G.window.x - me.x)), view = ang < 0.33 && mind.los(G.window.x + 0.3, ey, G.window.z, h.x, h.y, h.z);
+    if (on && lookT === null) { lookT = t; cutD = hyp(sim.x - HUT.cx, sim.z - HUT.cz); cutSee = view; A.opening({ x: me.x, z: me.z }); }
+    const dHut = hyp(sim.x - HUT.cx, sim.z - HUT.cz);
+    if (t12 === null && dHut < 12) t12 = t;
+    if (first === null) for (const [nm, ox, oz] of OPEN) if (hyp(tip.x - ox, tip.z - oz) < 2) { first = [nm, t]; break; }
+    if (i % 600 === 0) track.push(`${t.toFixed(0)}s ${dHut.toFixed(0)}m`);
     const fq = on ? null : fid.tick(sim.t, sim);
     A.step(dt, { agents: on ? [me] : [], noises: fq ? [fq] : [], light: 0.85, flash: false, wind: { x: 0, z: -2 } }); A.events.length = 0;
-    const h = sim.head.pos, F = sim.head.f, HL = sim.sp ? sim.sp.dims.headLen : 1.1, tip = { x: h.x + F.x * HL, z: h.z + F.z * HL };
     const dw = hyp(tip.x - G.window.x, tip.z - G.window.z), dm = hyp(tip.x - me.x, tip.z - me.z);
-    if (on) { const hx = h.x - me.x, hz = h.z - me.z, ang = Math.abs(Math.atan2(hz, hx) - Math.atan2(G.window.z - me.z, G.window.x - me.x)); if (inView === null && ang < 0.33 && hyp(hx, hz) < 10) inView = t - SPLASH; minWin = Math.min(minWin, dw); minTip = Math.min(minTip, dm); if (atWin === null && dw < 1.6) atWin = t - SPLASH; }
-    if (on && sawClose === null && mind.know && mind.know.seen && dm < 5) sawClose = t - SPLASH;      // it has you in sight with its snout within 5 m, at any opening
+    if (on) { if (inView === null && view) inView = t - SPLASH; minTip = Math.min(minTip, dm); if (atWin === null && dw < 1.6) atWin = t - SPLASH; }
+    if (on && sawClose === null && mind.know && mind.know.seen && dm < 5) sawClose = t - SPLASH;
     if (!held && !A.victim('you').free) { held = t - SPLASH; break; }
-    if (arg !== 'all' && i % 120 === 0) { const b = mind.beh; console.log(`${(t - SPLASH).toFixed(0).padStart(3)} ${mind.label} ${b ? b.name + '/' + (b.phase || '') : '-'} body ${sim.x.toFixed(1)},${sim.z.toFixed(1)} tip->win ${dw.toFixed(1)} tip->you ${dm.toFixed(1)} seen ${!!(mind.ctx && mind.ctx.seen)}`); }
+    if (arg !== 'all' && i % 120 === 0) { const b = mind.beh; console.log(`${t.toFixed(0).padStart(3)} ${mind.label} ${b ? b.name + '/' + (b.phase || '') : '-'} body ${sim.x.toFixed(1)},${sim.z.toFixed(1)} hut ${dHut.toFixed(1)} tip->win ${dw.toFixed(1)} view ${view}`); }
   }
-  rows.push({ seed, inView, atWin, held, minWin, minTip, near: nearN / Math.max(1, splN), cutD, sawClose });
-  console.log(`SEED ${seed}: splash ${SPLASH} s within 12 m of the guard ${(100 * nearN / Math.max(1, splN)).toFixed(0)}% of the time, ${cutD.toFixed(1)} m off at the cut; has you in sight with its snout within 5 m ${sawClose === null ? 'never' : sawClose.toFixed(1) + ' s'} after the cut`);
-  console.log(`SEED ${seed}: head in the window view within 10 m ${inView === null ? 'never' : inView.toFixed(1) + ' s'}; head at the window ${atWin === null ? 'never' : atWin.toFixed(1) + ' s'} after the look-up; nearest ${minWin.toFixed(1)} m; nearest to him ${minTip.toFixed(1)} m; seized ${held === null ? 'no' : held.toFixed(1) + ' s'}`);
+  rows.push({ seed, inView, atWin, held, t12, first, cutD, cutSee, sawClose });
+  console.log(`SEED ${seed}: starts ${startD.toFixed(0)} m from the hut; within 12 m ${t12 === null ? 'never' : t12.toFixed(1) + ' s'}; first opening ${first ? first[0] + ' at ' + first[1].toFixed(1) + ' s' : 'none'}; track ${track.join(' ')}`);
+  console.log(`SEED ${seed}: at the cut (${SPLASH} s) ${cutD.toFixed(1)} m off, ${cutSee ? 'in' : 'not in'} the window view; in view ${inView === null ? 'never' : inView.toFixed(1) + ' s'} and head at the east window ${atWin === null ? 'never' : atWin.toFixed(1) + ' s'} after the cut; nearest to him ${minTip.toFixed(1)} m; seized ${held === null ? 'no' : held.toFixed(1) + ' s'}`);
 }
-const ok = rows.filter((r) => r.atWin !== null).map((r) => r.atWin).sort((a, b) => a - b);
-const iv = rows.filter((r) => r.inView !== null).map((r) => r.inView).sort((a, b) => a - b);
-console.log(`TOTAL head in the window view ${iv.length}/${rows.length}, median ${iv.length ? iv[iv.length >> 1].toFixed(1) : '-'} s`);
-{ const sc = rows.filter((r) => r.sawClose !== null).map((r) => r.sawClose).sort((a, b) => a - b); console.log(`TOTAL sees you from within 5 m (any opening) ${sc.length}/${rows.length}, median ${sc.length ? sc[sc.length >> 1].toFixed(1) : '-'} s after the cut`); }
-console.log(`TOTAL splash near the hut ${(100 * rows.reduce((a, r) => a + r.near, 0) / rows.length).toFixed(0)}%; at the cut median ${rows.map((r) => r.cutD).sort((a, b) => a - b)[rows.length >> 1].toFixed(1)} m from the guard`);
-console.log(`TOTAL at the window ${ok.length}/${rows.length}, median ${ok.length ? ok[ok.length >> 1].toFixed(1) : '-'} s; seized within ${SECS} s ${rows.filter((r) => r.held !== null).length}/${rows.length}`);
+const med = (a) => { a = a.filter((v) => v !== null).sort((x, y) => x - y); return a.length ? `${a.length}/${rows.length}, median ${a[a.length >> 1].toFixed(1)} s` : `0/${rows.length}`; };
+const firsts = {}; for (const r of rows) { const k = r.first ? r.first[0] : 'none'; firsts[k] = (firsts[k] || 0) + 1; }
+console.log(`TOTAL within 12 m of the hut ${med(rows.map((r) => r.t12))}; first opening ${Object.entries(firsts).map(([k, n]) => `${k} ${n}`).join(', ')}`);
+console.log(`TOTAL in the window view at the cut ${rows.filter((r) => r.cutSee).length}/${rows.length}; in view after the cut ${med(rows.map((r) => r.inView))}`);
+console.log(`TOTAL head at the east window after the cut ${med(rows.map((r) => r.atWin))}; sees you within 5 m ${med(rows.map((r) => r.sawClose))}; seized within ${SECS} s ${rows.filter((r) => r.held !== null).length}/${rows.length}`);

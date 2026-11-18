@@ -203,3 +203,11 @@ On the ground fog (N2): "the ground fog is only supposed to be ankle deep or so,
 "the gatehouse start is funny in principle but - i noticed in secuiurty cam mode the rex was somehwere else - then going into first person mode the rex is suddenly at the gatehouse with me - but the texture representing the screen is still where it was before - and static. we need to diegetically handle this, probably just kill the security monitor screen after a second, but it would be so slick if it was live (whilst you're close only, to save resources)"
 "I didnt get any popup hints whilst in the gatehouse at all, and honestly its not very intimidating being in there, the rex very rarely gets you because the windows are small. not sure how to handle this, i guess maybe the later gameplay revisions and needing to make a run for it will force your hand"
 "the rex should spawn sniffing around the hut. the gag is that you're watching it sniff around you from outside but dont realise it at first."
+
+## Owner, 2026-11-17 night, after playing the revised gatehouse start
+"the monitor looks upside down to me but maybe its a camera tilt thing (rex has its head stuck through the doorway)
+so far this is falling flat: on the landing page, the rex is obscured by the overlay box; then when you click start, you are looking at a computer screen with usually no t-rex in sight (its probably behind you trying to open the door)
+previously the start game button just eliminated the overlay box and left you watching the rex for a while, which helped orient you in the world, then whenever you interacted at all you'd spawn into the gameworld. we need that kind of workflow.
+the rex should be spawned over near the hut and maybe visible from the window, but approaching from a distance, so we can see it move before it starts its investigation.
+
+i am not qualified to comment on when the tips should show, and i need to be able to get the new-player experience whenever i want with a debug option or something"
