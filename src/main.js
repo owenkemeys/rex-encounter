@@ -22,6 +22,7 @@ import { GAIT_DEMOS, GAIT_CAM, GaitMeter } from './gaitdemo.js';      // gait de
 import { detectQuality, backendPreference, QualityController, qualityMenu } from './view/quality.js';
 import { createTelemetry, NO_TELEMETRY } from './telemetry.js';
 import { countRun } from './runs.js';
+import { makeGatehouseDesk } from './view/gatehouse.js';      // the gatehouse start: the guard's counter and monitor
 
 const DT = 1 / 120;
 const PERSON_SLOPE = 1.0, PERSON_DROP = 2.2;      // steepest ground (rise over run) a person on foot can scramble up: the Bluff, the Overlook's faces and the Crags are not
@@ -87,19 +88,33 @@ async function boot() {
   const SPOTS = terrain.paddock && terrain.paddock.LAYOUT && terrain.paddock.LAYOUT.spawns, FIRST = SPOTS && SPOTS.first;      // first spawn of a session: paddock.js LAYOUT.spawns
   const SP = FIRST ? { you: FIRST.you, rex: { x: FIRST.rex.x, z: FIRST.rex.z, yaw: Math.atan2(FIRST.you.x - FIRST.rex.x, FIRST.you.z - FIRST.rex.z) } } : terrain.paddock && terrain.paddock.LAYOUT && terrain.paddock.LAYOUT.spawn;
   const OPEN = TEST ? null : SP ? { x: SP.you.x, z: SP.you.z, rx: SP.rex.x, rz: SP.rex.z, yaw: SP.rex.yaw } : { x: -18, z: -4, rx: 12, rz: -4, yaw: 0.4 };
-  const sim = new RexSim(terrain, { x: OPEN ? OPEN.rx : 0, z: OPEN ? OPEN.rz : 0, yaw: OPEN ? OPEN.yaw : 0.4, seed: SEED });
+  // The gatehouse start (paddock.js LAYOUT.spawns.gate; '#nogate' or a crash test gives the old opening): the splash is the gatehouse's
+  // security camera, live, on the animal sniffing round outside; "click to begin" cuts to you, the guard, looking down at that monitor,
+  // and you look up from it. A beat later it comes to the window. Respawns use the usual spots, never the hut.
+  const GATE = OPEN && SPOTS && SPOTS.gate && !/crash|nogate/.test(location.hash) ? SPOTS.gate : null;
+  const sim = new RexSim(terrain, GATE ? { x: GATE.rex.x, z: GATE.rex.z, yaw: GATE.rex.yaw, seed: SEED } : { x: OPEN ? OPEN.rx : 0, z: OPEN ? OPEN.rz : 0, yaw: OPEN ? OPEN.yaw : 0.4, seed: SEED });
   const mind = new Mind(sim, SEED);
   const body = new RexBody(Q); scene.add(body.group); body.fix = sim.fix;
   const fx = new Effects(scene, terrain), audio = new Audio(), ov = new Overlays(scene, terrain);
   audio.attach({ camera, sim, mind, terrain, world, tier: Q.tier });
   const director = new Director(terrain, SEED + 1);
-  if (OPEN) {      // the opening camera stands on the start point, framed as the director frames it (a long lens, stand-off distance), with no cut to a new spot
+  // the gatehouse feed: the camera on the hut's corner while it can see the animal, else a pole camera out where the director would stand
+  if (GATE) director.mount = (sm, md) => {      // (only for the opening feed: observe mode later, 'o' or watching after a death, frames as before)
+    if (S.started) return null;
+    const M = GATE.cam, y = terrain.height(M.x, M.z) + M.y;
+    if (Math.hypot(sm.x - M.x, sm.z - M.z) < 45 && md.los(M.x, y, M.z, sm.head.pos.x, sm.head.pos.y, sm.head.pos.z)) return { x: M.x, y, z: M.z, cam: 1, label: 'GATEHOUSE EXT' };
+    const s = director._spot(sm, md); return { ...s, y: s.y + 3.3, cam: 2 + ((Math.abs(Math.round(s.x * 7 + s.z * 3)) % 7)), label: 'PADDOCK' };
+  };
+  if (GATE) { const c = director.cam, M = GATE.cam; c.x = M.x; c.z = M.z; c.y = terrain.height(M.x, M.z) + M.y; c.cut = true; }
+  else if (OPEN) {      // the opening camera stands on the start point, framed as the director frames it (a long lens, stand-off distance), with no cut to a new spot
     const c = director.cam, hy = terrain.height(OPEN.rx, OPEN.rz) + 2.4, dx = OPEN.rx - OPEN.x, dz = OPEN.rz - OPEN.z;
     c.x = OPEN.x; c.z = OPEN.z; c.y = terrain.height(OPEN.x, OPEN.z) + 1.7; c.lx = OPEN.rx; c.ly = hy; c.lz = OPEN.rz;
     c.fov = clamp(2 * Math.atan(6.5 / Math.hypot(dx, dz, hy - c.y)) * 57.3, 18, 70); c.cut = false;
   }
   const arena = new Arena(terrain, sim, mind, SEED), things = arena.things, herd = arena.herd, props = new Props(scene, terrain, Q);
-  if (OPEN) arena.opening({ x: OPEN.x, z: OPEN.z });
+  if (OPEN && !GATE) arena.opening({ x: OPEN.x, z: OPEN.z });
+  const desk = GATE ? makeGatehouseDesk(scene, terrain, GATE) : null;
+  let gateWarm = 0;      // the feed's look goes on after a few frames in the camcorder look, so that look is built before the cut (else the first frames after it came out blank)
   const wr = makeRng(SEED + 5);
 
   const S = {
@@ -493,8 +508,30 @@ async function boot() {
     if (S.dev === 'touch') { try { if (localStorage.getItem('dh.thint') !== '1') { localStorage.setItem('dh.thint', '1'); applyLayout(); const h = $('tHint'); h.hidden = false; setTimeout(() => { h.hidden = true; }, 3000); } } catch {} }      // once: the two sticks and the cluster, named for three seconds
     // fullscreen is its own explicit action (pause card), never part of this gesture
     lockPointer(); S.invite = true; S.startedAt = performance.now(); S.clock0 = S.clock;
+    if (GATE) gateBegin();
     try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch {}
     window.focus();
+  }
+  // the gatehouse start: the cut from the feed to the guard at the monitor; the head comes up off the screen over GATE_LOOK s
+  const GATE_LOOK = { hold: 0.7, tilt: 0.9 };
+  function gateBegin() {
+    const G = GATE, Y = S.you;
+    if (post && post.setCCTV) { post.setCCTV(false); post.cctvInfo.live = false; }
+    // at the cut, an animal that has wandered off is put back round the side of the hut, out of the window's view, so the beat comes
+    if (Math.hypot(sim.x - G.window.x, sim.z - G.window.z) > 10) { const t = sim.t; sim.reset(G.near.x, G.near.z, Math.atan2(G.window.x - G.near.x, G.window.z - G.near.z)); sim.t = t; prev.v.set(sim.pose.v); prev.s.set(sim.pose.s); }
+    S.awareAt = S.clock + GATE_LOOK.hold + GATE_LOOK.tilt;      // it can sense you once you have looked up (setMode keeps this)
+    setMode('foot');
+    Y.x = Y.px = G.guard.x; Y.z = Y.pz = G.guard.z; Y.vx = Y.vz = 0; Y.eye = 1.7; Y.crouch = false; Y.up = null;
+    Y.yaw = Math.atan2(-(G.window.x - G.guard.x), -(G.window.z - G.guard.z)); Y.pitch = 0.04; S.lens = 62;
+    const sc = desk.screenAt(), ey = terrain.height(Y.x, Y.z) + Y.eye;
+    S.gate = { t0: S.clock, down: Math.atan2(sc.y - ey, Math.hypot(sc.x - Y.x, sc.z - Y.z)) - Y.pitch, done: false };
+  }
+  /** The look-up: how far below your own pitch the eye still is (0 once done); at the end you are in the world for it to notice. */
+  function gateTilt() {
+    const g = S.gate; if (!g || g.done) return 0;
+    const t = S.clock - g.t0, k = clamp((t - GATE_LOOK.hold) / GATE_LOOK.tilt, 0, 1), e = k * k * (3 - 2 * k);
+    if (k >= 1) { g.done = true; arena.opening({ x: S.you.x, z: S.you.z }); }      // the chair scrapes and a step: it is curious, and comes to see
+    return g.down * (1 - e);
   }
   function setPaused(p) {
     if (!S.started || p === S.paused || (p && S.dead)) return;
@@ -1010,7 +1047,7 @@ async function boot() {
       // pushing through fern is noisy, and leaves a trail of bent fronds
       if (v > 0.4 && !Y.up && !J.air) { Y.rustleT -= dt; if (Y.rustleT <= 0) { Y.rustleT = 0.35; const f = world.trample(Y.x, Y.z, 0.7, 0.55); if (f > 0.2) { audio.rustle(Y.crouch ? 0.05 : v > 4 ? 0.3 : 0.14); S.noises.push({ x: Y.x, y: terrain.height(Y.x, Y.z), z: Y.z, loud: Y.crouch ? 0.02 : v > 4 ? 0.14 : 0.06, kind: 'rustle', you: true }); } } }
       camera.position.set(Y.x, (Y.up ? Y.up.base + Y.up.h : terrain.height(Y.x, Y.z)) + Y.eye + bob + J.h - Y.dip, Y.z);
-      camera.rotation.set(Y.pitch, Y.yaw, 0);
+      camera.rotation.set(clamp(Y.pitch + gateTilt(), -1.5, 1.5), Y.yaw, 0);
     } else if (S.mode !== 'foot') {
       const c = S.fly, fast = K.has('shift') ? 3 : 1, sp = 14 * fast * dt, cp = Math.cos(c.pitch);
       let f = (K.has('w') ? 1 : 0) - (K.has('s') ? 1 : 0), r = (K.has('d') ? 1 : 0) - (K.has('a') ? 1 : 0), u = (K.has('e') ? 1 : 0) - (K.has('q') ? 1 : 0);
@@ -1145,6 +1182,11 @@ async function boot() {
 
     if (S.mode === 'observe') {
       director.update(dtReal * run, sim, mind, camera); solidify(director.cam, 0.5); S.lens = director.cam.fov;
+      if (GATE && post && post.cctv) {      // the live gatehouse feed's lettering, and a burst of static when it switches camera
+        const I = post.cctvInfo, m = director.cam.mount; if (m && m.cam !== I.cam) post.cctvU.burst.value = 1;
+        if (m) { I.cam = m.cam; I.label = m.label; } I.stamp = Date.now(); I.clock = performance.now() / 1000; I.paused = false; I.live = true;
+        post.cctvU.burst.value = Math.max(0, post.cctvU.burst.value - dtReal * 2.5);
+      }
       const D = director.drop; director.drop = null;
       if (D) {
         // meat goes upwind, so the scent comes to it; a flare goes where it can see it
@@ -1169,7 +1211,7 @@ async function boot() {
     ov.update(sim, blend, S.mindOn ? (mind.intent.goal && mind.intent.goal.kind === 'reach' ? mind.intent.goal : null) : S.goal, null, 9);
     ov.updateSenses(sim, mind);
     audio.breath(shown.s[1], camera.position.distanceTo(S.replay ? rpx.head.pos : sim.head.pos));
-    if (!S.noRender && !swapping) { try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (clip.active || clip.closing()) clip.frame(); }      // clip: copy the picture right after the render
+    if (!S.noRender && !swapping) { try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.started && post) { if (post.cctv) desk.grab(canvas, performance.now() / 1000); else if (++gateWarm === 3 && post.setCCTV) post.setCCTV(true); } }      // clip: copy the picture right after the render
 
     S.fps += (1 / Math.max(dtReal, 1e-3) - S.fps) * 0.05;
     // hold the frame rate: resolution (fast) and the quality level (slow), from measured frame times (src/view/quality.js)

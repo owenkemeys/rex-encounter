@@ -78,7 +78,7 @@ function makeCCTVOSD() {
   const draw = (o) => {
     const vw = window.innerWidth, vh = window.innerHeight, d = new Date(o.stamp || Date.now()), blink = Math.floor((o.clock || 0) * 2) % 2 === 0;
     const cs = getComputedStyle(probe), sa = { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
-    const key = o.cam + '|' + o.label + '|' + (o.paused ? 'P' : blink ? 'b' : 'n') + '|' + Math.floor(d.getTime() / 1000) + '|' + vw + 'x' + vh + '|' + sa.t + sa.r + sa.b + sa.l;
+    const key = o.cam + '|' + o.label + '|' + (o.paused ? 'P' : blink ? 'b' : 'n') + (o.live ? 'L' : '') + '|' + Math.floor(d.getTime() / 1000) + '|' + vw + 'x' + vh + '|' + sa.t + sa.r + sa.b + sa.l;
     if (key === last) return; last = key;
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); g.setTransform(W / vw, 0, 0, H / vh, 0, 0);
     const fs = Math.round(Math.max(12, Math.min(18, Math.min(vw, vh) * 0.034))), lh = fs * 1.3, m = Math.max(12, Math.min(vw, vh) * 0.035);
@@ -86,7 +86,7 @@ function makeCCTVOSD() {
     g.font = `bold ${fs}px "Lucida Console", "Courier New", monospace`; g.textBaseline = 'top';
     const text = (s, x, y, al = 'left', a = 1) => { g.textAlign = al; g.fillStyle = 'rgba(0,0,0,0.85)'; g.fillText(s, x + 1, y + 1); g.fillStyle = `rgba(236,244,236,${a})`; g.fillText(s, x, y); };
     text('CAM ' + p2(o.cam), L, T); if (o.label) text(o.label, L, T + lh, 'left', 0.85);
-    text(o.paused ? '|| PAUSED' : (blink ? '\u25B6' : ' ') + ' PLAYBACK', vw / 2, T, 'center');
+    text(o.live ? (blink ? '\u25CF' : ' ') + ' LIVE' : o.paused ? '|| PAUSED' : (blink ? '\u25B6' : ' ') + ' PLAYBACK', vw / 2, T, 'center');      // live: the gatehouse feed at the opening
     const ds = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`, ts = `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
     text(ds + '  ' + ts, L, B - fs, 'left');
     tex.needsUpdate = true;
