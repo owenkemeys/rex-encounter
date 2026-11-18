@@ -197,3 +197,9 @@ On the incident counter: "i know people like those a lot. i'l ltake your advice 
 On the ground fog (N2): "the ground fog is only supposed to be ankle deep or so, so its not going to obscure anything, just add interesting depth and texture"
 "try the fog"
 "make the fog stuff be organised in the source as a module so people can easily borrow it for their projects, called fogarina"
+
+## Owner, 2026-11-17, after playing the gatehouse start (step 1) and fog v2
+"\"start over\" button in pause menu needs to genuinely restart the scenario to save having to do an F5 - hook this up so that it doesnt come up again in future"
+"the gatehouse start is funny in principle but - i noticed in secuiurty cam mode the rex was somehwere else - then going into first person mode the rex is suddenly at the gatehouse with me - but the texture representing the screen is still where it was before - and static. we need to diegetically handle this, probably just kill the security monitor screen after a second, but it would be so slick if it was live (whilst you're close only, to save resources)"
+"I didnt get any popup hints whilst in the gatehouse at all, and honestly its not very intimidating being in there, the rex very rarely gets you because the windows are small. not sure how to handle this, i guess maybe the later gameplay revisions and needing to make a run for it will force your hand"
+"the rex should spawn sniffing around the hut. the gag is that you're watching it sniff around you from outside but dont realise it at first."
