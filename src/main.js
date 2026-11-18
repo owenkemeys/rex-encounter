@@ -1075,8 +1075,8 @@ async function boot() {
       if (gaitRun) gmeter.tick(sim, sim.t - gaitRun.t0);
       S.noises.length = 0;
       S.legT = (S.legT || 0) - DT;
-      if (S.legT <= 0) { S.legT = 0.15; for (const f of sim.feet) if (!f.planted) world.trample(f.pos.x, f.pos.z, 0.9, 0.6); for (const p of herd.alive) if (p.v > 2) world.trample(p.x, p.z, 0.5, 0.4);
-        world.wake('rex', sim.x, sim.z, 1.5); if (S.mode === 'foot' && !S.you.up) world.wake('you', S.you.x, S.you.z, 0.5); }      // plants part round the body and lie in its wake
+      if (S.legT <= 0 && !S.replay) { S.legT = 0.15; for (const f of sim.feet) if (!f.planted) world.trample(f.pos.x, f.pos.z, 0.9, 0.6); for (const p of herd.alive) if (p.v > 2) world.trample(p.x, p.z, 0.5, 0.4);
+        world.wake('rex', sim.x, sim.z, 1.5); if (S.mode === 'foot' && !S.you.up) world.wake('you', S.you.x, S.you.z, 0.5); }      // plants and ground fog part round the body and lie in its wake (not from the live animal while the replay shows another moment)
       for (const e of arena.events) {
         if (S.mode === 'foot' && S.started) rec.event(e);      // the tape keeps the sound events, to play them back from the camera
         if (S.replay) continue;      // the replay plays the recorded ones (hear), not these

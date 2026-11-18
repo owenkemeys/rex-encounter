@@ -23,12 +23,12 @@ const dpr = () => (typeof window !== 'undefined' && window.devicePixelRatio) || 
 
 /** What each level costs. ratio: renderer pixel ratio band (times CSS px); maxPx: cap on rendered pixels (big screens);
  *  grass/ferns/rain: fraction of the built instance count; meadow: near-eye grass clumps and the size of the box they
- *  fill (density = count / box^2); shadow: map size, half-extent of the sun's frustum (m), small and far casters;
+ *  fill (density = count / box^2); mist: drifting sheets; fog: ankle-deep ground fog sheets; shadow: map size, half-extent of the sun's frustum (m), small and far casters;
  *  post: MSAA samples on the scene pass, bloom, grade; treeNear: metres within which jungle trees are full models. */
 export const PROFILE = {
-  low: { ratio: [0.5, 1.25], start: 1.25, maxPx: 0.75e6, grass: 0.3, meadow: 0, box: 40, ferns: 0.6, rain: 0.17, mist: 0, shadow: 1024, extent: 22, small: false, far: false, msaa: 0, bloom: false, grade: false, treeNear: 12 },
-  medium: { ratio: [0.55, 1.0], start: 0.9, maxPx: 1.3e6, grass: 0.55, meadow: 12000, box: 44, ferns: 0.8, rain: 0.45, mist: 12, shadow: 1024, extent: 26, small: false, far: false, msaa: 0, bloom: false, grade: true, treeNear: 26 },
-  high: { ratio: [0.6, 1.5], start: 1.5, maxPx: 3.8e6, grass: 1, meadow: 44000, box: 66, ferns: 1, rain: 1, mist: 36, shadow: 2048, extent: 30, small: true, far: true, msaa: 4, bloom: true, grade: true, treeNear: 42 },
+  low: { ratio: [0.5, 1.25], start: 1.25, maxPx: 0.75e6, grass: 0.3, meadow: 0, box: 40, ferns: 0.6, rain: 0.17, mist: 0, fog: 0, shadow: 1024, extent: 22, small: false, far: false, msaa: 0, bloom: false, grade: false, treeNear: 12 },
+  medium: { ratio: [0.55, 1.0], start: 0.9, maxPx: 1.3e6, grass: 0.55, meadow: 12000, box: 44, ferns: 0.8, rain: 0.45, mist: 12, fog: 2, shadow: 1024, extent: 26, small: false, far: false, msaa: 0, bloom: false, grade: true, treeNear: 26 },
+  high: { ratio: [0.6, 1.5], start: 1.5, maxPx: 3.8e6, grass: 1, meadow: 44000, box: 66, ferns: 1, rain: 1, mist: 36, fog: 3, shadow: 2048, extent: 30, small: true, far: true, msaa: 4, bloom: true, grade: true, treeNear: 42 },
 };
 
 const store = {

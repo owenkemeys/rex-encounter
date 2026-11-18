@@ -12,6 +12,7 @@ import { makeRng } from '../math.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildFeatures } from './features.js';
 import { tune, tuneColor, tuneGroup } from './tune.js';      // tune
+import { createField, createFogarina } from '../fogarina.js';
 
 export const MOODS = {
   storm: { name: 'Storm at dusk', top: 0x0b1018, hor: 0x46525e, fog: 0x3a454f, dens: 0.0115, low: 1.6, hemi: [0x8ea2bd, 0x2c2e24, 1.0], sun: [0xc0b8c8, 2.3], glow: 0xd07a45, dir: [-0.6, 0.26, 0.5], exp: 1.45, rim: [0x9ab4dc, 0.8], rain: 1, wet: 1, dust: 0x3d3b36, cov: [0.0, 0.55], sunGlow: 0.6, env: 0.35, cloud: 0x2f3742 },      // dark and heavy: near-black sky, the last cold light low on the horizon, deep fog (the 2026-11-13 look, restored after it was lifted)
@@ -97,39 +98,10 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
     return normalize(Nw.add(vec3(0, a.y, a.x).mul(ws.x).add(vec3(b.x, 0, b.y).mul(ws.y)).add(vec3(c.x, c.y, 0).mul(ws.z)).mul(k2)));
   };
 
-  // ---- the trample field: a small world-anchored grid (wrapping, so it travels with the camera for free) that feet,
-  // bodies and the player press into. Grass, meadow and ferns read it in the vertex shader: they part away from what
-  // pushed them, lie flat in a running body's wake, and spring back as the field relaxes. One 96x96 RGBA8 upload a frame.
-  const FN = 96, FC = 0.75, FW = FN * FC, fdat = new Uint8Array(FN * FN * 4), ffl = new Float32Array(FN * FN * 3);
-  for (let i = 0; i < FN * FN; i++) { fdat[i * 4] = fdat[i * 4 + 1] = 128; fdat[i * 4 + 3] = 255; }
-  const fieldTex = new THREE.DataTexture(fdat, FN, FN, THREE.RGBAFormat, THREE.UnsignedByteType);
-  fieldTex.wrapS = fieldTex.wrapT = THREE.RepeatWrapping; fieldTex.magFilter = fieldTex.minFilter = THREE.LinearFilter; fieldTex.needsUpdate = true;
-  let fieldLive = false;
-  const stamp = (x, z, rad, kk, vx = 0, vz = 0) => {
-    const sp = Math.hypot(vx, vz), R = rad + Math.min(1.2, sp * 0.2), ux = sp > 0.3 ? vx / sp : 0, uz = sp > 0.3 ? vz / sp : 0, sw = Math.min(1, sp / 5);
-    for (let j = Math.floor((z - R) / FC); j <= Math.floor((z + R) / FC); j++) for (let i = Math.floor((x - R) / FC); i <= Math.floor((x + R) / FC); i++) {
-      const dx = (i + 0.5) * FC - x, dz = (j + 0.5) * FC - z, d = Math.hypot(dx, dz); if (d > R) continue;
-      const f = kk * Math.min(1, (1 - d / R) * 1.8), o = ((((j % FN) + FN) % FN) * FN + (((i % FN) + FN) % FN)) * 3;
-      if (f <= ffl[o + 2]) continue;
-      // parted outward from the centre, swept along the direction of travel (the wake)
-      let px = (dx / (d || 1)) * (1 - sw * 0.6) + ux * sw, pz = (dz / (d || 1)) * (1 - sw * 0.6) + uz * sw; const pl = Math.hypot(px, pz) || 1;
-      ffl[o] = (px / pl) * f; ffl[o + 1] = (pz / pl) * f; ffl[o + 2] = f;
-    }
-    fieldLive = true;
-  };
-  const relax = (dt) => {
-    if (!fieldLive) return;
-    const a = Math.exp(-dt / 2.4); let any = false;
-    for (let n = 0, o = 0; n < FN * FN; n++, o += 3) {
-      if (ffl[o + 2] < 0.01) { if (ffl[o + 2]) { ffl[o] = ffl[o + 1] = ffl[o + 2] = 0; fdat[n * 4] = fdat[n * 4 + 1] = 128; fdat[n * 4 + 2] = 0; } continue; }
-      any = true; ffl[o] *= a; ffl[o + 1] *= a; ffl[o + 2] *= a;
-      fdat[n * 4] = 128 + Math.round(ffl[o] * 127); fdat[n * 4 + 1] = 128 + Math.round(ffl[o + 1] * 127); fdat[n * 4 + 2] = Math.round(ffl[o + 2] * 255);
-    }
-    fieldTex.needsUpdate = true; fieldLive = any;
-  };
-  /** (push x, push z, flatten) at a world xz node: push is the direction a plant is pressed, length up to 1. */
-  const trampleAt = (wxz) => { const sm = texture(fieldTex, wxz.div(FW)).level(0); return vec3(sm.r.mul(2).sub(1), sm.g.mul(2).sub(1), sm.b); };
-  const wakes = new Map();
+  // ---- the trample field (src/fogarina.js): a small world-anchored grid that feet, bodies and the player press into. Grass,
+  // meadow, ferns and the ground fog read it: plants part away from what pushed them and lie flat in a running body's wake,
+  // the fog clears and swirls, and both come back as the field relaxes. One 96x96 RGBA8 upload a frame.
+  const field = createField(), trampleAt = field.at;
   scene.background = new THREE.Color(); scene.fog = new THREE.FogExp2(0, 0.01);
   // fog: denser in the low air, coloured by where it is looked through
   {
@@ -393,15 +365,15 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
 
   // ---- the meadow near the eye (high tier): a dense field of grass that travels with the camera, standing on a
   // baked height map, kept off rock, trunks and floors by a mask baked beside it
-  let hmap = null, bakeH = null, meadow = null, meadowBox = null, NM = 0;
+  let hmap = null, bakeH = null, meadow = null, meadowBox = null, NM = 0; const HS = 260;
   if (!lo) {
-    const HN = 512, HS = 260, hd = new Float32Array(HN * HN * 4);
+    const HN = 512, hd = new Float32Array(HN * HN * 4);
     bakeH = (x0 = -1e9, z0 = -1e9, x1 = 1e9, z1 = 1e9) => {
       for (let j = 0; j < HN; j++) for (let i = 0; i < HN; i++) {
         const x = (i / (HN - 1) - 0.5) * HS, z = (j / (HN - 1) - 0.5) * HS;
         if (x < x0 || x > x1 || z < z0 || z > z1) continue;
         const o = (j * HN + i) * 4, sIn = terrain.insideStructure(x, z);
-        hd[o] = terrain.height(x, z); hd[o + 1] = (sIn && sIn.kind !== 'pen') || grassless(x, z) ? 0 : 1;
+        hd[o] = terrain.height(x, z); hd[o + 1] = (sIn && sIn.kind !== 'pen') || grassless(x, z) ? 0 : 1; hd[o + 2] = sIn && sIn.kind !== 'pen' ? 0 : 1;
       }
       // keep it off rock and out of trunks: stamp each obstacle's footprint
       for (const ob of terrain.obstacles) {
@@ -1071,6 +1043,10 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
     }
   }
 
+  // ---- ground fog (medium and high, src/fogarina.js): ankle-deep sheets on the baked height map, kept off built floors
+  const gfog = hmap ? createFogarina({ field, heightAt: (xz) => texture(hmap, xz.div(HS).add(0.5)).level(0).r, maskAt: (xz) => texture(hmap, xz.div(HS).add(0.5)).level(0).b, color: vec3(U.fog).mul(0.9), flash: U.flash, wind: U.wind }) : null;
+  if (gfog) scene.add(gfog.mesh);
+
   // ---- environment light for reflections and sky fill: a small image of the current sky, re-filtered when the mood changes
   let pmrem = null, envRT = null, envDirty = true;
   const envScene = new THREE.Scene();
@@ -1116,6 +1092,7 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
       for (const m of perim) m.castShadow = !lo && P.far;
       rain.geometry.setDrawRange(0, Math.round(NR * (lo ? 1 : P.rain)) * 6);
       mist.forEach((sp, i) => { sp.visible = i < P.mist; });
+      if (gfog) gfog.setQuality(P.fog);
       if (!lo) { sun.shadow.mapSize.set(P.shadow, P.shadow); sc2.left = sc2.bottom = -P.extent; sc2.right = sc2.top = P.extent; sc2.updateProjectionMatrix(); }
       if (features && features.setQuality) features.setQuality(P);
     },
@@ -1148,9 +1125,10 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
           sp.material.opacity = (built ? 0 : 1) * u.a * dens * Math.min(1, Math.max(0, (d - 6) / 10)) * Math.min(1, Math.max(0, (W / 2 - d) / 12));
         }
       }
+      if (gfog) gfog.update(camera, { storm: 1, dusk: 0.8, day: 0.45 }[api.moodKey] ?? 0.7);
       U.fogBase.value = Math.min(camera.position.y - 2.5, terrain.height(camera.position.x, camera.position.z) - 0.8);      // ground mist lies on the ground, wherever the eye is
       // plants springing back
-      relax(dt);
+      field.update(dt);
       while (pulses.length && pulses[0] <= time0) { pulses.shift(); flash = 1; }
       if (api.debugFlash != null) flash = api.debugFlash;
       api.flash = flash > 0.3;
@@ -1170,7 +1148,7 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
     /** Press plants down around (x, z): k is how hard (a foot 1, a body brushing through 0.5). Returns how much fern was there. */
     trample(x, z, rad, kk) {
       let fern = 0;
-      stamp(x, z, rad, kk);
+      field.stamp(x, z, rad, kk);
       for (const [G, arr, stride, M] of [[fGrid, fpos, 5, null]]) {
         for (let cx = Math.floor((x - rad) / CELL); cx <= Math.floor((x + rad) / CELL); cx++) for (let cz = Math.floor((z - rad) / CELL); cz <= Math.floor((z + rad) / CELL); cz++) {
           for (const i of G.get(cx * 4096 + cz) || []) {
@@ -1183,11 +1161,7 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
       return fern;
     },
     /** A body moving through the plants (called every few ticks): presses them flat in a wake along its motion. */
-    wake(id, x, z, rad) {
-      const w = wakes.get(id), now = time0;
-      if (w && now > w.t) { const dt = now - w.t, vx = (x - w.x) / dt, vz = (z - w.z) / dt, sp = Math.hypot(vx, vz); if (sp > 0.3 && sp < 40) stamp(x, z, rad, Math.min(0.95, 0.35 + sp * 0.1), vx, vz); }
-      wakes.set(id, { x, z, t: now });
-    },
+    wake(id, x, z, rad) { field.wake(id, x, z, rad); },
     /** The ground was edited near (x, z): move the affected vertices, grass and shading. */
     refresh(x, z, rad) {
       const half = size / 2, i0 = Math.max(0, Math.floor((x - rad + half) / step0)), i1 = Math.min(N, Math.ceil((x + rad + half) / step0));
@@ -1212,6 +1186,9 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
       tune(G, 'Glow around the sun', M, 'sunGlow', 0, 2, 0.02, f, c + '.sunGlow'); tune(G, 'Cloud cover: where it starts', M.cov, 0, 0, 1, 0.01, f, c + '.cov[0]'); tune(G, 'Cloud cover: where it is full', M.cov, 1, 0, 1.2, 0.01, f, c + '.cov[1]');      // tune
       tune(G, 'Wet look of the ground', M, 'wet', 0, 1, 0.02, f, c + '.wet');      // tune
     }
+    if (gfog) tuneGroup('Ground fog', { order: 4 });      // tune
+    for (const [key, label, lo2, hi, st] of [['thick', 'Thickness', 0, 1.2, 0.01], ['depth', 'Depth (m, top sheet above the lowest)', 0, 0.8, 0.01], ['swirl', 'Swirl where bodies push through', 0, 6, 0.05], ['clear', 'Clearing where bodies press', 0, 1, 0.01]])      // tune
+      if (gfog) tune('Ground fog', label, { [key]: gfog.params[key].value }, key, lo2, hi, st, (v) => { gfog.params[key].value = v; }, 'groundFog.' + key);      // tune
     tune('Storm look', 'Rain amount', MOODS.storm, 'rain', 0, 1.5, 0.02, re('storm'), 'storm.rain');      // tune
     tune('Storm look', 'Lightning: lift to sky light', FLASH, 'hemi', 0, 6, 0.05, null, 'flash.hemi'); tune('Storm look', 'Lightning: lift to sun', FLASH, 'sun', 0, 8, 0.05, null, 'flash.sun'); tune('Storm look', 'Lightning: lift to reflections', FLASH, 'env', 0, 6, 0.05, null, 'flash.env');      // tune
     tune('Storm look', 'Lightning: fade speed (bigger = shorter)', FLASH, 'decay', 1, 20, 0.1, null, 'flash.decay'); tune('Storm look', 'Lightning: quiet between strikes (s)', FLASH, 'gap', 1, 40, 0.5, null, 'flash.gap'); tune('Storm look', 'Lightning: extra random wait (s)', FLASH, 'span', 0, 40, 0.5, null, 'flash.span');      // tune

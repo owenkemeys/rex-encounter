@@ -194,3 +194,6 @@ https://x.com/29meat_ai/status/2121548600308334759
 "no i dont think that makes sense, security cam is a fixed viewpoint, we just need a diegetic reason why you see the viewpoint change. or we dont at all and just start in first person mode, with the rex peering in a window a beat after you spawn. otherwise good."
 On the proposal that you are the guard watching the CCTV on the gatehouse monitor and look up from it: "oh that's funny, great idea!"
 On the incident counter: "i know people like those a lot. i'l ltake your advice on whats best for the application. it sjust a fun detail on the finishing card and not a hugely serious matter. if there's a default if the true counter isn't available so the experience isn't ruined that's fine"
+On the ground fog (N2): "the ground fog is only supposed to be ankle deep or so, so its not going to obscure anything, just add interesting depth and texture"
+"try the fog"
+"make the fog stuff be organised in the source as a module so people can easily borrow it for their projects, called fogarina"
