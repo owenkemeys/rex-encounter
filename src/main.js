@@ -761,6 +761,7 @@ async function boot() {
     for (const [id, c] of [['tJump', L.buttons.jump], ['tCrouch', L.buttons.crouch], ['tItem', L.buttons.flare], ['tTorch', L.buttons.torch], ['tCall', L.buttons.call]]) { place($(id), c.cx, c.cy, c.r * 2, c.r * 2); $(id).style.fontSize = Math.round(c.r * 0.46) + 'px'; }
     const P = L.pill; place($('tAct'), P.x, P.y, P.w, P.h);
     const H = L.hint, hs = $('hint').style; if (!document.body.classList.contains('touch')) hs.cssText = ''; else { hs.left = H.x + 'px'; hs.width = H.w + 'px'; hs.top = 'auto'; hs.bottom = (innerHeight - (H.y + H.h)) + 'px'; hs.maxWidth = 'none'; hs.transform = 'none'; hs.textAlign = 'center'; hs.fontSize = '12px'; hs.letterSpacing = '0.08em'; }
+    { const M = L.mute, ms = $('muteIcon').style; if (!document.body.classList.contains('touch')) ms.cssText = ''; else { ms.left = (M.x + M.w / 2) + 'px'; ms.top = M.y + 'px'; ms.bottom = 'auto'; } }      // touch: centred above the hint line
     root.setProperty('--tbar', (L.topbar.y + L.topbar.h) + 'px');
     const h1 = $('tHint').querySelector('.h1'), h2 = $('tHint').querySelector('.h2'), h3 = $('tHint').querySelector('.h3'); place(h1, L.left.cx, L.left.cy); place(h2, L.right.cx, L.right.cy); place(h3, P.x, P.y - 4, P.w, null);
     if (S.lk) lookEnd(); if (S.stick.id != null) stickEnd();
@@ -860,7 +861,11 @@ async function boot() {
     // the muted-speaker icon: shown whenever the game is on screen but silent (setting off, context waiting for a gesture, master still faded); a tap fixes it
     const mi = $('muteIcon'); let miOn = false;
     const silent = () => !audio.on || audio._away || (!S.paused && !(audio.ctx && audio.ctx.state === 'running'));
-    const miTick = () => { const v = !document.hidden && !audio.offline && silent(); if (v !== miOn) { miOn = v; mi.hidden = !v; } };
+    // it stays clear of the start card (a portrait phone's card fills the bottom) and the death card: lifted to just above whichever is up
+    const card = document.querySelector('#start .card'), deadCard = document.querySelector('#dead > *'), dodge = () => { if (!miOn) return; mi.style.translate = ''; const b = document.body.classList;
+      const o = !b.contains('started') ? card : b.contains('dead') ? deadCard : null; if (!o) return;
+      const c = o.getBoundingClientRect(), m = mi.getBoundingClientRect(); if (c.width && m.right > c.left - 8 && m.left < c.right + 8 && m.bottom > c.top - 8 && m.top < c.bottom + 8) mi.style.translate = '0 ' + Math.round(c.top - 8 - m.bottom) + 'px'; };
+    const miTick = () => { const v = !document.hidden && !audio.offline && silent(); if (v !== miOn) { miOn = v; mi.hidden = !v; } dodge(); };
     mi.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); if (!audio.on) setSound(true); else { audioResume(); audio._applyVol(); } audio.back(true); miTick(); });
     mi.addEventListener('pointerdown', (e) => e.stopPropagation());
     setInterval(miTick, 250); miTick(); }
