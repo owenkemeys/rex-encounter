@@ -216,3 +216,9 @@ i am not qualified to comment on when the tips should show, and i need to be abl
 "Start over button, does that refresh the page? That's clunky and ugly, just reset the extension"
 
 - Rex-perspective view (Owen 2026-11-18): watch from, or later play as, the rex, with a camera above its head aimed at its current attention focus. Watch mode first; playing as it is a much bigger build.
+
+## Owner, 2026-11-18, after playing the gatehouse rework
+"noting that there was supposed to be a muted telltale UI icon whenever sound is muted, i dont see that on the initial load screen."
+"pic1 is some faults with the keel area of the model. the red circles are large strange spherical-ish voids carved out of the pubic keel and the thighs. the geometry should be a V shaped keel and muscled thighs."
+"the window has a prompt to "shut the door" which i guess is an invisible door or sometihng"
+"it bumps its head a lot onto the window frame or surrounding wall and just says "sometihng hard" which is incoherent in this context (and lame in most other contexts anyway)"
