@@ -56,8 +56,8 @@ const TEACH_TOUCH = { use: 'tap {use} to throw one', call: 'tap {call} to call. 
 const DONE = 2, SHOW = 3;
 
 export function createUI(o) {
-  const { S, camera, canvas, arena, terrain, act, Q, audio, SEED, session } = o;
-  let { sim, mind } = o;
+  const { S, camera, canvas, arena, terrain, act, Q, audio, session } = o;
+  let { sim, mind, SEED } = o;
   const OV = mind.ov;
   // the device in use (main.js keeps S.dev live: the last of keyboard/mouse, touch, gamepad used)
   const dev = () => S.dev || (o.pad && o.pad.on ? 'pad' : Q.touch ? 'touch' : 'kb');
@@ -703,7 +703,7 @@ export function createUI(o) {
     get debug() { return debugOn; }, setDebug,
     /** "Start over" (main.js startOver): the new animal and mind, and nothing left of the last scenario on screen: thoughts, tips, the death card. */
     restart(n) {
-      ({ sim, mind } = n); Object.assign(AC, { sim, mind, things: arena.things }); achv.t = 0; achv.reset(false); lifeEarned = [];
+      ({ sim, mind, SEED } = n); Object.assign(AC, { sim, mind, things: arena.things }); achv.t = 0; achv.reset(false); lifeEarned = [];
       for (const it of B.items) retire(it); renew(B, B0()); bub.classList.remove('on');
       renew(inv, inv0()); IV.classList.remove('on'); Object.assign(teach, lesson0()); renew(D, D0()); CUT.style.display = 'none'; document.body.classList.remove('dead');
       peek(false); set('panel', false); lastThink = ''; prWhat = ''; hudKey = ''; lastH = 1; flashT = 0;

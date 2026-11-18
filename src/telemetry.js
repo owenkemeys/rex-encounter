@@ -478,8 +478,8 @@ function make(o) {
     },
     /** Right after the frame is drawn: the only moment the canvas can be read without preserveDrawingBuffer. */
     afterDraw() { if (shotWant) grab(); },
-    /** "Start over" (main.js startOver): the same session goes on with the new animal. */
-    restart(n) { ({ sim, mind } = n); log('restart'); },
+    /** "Start over" (main.js startOver): the same session goes on with the new animal (its seed in the event and the header). */
+    restart(n) { ({ sim, mind } = n); o.SEED = n.SEED; log('restart', n.SEED); },
     /** Debug/test handles (read only). */
     _peek: () => ({ ev: ev.length, tl: tl.length, chunks: chunkN, notes: notes.length, bytes: total(), db: dbState, snd: sndCount }),
   };

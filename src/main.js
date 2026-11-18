@@ -32,7 +32,8 @@ const $ = (id) => document.getElementById(id);
 const TEST = location.hash.startsWith('#test');
 // quality: chosen by measured frame time (src/view/quality.js); hints (GPU name, cores, memory, phone) only make the first guess
 const Q = detectQuality(TEST);
-const SEED = (() => { const m = location.hash.match(/seed(\d+)/); return m ? +m[1] : TEST ? 3 : (Date.now() % 100000); })();
+const pickSeed = () => { const m = location.hash.match(/seed(\d+)/); return m ? +m[1] : TEST ? 3 : (Date.now() % 100000); };
+let SEED = pickSeed();      // a new one for each scenario: every page load and every start over
 
 async function boot() {
   let canvas = $('view'), renderer, backend, swapping = false;
@@ -591,7 +592,7 @@ async function boot() {
   function startOver() {
     gaitEnd(); if (crashRun) { crashRun = null; setMind(true); }
     releasePointer(); releaseTouch(); drag = null; touches.clear(); pinch = null; setCrouch(false); setMode('observe');
-    newScenario(); mind.ov = OV; if ($('temper').value) mind.setTemper($('temper').value); herd.disabled = !$('herdOn').checked;
+    SEED = pickSeed(); newScenario(); mind.ov = OV; if ($('temper').value) mind.setTemper($('temper').value); herd.disabled = !$('herdOn').checked;
     prev.v.set(sim.pose.v); prev.s.set(sim.pose.s);
     for (const k of Object.keys(S)) if (!KEEP.has(k)) delete S[k];
     Object.assign(S, freshS()); S.keys.clear(); Object.assign(S.zoom, { toggle: false, hold: false, padHold: false, cur: 1 }); $('tZoom').setAttribute('aria-pressed', 'false');
@@ -599,7 +600,8 @@ async function boot() {
     rec.reset(); clip.resetLine(); torchLive = false; micHeld = false; eatKey = null;
     fx.reset(); world.trampleField.clear(); terrain.resetDoors();
     if (desk) desk.noSignal(); gateWarm = 0; if (post && post.setCCTV) post.setCCTV(false);
-    ui.restart({ sim, mind }); tel.restart({ sim, mind });
+    world.resetWeather(); audio.restart();
+    ui.restart({ sim, mind, SEED }); tel.restart({ sim, mind, SEED });
     document.body.classList.remove('started', 'paused');
     try { document.activeElement.blur(); } catch {}
   }
@@ -1323,7 +1325,7 @@ async function boot() {
     if (!/start/.test(location.hash)) start(false);      // tests begin past the start card unless they ask to see it
     frame(1 / 30);
   } else {
-    window.__rex = { clip, audio /* jaw-from-voice */, get sim() { return sim; }, rec, setMode, desk, get director() { return director; }, get feedDir() { return feedDir; }, get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
+    window.__rex = { clip, audio /* jaw-from-voice */, get seed() { return SEED; }, get sim() { return sim; }, rec, setMode, desk, get director() { return director; }, get feedDir() { return feedDir; }, get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
     let last = performance.now();
     // a rAF timestamp is when the frame began, which can be earlier than the performance.now() taken above (by seconds after a
     // long boot on a slow device): never hand the simulation a negative step (it ran the director's easing backwards, so its

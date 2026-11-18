@@ -1,9 +1,10 @@
 # The pause card's "start over" must give exactly what a fresh page load gives (owner: "needs to genuinely restart the scenario to save
 # having to do an F5"), in place, without reloading the page (owner: "That's clunky and ugly, just reset"). Plays a bit, dirties the
 # state, presses start over and checks the result against a fresh load taken the same way: mid-run, after a second run, and twice in a
-# row. Also checks that no navigation happened and that restarts leave nothing behind (listeners, timers, scene objects, GPU resources).
+# row. What a load rolls anew (the seed, the animal's and the wind's dice) must be new; the mood and the weather's timing as at a load.
+# Also checks that no navigation happened and that restarts leave nothing behind (listeners, timers, scene objects, GPU resources).
 # Usage: npm run build && python3 test/restart.py ["#webgl"]   (Playwright + Chrome, as tools/load_check.py). Exit 0 = pass.
-import sys, json, subprocess, time, socket, os
+import sys, re, json, subprocess, time, socket, os
 from playwright.sync_api import sync_playwright
 hashv = sys.argv[1] if len(sys.argv) > 1 else ''
 s = socket.socket(); s.bind(('127.0.0.1', 0)); PORT = s.getsockname()[1]; s.close()
@@ -30,6 +31,7 @@ SNAP = """(() => { const R = window.__rex, S = R.S, sim = R.sim, A = R.arena, m 
     paused: !!S.paused, bodyPaused: b.contains('paused'), bodyDead: b.contains('dead'), mode: S.mode, footSince: S.footSince ?? null, dead: !!S.dead, gate: !!S.gate, clock: +S.clock.toFixed(2),
     keys: Object.keys(S).filter((k) => k !== 'thunderAt').sort().join(' '),      /* (a thunderclap on its way is the weather's) */ rexX: +sim.x.toFixed(2), rexZ: +sim.z.toFixed(2), rexT: +sim.t.toFixed(2), mindT: +m.t.toFixed(2),
     wired: A.sim === sim && m.sim === sim && R.audio.sim === sim && R.audio.mind === m && R.director !== null,
+    seed: R.seed, wind: +S.wind.a.toFixed(4), mood: m.mood, flashIn: +R.world.nextFlash.toFixed(2), rollIn: R.audio.st ? +R.audio.st.rollNext.toFixed(2) : null,
     memEnc: m.mem.encounters, memHides: m.mem.hides.length, memHab: Object.keys(m.mem.hab).length, memLastNoise: !!m.mem.lastNoise,
     things: A.things.list.length, herd: A.herd.alive.length, victimLives: V ? (V.lives ?? null) : null, victimDead: V ? !!V.dead : null,
     doors: T.doors.map((x) => x.state + (x.ang === (x.state === 'open' ? x.openYaw : x.closedYaw) ? '' : '~')).join(','),
@@ -39,6 +41,7 @@ SNAP = """(() => { const R = window.__rex, S = R.S, sim = R.sim, A = R.arena, m 
 SAME = ('started', 'bodyStarted', 'splash', 'paused', 'bodyPaused', 'bodyDead', 'mode', 'footSince', 'dead', 'gate', 'keys', 'wired', 'memEnc', 'memHides', 'memHab',
         'memLastNoise', 'things', 'herd', 'victimLives', 'victimDead', 'doors', 'torch', 'remains', 'monitorLive', 'cctv', 'tapeN', 'tapeDeath', 'kit', 'hash')
 fails = []
+FIXED = bool(re.search(r'seed\d+', hashv))
 def check(name, ok, info=''):
   print(('PASS ' if ok else 'FAIL ') + name + (('  ' + str(info)) if info else ''))
   if not ok: fails.append(name)
@@ -58,6 +61,10 @@ def start_over(pg):
   pg.evaluate("document.getElementById('pauseBtn').click()"); time.sleep(0.5)
   pg.evaluate("document.getElementById('pAgain').click()")
   return settle(pg)
+def first_roll(seed):      # src/math.js makeRng's first number
+  M = 0xffffffff; im = lambda a, b: (a * b) & M
+  t = (seed + 0x6d2b79f5) & M; t = im(t ^ (t >> 15), t | 1); t ^= (t + im(t ^ (t >> 7), t | 61)) & M
+  return ((t ^ (t >> 14)) & M) / 4294967296
 def same(label, got, fresh):
   for k in SAME: check(f'{label} == fresh load: {k}', got[k] == fresh[k], f"{got[k]!r} vs {fresh[k]!r}")
   for k in ('clock', 'rexT', 'mindT'): check(f'{label} == fresh load: {k} restarted', abs(got[k] - fresh[k]) < 3, f"{got[k]} vs {fresh[k]}")
@@ -65,6 +72,15 @@ def same(label, got, fresh):
   check(f'{label} == fresh load: trample field clear', got['press'] <= fresh['press'] * 1.5 + 2000, f"{got['press']} vs {fresh['press']}")
   check(f'{label}: scene objects as at a fresh load', got['leak']['objs'] == fresh['leak']['objs'], f"{got['leak']['objs']} vs {fresh['leak']['objs']}")
   check(f'{label}: one audio context', got['leak']['audioContexts'] <= 1, got['leak']['audioContexts'])
+  # what a fresh load rolls anew (the seed, and with it the animal's and the wind's dice) must be new, not the same as before
+  if FIXED: check(f'{label}: the #seed hash keeps its animal, as a reload does', got['seed'] == fresh['seed'], f"{got['seed']} vs {fresh['seed']}")
+  else:
+    check(f'{label}: a new seed, as a reload gives', got['seed'] not in [x['seed'] for x in seen], f"{got['seed']} after {[x['seed'] for x in seen]}")
+    check(f'{label}: the wind rolled from the new seed', abs(got['wind'] - first_roll(got['seed'] + 5) * 6.283) < 0.05, f"{got['wind']} vs {first_roll(got['seed'] + 5) * 6.283:.4f}")
+  seen.append(got)
+  check(f'{label} == fresh load: the animal\'s mood', all(abs(got['mood'][k] - fresh['mood'][k]) < 0.25 for k in fresh['mood']), f"{got['mood']} vs {fresh['mood']}")
+  check(f'{label} == fresh load: lightning timing', 0 < got['flashIn'] <= 4, f"next strike in {got['flashIn']} s (a fresh load: within 4 s)")
+  check(f'{label} == fresh load: far thunder and wind timing', got['rollIn'] is None or 20 < got['rollIn'] <= 25, f"far thunder in {got['rollIn']} s (fresh sound: 25 s)")
 def no_growth(label, got, before, keys=('listeners', 'intervals', 'geometries', 'textures')):
   # the first plays create some things once (input listeners, the GPU's first flare, remains and shaders); after that a restart must add none
   L, B = got['leak'], before['leak']
@@ -81,6 +97,7 @@ try:
     pg.goto(f'http://127.0.0.1:{PORT}/index.html{hashv}', wait_until='domcontentloaded', timeout=180000)
     pg.wait_for_function('window.__rex !== undefined', timeout=240000)
     fresh = settle(pg); print('fresh  ', json.dumps(fresh))
+    seen = [fresh]
     pg.evaluate("window.__samePage = 1")
     # 1: mid-run, the animal near and the state dirty
     play(pg, 4); dirty(pg)

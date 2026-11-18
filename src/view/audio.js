@@ -95,6 +95,8 @@ class Emitter {
   }
 }
 
+const ST0 = () => ({ t: 0, occT: 0, ambT: 0, inside: null, roofed: false, gust: 0.2, gustTo: 0.2, gustNext: 4, birdNext: 3, hush: 0, rollNext: 25, vocal: -9, sniffNext: 3, rumbleNext: 6, act: null, occ: 0, frameT: 0 });
+
 export class Audio {
   /** opts (tests): { low, clipBase: where audio/ lives (default 'audio/', next to index.html), clipTimeout } */
   constructor(opts = {}) {
@@ -124,6 +126,8 @@ export class Audio {
     if (typeof window !== 'undefined') window.__audio = this;      // handle for tests and the console
   }
   /** The world the sound lives in. tier: 'low' | 'high' (from main's quality detection). */
+  /** "Start over" (main.js startOver): the timers of the ambience and the animal's sounds as when the sound first started (wind, far thunder, its breath and sniffs). */
+  restart() { if (this.st) this.st = ST0(); }
   attach(o) { Object.assign(this, { cam: o.camera, sim: o.sim, mind: o.mind, terrain: o.terrain, world: o.world }); if (o.tier) { const low = o.tier === 'low'; if (low !== this.low && !this.ctx) { this.low = low; } } }
 
   // ---------------------------------------------------------------- generation
@@ -513,7 +517,7 @@ export class Audio {
       this.ambOut = c.createGain(); this.ambLP = c.createBiquadFilter(); this.ambLP.type = 'lowpass'; this.ambLP.frequency.value = 18000; this.ambLP.Q.value = 0.5;
       this.ambOut.connect(this.ambLP); this.ambLP.connect(this.busAmb);
       this.layers = {}; this._bedsDirty = true;
-      this.st = { t: 0, occT: 0, ambT: 0, inside: null, roofed: false, gust: 0.2, gustTo: 0.2, gustNext: 4, birdNext: 3, hush: 0, rollNext: 25, vocal: -9, sniffNext: 3, rumbleNext: 6, act: null, occ: 0, frameT: 0 };
+      this.st = ST0();
       this._sortQ(); this._pump();
       if (!this.offline) this._startStream();      // still inside the gesture
     } catch (err) { this.dbg.err = 'build: ' + this._etext(err); try { if (this.ctx && !this.offline) this.ctx.close(); } catch {} this.ctx = null; if (typeof console !== 'undefined') console.warn('audio off', err); }
