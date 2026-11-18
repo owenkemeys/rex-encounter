@@ -830,7 +830,7 @@ export class Mind {
     // (owner, after playing it: "i saw very few crash related thoughts ever": in a chase it is wound up nearly every time (91% of 11 knocks in
     //  a 5 min scripted chase), and it then said nothing or "not care". It still says something that reads as the knock: it hit, it presses on)
     if (wound) { this._say('crash', lvl === 'light' ? ['bump', 'bump. keep go', 'clip. go'] : ['ow. no stop', 'hit. keep go', 'hard thing. still chase', 'ow. not care. go', 'hit. no stop']); return; }
-    if (lvl === 'light') { this._say('crash', ['bump', 'bump. side', 'bump. ok']); return; }
+    if (lvl === 'light') { this._say('crash', ['bump. side', 'bump. ok']); return; }
     this.onPain(lvl === 'reel' ? 1.6 : 1);      // (painSpike: it feeds irritation as it fades)
     this.wary = { x: this.sim.x, z: this.sim.z, until: t + 20 };
     this._say('crash', lvl === 'reel' ? ['OW. head hurt', 'OW. head. hurt', 'ow! head hurt'] : ['ow. hard thing', 'ow. that hurt', 'ow. hard thing there']);

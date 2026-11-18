@@ -144,7 +144,7 @@ async function child(src, name, seed) {
         const th = { t: e.t, text: e.text, kind: e.kind, key: e.key, cond: e.cond, ok, words: w, beh: lab, think: null };
         out.thoughts.push(th);
         if (!ok) out.bad.push(`${e.t}s "${e.text}" [${e.cond}] condition did not hold`);
-        if (OWNER_OK.has(e.text)) { /* approved as written */ } else if (w < 2 || w > 5) out.bad.push(`${e.t}s "${e.text}" has ${w} words`);
+        if (OWNER_OK.has(e.text) || (/^focus(In|Moved|Other)\b/.test(e.key || '') && w >= 2 && w <= 7)) { /* approved as written (a name for {N} may add a word) */ } else if (w < 2 || w > 5) out.bad.push(`${e.t}s "${e.text}" has ${w} words`);
         if (!OWNER_OK.has(e.text) && (NUM.test(e.text) || ABSTRACT.test(e.text))) out.bad.push(`${e.t}s "${e.text}" has a number or an abstract word`);
       }
       if (st.length) S.lastEntry = st[st.length - 1];

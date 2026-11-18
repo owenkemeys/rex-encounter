@@ -101,6 +101,8 @@ export function placeWord(T, x, z, from = null) {
 const LOCATIVE = /^(in|by|on|up|at|over|behind|inside)\b/;
 const words = (s) => s.split(/\s+/).filter(Boolean).length;
 const newModel = () => ({ missT: [], emptyT: [], ran: 0, hid: 0, shouts: 0, stillT: 0, saidStill: false, closeLooks: 0, gave: 0, torchT: [], followT: 0, unwT: 0, backT: 0, awayT: 0 });
+// lines the owner approved word for word (2026-11-18) that run past five words, or do once a name stands in for {N}
+const LONG_OK = new Set(['it go out sometime. wait by hole', '{N} go away from hole', '{N} in there. know it']);
 export class Thinker {
   constructor(mind, seed = 1) {
     this.m = mind; this.R = makeRng(seed * 104729 + 911);
@@ -262,7 +264,7 @@ export class Thinker {
         const W = c.W || 'there', loc = LOCATIVE.test(W);
         if ((tpl.includes('{L}') && !loc) || (tpl.includes('{D}') && loc)) continue;      // 'it {L}' needs a place ('it in trees'), 'from {D}' a direction ('from that way')
         const out = tpl.replaceAll('{N}', n).replaceAll('{W}', W).replaceAll('{L}', W).replaceAll('{D}', W);      // every occurrence: a second {N} (from `it` named twice) used to be shown raw
-        if (words(out) <= 5 && words(out) >= 2 && !out.includes('{') && out !== this.lastText) return { tpl: tpl0, out, ref: !NAME && tpl.includes('{N}') };
+        if ((words(out) <= 5 || (LONG_OK.has(tpl0) && words(out) <= 7)) && words(out) >= 2 && !out.includes('{') && out !== this.lastText) return { tpl: tpl0, out, ref: !NAME && tpl.includes('{N}') };
       }
     }
     return null;
