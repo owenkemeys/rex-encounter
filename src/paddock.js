@@ -43,10 +43,10 @@
 //     prefab: the src/view/arenaassets.js kind that dresses it (whole-building kinds such as 'warehouse' or 'gatehouse' are on
 //           every part of that building: place the prefab once at the structure's frame, P.structures), or null (keep blockout)
 //     visualOnly: true for a part with no collider (the warehouse's half-raised roller door)
-//     door: (kind 'door' only) { hinge: [x, z], len, y0, h, closedYaw, openYaw, state: 'open' | 'closed' | 'barred', type: 'big' |
+//     door: (kind 'door' only) { hinge: [x, z], len, y0, h, closedYaw, openYaw, state: 'open' | 'closed', type: 'big' |
 //           'person' | 'shutter' }. The leaf runs from the hinge along (sin a, cos a) for len metres, a = the current angle; it
 //           swings between closedYaw (spanning the gap) and openYaw (folded back against the outside of the wall). Live state:
-//           terrain.doors[i].ang / .state; events { src: 'door', type: 'creak' | 'bang' | 'thud' | 'barred' | 'unbarred', id, x, z }.
+//           terrain.doors[i].ang / .state; events { src: 'door', type: 'creak' | 'bang', id, x, z }.
 //   }
 // Colliders: walls and slabs are chains of pillars of radius w/2 every 0.75 m along the box (terrain.js); posts and trunks are one
 // pillar each; door leaves are moving pillar chains. The blockout (src/view/features.js) draws exactly these boxes.

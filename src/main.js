@@ -399,12 +399,12 @@ async function boot() {
       if (Y.up) return 'climb down';
       for (const t of things.list) if (t.kind === 'meat' && t.amount > 0 && Math.hypot(t.x - Y.x, t.z - Y.z) < 2.4) return 'take the meat';
       if (ladderNear(Y)) return 'climb';
-      const D = terrain.doorNear && terrain.doorNear(Y.x, Y.z); if (D) return { open: 'shut the door', closed: 'bar the door', barred: 'unbar the door' }[D[0].state];
+      const D = terrain.doorNear && terrain.doorNear(Y.x, Y.z); if (D) return (D[0].state === 'open' ? 'shut the door' : 'open the door');
       return null;
     },
     interact() { const w = act.interactable(); if (!w) return; if (w === 'take the meat') act.take(); else if (w.endsWith('door')) act.door(); else act.climb(); ui.taught('interact'); },
-    /** Swing the nearest door or shutter shut, bar it, or unbar and open it (terrain.useDoor); its sounds go out as events. */
-    door() { const Y = S.you, D = terrain.doorNear && terrain.doorNear(Y.x, Y.z); if (!D) return; const st = terrain.useDoor(D, arena.events); const [x, z] = D[0].hinge; S.noises.push({ x, y: D[0].y0 + 1, z, loud: st === 'barred' ? 0.12 : 0.22, kind: 'door', you: true }); },
+    /** Swing the nearest door or shutter shut or open (terrain.useDoor); its sounds go out as events. */
+    door() { const Y = S.you, D = terrain.doorNear && terrain.doorNear(Y.x, Y.z); if (!D) return; terrain.useDoor(D, arena.events); const [x, z] = D[0].hinge; S.noises.push({ x, y: D[0].y0 + 1, z, loud: 0.22, kind: 'door', you: true }); },
     // call: a tap whistles (carries across the paddock), holding it shouts (loud, close)
     callDown() { if (S.call) return; S.call = { at: performance.now(), shouted: false }; },
     callUp() { const c = S.call; S.call = null; if (c && !c.shouted) { audio.resume(); act.whistle(); ui.taught('call'); } },

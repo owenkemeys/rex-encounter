@@ -28,7 +28,7 @@ T = touch; P = gamepad. "Animal?" = explains or instruments the animal.
 | Opening invitation `#invite` | "WASD to walk, or mouse to look: you step in where the camera stands. or just watch it think. Esc pauses." per device | display | yes | no |
 | First-time tips (same `#invite`) | one prompt per verb, shown once ever, stored in `dh.taught` | display, per device | yes, but shown once only and gone after a single use (brief asks: fade after a couple of uses) | no |
 | Far reminder (same `#invite`) | "it is 85 m away. Q to call it." every 2 min while far and unseen | display | call reminder yes; **the distance figure instruments the animal** | yes (distance) |
-| Context prompt `#prompt` | "E climb" / "E bar the door" under the centre | KB / P display; hidden on T (T has `#tAct`) | yes | no |
+| Context prompt `#prompt` | "E climb" / "E open the door" under the centre | KB / P display; hidden on T (T has `#tAct`) | yes | no |
 | Held strip `#held` | flashes "FLARE" for 1.4 s when the item changes; otherwise nothing shows how many flares remain | display | partly: **no persistent count of flares, no torch state** anywhere (touch item button shows only the name) | no |
 | `#hint` | "you whistle", "Photo saved" | display, bottom 9% (under Safari's bar in portrait) | yes, but misplaced on phone | no |
 | Achievement toast `#toast` | title + line + "n of total" + chime | display | yes (existing) | no |
@@ -88,7 +88,7 @@ Principles
    with its key on keyboard and pad (clickable whenever the pointer is free; with the pointer locked it is a reminder).
    A sibling "?" button (key: hold Tab / hold View) shows the controls over the game without pausing; on touch it toggles.
 4. **Few verbs, one name each, the same everywhere**: walk, run, crouch, look, zoom, flare (throw), call (tap: whistle,
-   hold: shout), torch, the contextual verb as itself (climb, bar the door...), pause, controls.
+   hold: shout), torch, the contextual verb as itself (climb, open the door...), pause, controls.
 5. **The animal is not instrumented.** No distances, no meters. The thought bubble is the window. No new place shows
    achievement names or thought lines (the existing toast and the death card's last words stay; nothing is added).
 6. **Dev tools behind the debug entry.** Backtick (desktop) or the `#debug` hash (any device) turns on debug for the
@@ -154,7 +154,7 @@ Screens
 | flare (throw) | click | RT | flare (shows the pips) |
 | change item (only with 2+ items) | wheel / 1 2 3 | LB / RB | item |
 | call (tap whistle, hold shout) | Q | X | call |
-| contextual (climb, bar the door...) | E / Space | A | the button that appears |
+| contextual (climb, open the door...) | E / Space | A | the button that appears |
 | torch | F | Y | torch |
 | struggle when held | mash W A S D / Space | left stick | the stick |
 | controls (without pausing) | hold Tab; "?" button when the pointer is free | hold View | ? (toggle) |
