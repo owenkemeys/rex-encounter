@@ -173,6 +173,12 @@ export function makeTerrain(seed = 7) {
     const reg = { x: d.hinge[0], z: d.hinge[1], r: d.len + 0.4 };
     for (const c of d.cols) { colliders.push(c); const i0 = Math.floor((reg.x - reg.r) / CG), i1 = Math.floor((reg.x + reg.r) / CG), j0 = Math.floor((reg.z - reg.r) / CG), j1 = Math.floor((reg.z + reg.r) / CG); for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const k = i * 8192 + j; (cgrid.get(k) || cgrid.set(k, []).get(k)).push(c); } }
   }
+  const built = doors.map((d) => d.state);
+  /** Every door and shutter back as the paddock was built (a new scenario). */
+  const resetDoors = () => {
+    doors.forEach((d, i) => { d.state = built[i]; d.ang = d.state === 'open' ? d.openYaw : d.closedYaw; d.moving = d.burst = false; d.press = 0; d.thudT = -9; leafAt(d, d.cols); });
+    T.doorT = 0; T.ver2 = (T.ver2 || 0) + 1;
+  };
   const doorMid = (d) => { const a = d.closedYaw; return [d.hinge[0] + Math.sin(a) * d.len * 0.5, d.hinge[1] + Math.cos(a) * d.len * 0.5]; };
   const ev = (events, type, d, extra = {}) => { if (events) { const [x, z] = doorMid(d); events.push({ src: 'door', type, id: d.id, kind: d.type, x, y: d.y0 + d.h * 0.5, z, ...extra }); } };
   /** The door (all leaves of one opening) a person at (x, z) could work, within reach. */
@@ -281,7 +287,7 @@ export function makeTerrain(seed = 7) {
   // the place's own data and queries (see paddock.js): water, wetness, cover height, wind, ground kind, place names
   const slopeAt = (x, z) => { const e = 0.5; return Math.hypot(height(x + e, z) - height(x - e, z), height(x, z + e) - height(x, z - e)) / (2 * e); };
   const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
-  Object.assign(T, { ver: 0, addStructure, height, base, normal, addBump, bumps, obstacles, logs, cover, coverAt, structures, insideStructure, roofBlocks, colliders, near, pushOut, segClear, size: 420, arena: 96, bound: PD.LAYOUT.fence - 0.5, doors, navBlocks, doorNear, useDoor, stepDoors, solids, things: PD.things,
+  Object.assign(T, { ver: 0, addStructure, height, base, normal, addBump, bumps, obstacles, logs, cover, coverAt, structures, insideStructure, roofBlocks, colliders, near, pushOut, segClear, size: 420, arena: 96, bound: PD.LAYOUT.fence - 0.5, doors, navBlocks, doorNear, useDoor, stepDoors, resetDoors, solids, things: PD.things,
     grass: PD.grass, landmarks: PD.landmarks, grazing: PD.grazing, paddock: PD, slopeAt, obstaclesNear,
     waterY: PD.waterY, depthAt: PD.depthAt, wetAt: PD.wetAt, wetness: PD.wetAt, coverHeight: PD.coverHeight, windAt: PD.windAt, surfaceAt: PD.surfaceAt, placeName: PD.placeName, speedFactor: PD.speedFactor });
   return T;
