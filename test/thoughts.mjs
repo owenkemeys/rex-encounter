@@ -24,6 +24,7 @@ const RUNS = [
   ...['hide', 'decoy', 'exit', 'torch', 'follow', 'ignore', 'nearmiss'].map((n) => ['own', n]),
   ...['starving', 'meat', 'stones', 'rival'].map((n) => ['pred', n]),
   ...['wanderer', 'pest', 'runner', 'hider', 'tapper'].map((n) => ['active', n]),
+  ['focus', 'hut'],      // in the gatehouse hut, crossing from window to window (test/focus.mjs)
 ];
 
 // ------------------------------------------------------------------ what is true, tick by tick (read here, not from thoughts.js)
@@ -46,6 +47,8 @@ function facts(m) {
     meaty: a && K.seen ? a.meaty || 0 : 0, rv: Math.abs(m.sim.v), rx: m.sim.x, rz: m.sim.z,
     radial: a ? ((a.vx || 0) * (a.x - m.sim.x) + (a.vz || 0) * (a.z - m.sim.z)) / (hyp(a.x - m.sim.x, a.z - m.sim.z) || 1) : 0, behind: a ? Math.abs(Math.atan2(Math.sin(Math.atan2(a.x - m.sim.x, a.z - m.sim.z) - m.sim.psi), Math.cos(Math.atan2(a.x - m.sim.x, a.z - m.sim.z) - m.sim.psi))) > 1.8 : false,
     noiseObj: !!(n && n.obj), bumpT: m.mem.bump ? m.mem.bump.t : -99, crashT: m.mem.crash ? m.mem.crash.t : -99, waT: m.waT ?? -99, waMode: m.waMode || null, orientT: m.objOrient ? m.objOrient.t : -99, orientKey: m.objOrient ? m.objOrient.sig : null,
+    bumpReach: !!(m.mem.bump && m.mem.bump.reach), fIn: m.fev && m.fev.inT !== undefined ? m.fev.inT : -99, fMoved: m.fev && m.fev.movedT !== undefined ? m.fev.movedT : -99,
+    fShort: m.fev && m.fev.shortT !== undefined ? m.fev.shortT : -99, fOther: m.fev && m.fev.otherT !== undefined ? m.fev.otherT : -99, fQuiet: m.fev && m.fev.quietT !== undefined ? m.fev.quietT : -99,
     ap: m.ap ? { ...m.ap.flags } : {}, apo: m.ap && m.ap.last ? m.ap.last.kind : null, apoT: m.ap && m.ap.last ? m.ap.last.t : -99, rival: !!(b && b.rival),
   };
 }
@@ -69,7 +72,10 @@ const ATOM = {
   noreach: (f) => f.t - f.noReachT < 5, stuck: (f) => f.t - f.stuckT < 5, gaveup: (f) => f.t - f.gaveT < 5, hush: (f) => f.t - f.hushT < 5, curious: (f) => f.interest > 0.28, close: (f) => f.d < 20, grudge: (f) => f.grudge > 0.25, stones: (f) => f.stones > 0, calm: (f) => f.closeTime > 25,
   follow: (f) => f.seen && f.speed > 0.5 && f.rv > 0.4 && f.behind && f.d < 32, unwatched: (f) => f.seen && !f.watched, retreat: (f) => f.radial > 0.5 && f.watched, leaving: (f) => f.radial > 0.8 && !f.watched,
   meaty: (f) => f.meaty > 0.25, torchoff: (f, W) => !f.torch && W.some((g) => g.torch), blink: (f, W, i, H) => !f.torch && H.torchOn.filter((x) => f.t - x < 18).length >= 2, uptower: (f) => f.encl === 'tower',
-  bump: (f) => f.t - f.bumpT < 3, crash: (f) => f.t - f.crashT < 3,
+  bump: (f) => f.t - f.bumpT < 3, crash: (f) => f.t - f.crashT < 3, reach: (f) => f.bumpReach && f.beh === 'besiege',
+  // its attention on you inside (mind: besiege, fev); what it noticed, a moment ago, while working at the building
+  hutIn: (f) => f.t - f.fIn < 4 && f.beh === 'besiege', hutMoved: (f) => f.t - f.fMoved < 4 && f.beh === 'besiege', hutShort: (f) => f.t - f.fShort < 4 && f.beh === 'besiege',
+  hutOther: (f) => f.t - f.fOther < 4 && f.beh === 'besiege', hutQuiet: (f) => f.t - f.fQuiet < 4 && !f.seen && f.beh === 'besiege',
   thing: (f) => f.noiseObj && f.t - f.noiseT < 3.5,
   nearmiss: (f) => hyp(f.nx - f.rx, f.nz - f.rz) < 8.5 && f.t - f.noiseT < 3.5,
   ran: (f, W, i, H) => H.ran >= 2, sneaky: (f) => f.sneaky, irritated: (f) => f.irritation > 0.3, hunger: (f) => f.hunger > 0.65, tired: (f) => f.fatigue > 0.5, flinch: (f) => f.t - f.flinchT < 3.5, riled: (f) => Math.min(f.t - f.wrongT, f.t - f.hitAt) < 14, again: (f, W, i, H) => H.missT.filter((x) => f.t - x < 95).length >= 2 || H.emptyT.filter((x) => f.t - x < 95).length >= 2, bored: (f) => f.boredom > 0.5,
@@ -105,6 +111,8 @@ const LEX = [
 ];
 // its own felt states (tiredness, fullness, boredom, its body in the place), as against thoughts about you
 const FELT = /^(muse:(tired|hunger|bored|idle|eat)|wade|calm|spent|winded|full|riled)$/;
+// lines the owner approved word for word (2026-11-18), longer than five words or with a number word in them
+const OWNER_OK = new Set(['it go out sometime. wait by hole', 'two hole. watch one']);
 const NUM = /\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|many|few)\b/i, ABSTRACT = /\b(because|therefore|so that|reason|think that|idea|danger|threat|territory|safe)\b/i;
 
 // ------------------------------------------------------------------ child: run one encounter with the stream tapped
@@ -136,8 +144,8 @@ async function child(src, name, seed) {
         const th = { t: e.t, text: e.text, kind: e.kind, key: e.key, cond: e.cond, ok, words: w, beh: lab, think: null };
         out.thoughts.push(th);
         if (!ok) out.bad.push(`${e.t}s "${e.text}" [${e.cond}] condition did not hold`);
-        if (w < 2 || w > 5) out.bad.push(`${e.t}s "${e.text}" has ${w} words`);
-        if (NUM.test(e.text) || ABSTRACT.test(e.text)) out.bad.push(`${e.t}s "${e.text}" has a number or an abstract word`);
+        if (OWNER_OK.has(e.text)) { /* approved as written */ } else if (w < 2 || w > 5) out.bad.push(`${e.t}s "${e.text}" has ${w} words`);
+        if (!OWNER_OK.has(e.text) && (NUM.test(e.text) || ABSTRACT.test(e.text))) out.bad.push(`${e.t}s "${e.text}" has a number or an abstract word`);
       }
       if (st.length) S.lastEntry = st[st.length - 1];
       if (st.length && !(this.peril && this.peril.quiet) && this.voice.think !== st[st.length - 1].text && this.t - st[st.length - 1].t < 1) out.bad.push(`${this.t.toFixed(1)}s voice.think "${this.voice.think}" is not the newest thought`);
@@ -152,6 +160,7 @@ async function child(src, name, seed) {
     else if (src === 'stim') { process.argv = [process.argv[0], 'stim.mjs', name, String(seed)]; await import('./stim.mjs'); }
     else if (src === 'siege') { process.argv = [process.argv[0], 'siege.mjs', name, String(seed), '120']; await import('./siege.mjs'); }
     else if (src === 'pred') { const { run } = await import('./predator.mjs'); run(seed, { starving: 0.92, meat: 0.95, stones: 0.62, rival: 0.62 }[name], { secs: 110, stones: name === 'stones' ? 7 : 0, meat: name === 'meat', hold: name !== 'meat', verdict: name === 'rival' ? 'rival' : null }); }
+    else if (src === 'focus') { process.argv = [process.argv[0], 'focus.mjs', String(seed), '150', '30']; await import('./focus.mjs'); }
     else if (src === 'active') { const { activeRun } = await import('./active.mjs'); activeRun(name, seed, name === 'pest' ? 0.62 : name === 'wanderer' ? 0.8 : 0.92, { secs: 120 }); }
     else ownRun(name, seed);
   } finally { console.log = log; }

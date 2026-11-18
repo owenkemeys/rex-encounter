@@ -159,7 +159,9 @@ export class Thinker {
       calm: !!(m.wind && m.T.windAt && Math.hypot(m.wind.x, m.wind.z) > 1 && Math.hypot(...Object.values(m.T.windAt(sim.x, sim.z, m.wind))) < 0.4 * Math.hypot(m.wind.x, m.wind.z)),
       bumpT: m.mem.bump ? m.mem.bump.t : -99, crashT: m.mem.crash ? m.mem.crash.t : -99, waT: m.waT ?? -99, waMode: m.waMode || null, orientT: m.objOrient ? m.objOrient.t : -99,
       noReachT: m.mem.noReach ? m.mem.noReach.t : -99, stuckT: m.mem.stuck ? m.mem.stuck.t : -99, gaveT: m.mem.gaveUp ? m.mem.gaveUp.t : -99,
-      hushT: m.mem.hush ? m.mem.hush.t : -99,
+      hushT: m.mem.hush ? m.mem.hush.t : -99, bumpReach: !!(m.mem.bump && m.mem.bump.reach),
+      fIn: m.fev && m.fev.inT !== undefined ? m.fev.inT : -99, fMoved: m.fev && m.fev.movedT !== undefined ? m.fev.movedT : -99, fShort: m.fev && m.fev.shortT !== undefined ? m.fev.shortT : -99,
+      fOther: m.fev && m.fev.otherT !== undefined ? m.fev.otherT : -99, fOtherK: m.fev ? m.fev.otherK || null : null, fQuiet: m.fev && m.fev.quietT !== undefined ? m.fev.quietT : -99,
       meaty: a && K.seen ? a.meaty || 0 : 0, rv: Math.abs(sim.v),
       met: m.kind ? m.kind.met : 0, forgotT: m.forgotT ?? -99, killedT: m.killedT ?? -99, limping: !!(a && K.seen && a.limping), blood: !!(m.ap && m.ap.flags.blood), why: m.ap && m.ap.flags ? m.ap.flags.why : null,
     };
@@ -434,7 +436,15 @@ export class Thinker {
     // a steady noise it has stopped caring about (mind: mem.steady)
     if (s.hushT > (p.hushT ?? -99)) q('hush', 'feel', 0.75, ['that noise again', 'just that noise', 'noise. nothing there'], 'hush', { cool: 30 });
     if (s.crashT > (p.crashT ?? -99) && m.mem.crash) q('crash', 'body', m.mem.crash.hard ? 0.82 : 0.6, m.mem.crash.hard ? ['oof! hit hard', 'bang. hard thing', 'ran into hard thing'] : ['bump. side hit', 'hit something', 'hard there'], 'crash', { ok: (z) => z.t - z.crashT < 3, cool: 20 });
-    else if (s.bumpT > (p.bumpT ?? -99)) q('bump', 'body', 0.7, m.mem.bump && m.mem.bump.hard ? ['bump! hard', 'hit hard thing', 'ow. hard there'] : ['hard there', 'something hard', 'no way there'], 'bump', { ok: (z) => z.t - z.bumpT < 3, cool: 25 });
+    // (its head met the wall round a gap it was bringing it into on purpose: the reach, not a knock; the owner did not want "something hard" there)
+    else if (s.bumpT > (p.bumpT ?? -99) && s.bumpReach) q('reachBump', 'body', 0.7, ['tight. push more', 'head not fit'], 'bump+reach', { ok: (z) => z.t - z.bumpT < 3 && z.beh === 'besiege', cool: 25 });
+    else if (s.bumpT > (p.bumpT ?? -99)) q('bump', 'body', 0.7, m.mem.bump && m.mem.bump.hard ? ['bump! hard', 'hit hard thing', 'ow. hard there'] : ['bump head. ow', 'hard. go round'], 'bump', { ok: (z) => z.t - z.bumpT < 3, cool: 25 });
+    // you in a building it is working its head into (mind: besiege, fev): its attention on you, not on the walls
+    if (s.fIn > (p.fIn ?? -99)) q('focusIn', 'belief', 0.8, s.scent > 0.05 ? ['smell it. in box', '{N} in there. know it'] : ['{N} in there. know it'], 'hutIn', { ok: (z) => z.beh === 'besiege', cool: 40 });
+    if (s.fMoved > (p.fMoved ?? -99)) q('focusMoved', 'belief', 0.78, ['it move. other side', '{N} go away from hole'], 'hutMoved', { ok: (z) => z.beh === 'besiege', cool: 12 });
+    if (s.fShort > (p.fShort ?? -99)) q('focusShort', 'feel', 0.82, ['head in. not reach', 'hole small. it close. grr'], 'hutShort', { ok: (z) => z.beh === 'besiege', cool: 15 });
+    if (s.fOther > (p.fOther ?? -99)) q('focusOther', 'belief', 0.8, s.fOtherK === 'switch' ? ['other hole. go round'] : s.fOtherK === 'watch' ? ['it go out sometime. wait by hole', 'two hole. watch one'] : ['it go out sometime. wait by hole'], 'hutOther', { ok: (z) => z.beh === 'besiege', cool: 12 });
+    if (s.fQuiet > (p.fQuiet ?? -99)) q('focusQuiet', 'belief', 0.72, s.scent > 0.05 ? ['it quiet. still in there', 'not see. smell still'] : ['it quiet. still in there'], 'hutQuiet', { ok: (z) => !z.seen && z.beh === 'besiege', cool: 20 });
     if (s.gaveT > (p.gaveT ?? -99)) q('gaveup', 'feel', 0.85, ['can not get through', 'no way through', 'too tight. give up'], 'gaveup', { cool: 10 });
     else if (s.stuckT > (p.stuckT ?? -99)) q('stuck', 'body', 0.8, ['stuck. back out', 'too tight here', 'no room. back up'], 'stuck', { cool: 10 });
     if (s.noReachT > p.noReachT) q('noreach', 'feel', 0.85, ['can not get in', 'too tight. no way', 'meat in there. can not'], 'noreach', { cool: 10 });
