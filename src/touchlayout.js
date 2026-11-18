@@ -3,7 +3,7 @@
 // arc round each stick's thumb. Used by main.js to position the page's controls (resize, orientationchange) and by test/touchlayout.mjs.
 // No DOM here. Circles are {cx, cy, r}; boxes are {x, y, w, h}.
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const GAP = 8, RING = 12, HALO = 20, BAR_H = 44;
+const GAP = 8, RING = 12, HALO = 20, BAR_H = 44, MUTE_W = 132, MUTE_H = 40;
 const circ = (cx, cy, r) => ({ cx, cy, r });
 const box = (x, y, w, h) => ({ x, y, w, h });
 const bb = (c) => (c.r !== undefined ? { x: c.cx - c.r, y: c.cy - c.r, w: 2 * c.r, h: 2 * c.r } : c);
@@ -46,8 +46,8 @@ export function touchLayout(W, H, insets = {}) {
   }
   if (!g) g = build(110, 48, 'tight');
   const ctl = [g.left, g.right, ...Object.values(g.buttons)];
-  // the top bar (help, clip, pause, note) and the mute icon: fixed corners
-  const topbar = box(W - I.right - 216, I.top, 216, BAR_H), mute = box(I.left, I.top, BAR_H, BAR_H);
+  // the top bar (help, clip, pause, note): the top-right corner
+  const topbar = box(W - I.right - 216, I.top, 216, BAR_H);
   // the pill (context verb) and, above it, the hint line: centred between the sticks; they climb until a free span at least minW wide exists
   const place = (h, minW, maxW, obstacles, fromY) => {
     for (let y = fromY; y > I.top + BAR_H; y -= 4) {
@@ -61,5 +61,7 @@ export function touchLayout(W, H, insets = {}) {
   const bottom = H - I.bottom - margin;
   const pill = place(BAR_H, 96, 180, ctl, bottom - BAR_H);
   const hint = place(40, 110, 260, [...ctl, pill], pill.y - GAP - 40);
+  // the mute indicator ("sound off"): centred just above the hint line
+  const mute = place(MUTE_H, MUTE_W, MUTE_W, [...ctl, pill, hint], hint.y - GAP - MUTE_H);
   return { W, H, S, insets: I, ...g, halo: HALO, topbar, mute, pill, hint, controls: ctl };
 }
