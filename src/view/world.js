@@ -13,6 +13,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildFeatures } from './features.js';
 import { tune, tuneColor, tuneGroup } from './tune.js';      // tune
 import { createField, createFogarina } from '../fogarina.js';
+const GROUND_FOG = false;      // off until it looks right in this setting (src/fogarina.js is kept)
 
 export const MOODS = {
   storm: { name: 'Storm at dusk', top: 0x0b1018, hor: 0x46525e, fog: 0x3a454f, dens: 0.0115, low: 1.6, hemi: [0x8ea2bd, 0x2c2e24, 1.0], sun: [0xc0b8c8, 2.3], glow: 0xd07a45, dir: [-0.6, 0.26, 0.5], exp: 1.45, rim: [0x9ab4dc, 0.8], rain: 1, wet: 1, dust: 0x3d3b36, cov: [0.0, 0.55], sunGlow: 0.6, env: 0.35, cloud: 0x2f3742 },      // dark and heavy: near-black sky, the last cold light low on the horizon, deep fog (the 2026-11-13 look, restored after it was lifted)
@@ -1044,7 +1045,7 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
   }
 
   // ---- ground fog (medium and high, src/fogarina.js): ankle-deep fog that flows round bodies, on the baked height map, kept off built floors
-  const gfog = hmap ? createFogarina({ field, heightAt: (xz) => texture(hmap, xz.div(HS).add(0.5)).level(0).r, maskAt: (xz) => texture(hmap, xz.div(HS).add(0.5)).level(0).b, color: vec3(U.fog).mul(0.9), flash: U.flash, wind: U.wind }) : null;
+  const gfog = GROUND_FOG && hmap ? createFogarina({ field, heightAt: (xz) => texture(hmap, xz.div(HS).add(0.5)).level(0).r, maskAt: (xz) => texture(hmap, xz.div(HS).add(0.5)).level(0).b, color: vec3(U.fog).mul(0.9), flash: U.flash, wind: U.wind }) : null;
   if (gfog) scene.add(gfog.mesh);
 
   // ---- environment light for reflections and sky fill: a small image of the current sky, re-filtered when the mood changes
