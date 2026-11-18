@@ -74,8 +74,8 @@ const ATOM = {
   meaty: (f) => f.meaty > 0.25, torchoff: (f, W) => !f.torch && W.some((g) => g.torch), blink: (f, W, i, H) => !f.torch && H.torchOn.filter((x) => f.t - x < 18).length >= 2, uptower: (f) => f.encl === 'tower',
   bump: (f) => f.t - f.bumpT < 3, crash: (f) => f.t - f.crashT < 3, reach: (f) => f.bumpReach && f.beh === 'besiege',
   // its attention on you inside (mind: besiege, fev); what it noticed, a moment ago, while working at the building
-  hutIn: (f) => f.t - f.fIn < 4 && f.beh === 'besiege', hutMoved: (f) => f.t - f.fMoved < 4 && f.beh === 'besiege', hutShort: (f) => f.t - f.fShort < 4 && f.beh === 'besiege',
-  hutOther: (f) => f.t - f.fOther < 4 && f.beh === 'besiege', hutQuiet: (f) => f.t - f.fQuiet < 4 && !f.seen && f.beh === 'besiege',
+  hutIn: (f) => f.t - f.fIn < 4.5 && f.beh === 'besiege', hutMoved: (f) => f.t - f.fMoved < 4.5 && f.beh === 'besiege', hutShort: (f) => f.t - f.fShort < 4.5 && f.beh === 'besiege',
+  hutOther: (f) => f.t - f.fOther < 4.5 && f.beh === 'besiege', hutQuiet: (f) => f.t - f.fQuiet < 4.5 && !f.seen && f.beh === 'besiege',
   thing: (f) => f.noiseObj && f.t - f.noiseT < 3.5,
   nearmiss: (f) => hyp(f.nx - f.rx, f.nz - f.rz) < 8.5 && f.t - f.noiseT < 3.5,
   ran: (f, W, i, H) => H.ran >= 2, sneaky: (f) => f.sneaky, irritated: (f) => f.irritation > 0.3, hunger: (f) => f.hunger > 0.65, tired: (f) => f.fatigue > 0.5, flinch: (f) => f.t - f.flinchT < 3.5, riled: (f) => Math.min(f.t - f.wrongT, f.t - f.hitAt) < 14, again: (f, W, i, H) => H.missT.filter((x) => f.t - x < 95).length >= 2 || H.emptyT.filter((x) => f.t - x < 95).length >= 2, bored: (f) => f.boredom > 0.5,

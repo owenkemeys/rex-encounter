@@ -442,10 +442,10 @@ export class Thinker {
     else if (s.bumpT > (p.bumpT ?? -99) && s.bumpReach) q('reachBump', 'body', 0.7, ['tight. push more', 'head not fit'], 'bump+reach', { ok: (z) => z.t - z.bumpT < 3 && z.beh === 'besiege', cool: 25 });
     else if (s.bumpT > (p.bumpT ?? -99)) q('bump', 'body', 0.7, m.mem.bump && m.mem.bump.hard ? ['bump! hard', 'hit hard thing', 'ow. hard there'] : ['bump head. ow', 'hard. go round'], 'bump', { ok: (z) => z.t - z.bumpT < 3, cool: 25 });
     // you in a building it is working its head into (mind: besiege, fev): its attention on you, not on the walls
-    if (s.fIn > (p.fIn ?? -99)) q('focusIn', 'belief', 0.8, s.scent > 0.05 ? ['smell it. in box', '{N} in there. know it'] : ['{N} in there. know it'], 'hutIn', { ok: (z) => z.beh === 'besiege', cool: 40 });
-    if (s.fMoved > (p.fMoved ?? -99)) q('focusMoved', 'belief', 0.78, ['it move. other side', '{N} go away from hole'], 'hutMoved', { ok: (z) => z.beh === 'besiege', cool: 12 });
+    if (s.fIn > (p.fIn ?? -99)) q('focusIn', 'belief', 0.86, s.scent > 0.05 ? ['smell it. in box', '{N} in there. know it'] : ['{N} in there. know it'], 'hutIn', { ok: (z) => z.beh === 'besiege', cool: 40, ttl: 4 });
+    if (s.fMoved > (p.fMoved ?? -99)) q('focusMoved', 'belief', 0.86, ['it move. other side', '{N} go away from hole'], 'hutMoved', { ok: (z) => z.beh === 'besiege', cool: 12 });
     if (s.fShort > (p.fShort ?? -99)) q('focusShort', 'feel', 0.82, ['head in. not reach', 'hole small. it close. grr'], 'hutShort', { ok: (z) => z.beh === 'besiege', cool: 15 });
-    if (s.fOther > (p.fOther ?? -99)) q('focusOther', 'belief', 0.8, s.fOtherK === 'switch' ? ['other hole. go round'] : s.fOtherK === 'watch' ? ['it go out sometime. wait by hole', 'two hole. watch one'] : ['it go out sometime. wait by hole'], 'hutOther', { ok: (z) => z.beh === 'besiege', cool: 12 });
+    if (s.fOther > (p.fOther ?? -99)) q('focusOther', 'belief', 0.8, s.fOtherK === 'switch' ? ['other hole. go round'] : s.fOtherK === 'watch' ? ['it go out sometime. wait by hole', 'two hole. watch one'] : ['it go out sometime. wait by hole'], 'hutOther', { ok: (z) => z.beh === 'besiege', cool: 12, ttl: 4 });
     if (s.fQuiet > (p.fQuiet ?? -99)) q('focusQuiet', 'belief', 0.72, s.scent > 0.05 ? ['it quiet. still in there', 'not see. smell still'] : ['it quiet. still in there'], 'hutQuiet', { ok: (z) => !z.seen && z.beh === 'besiege', cool: 20 });
     if (s.gaveT > (p.gaveT ?? -99)) q('gaveup', 'feel', 0.85, ['can not get through', 'no way through', 'too tight. give up'], 'gaveup', { cool: 10 });
     else if (s.stuckT > (p.stuckT ?? -99)) q('stuck', 'body', 0.8, ['stuck. back out', 'too tight here', 'no room. back up'], 'stuck', { cool: 10 });
