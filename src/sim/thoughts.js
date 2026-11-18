@@ -435,7 +435,7 @@ export class Thinker {
     // its body not getting anywhere (mind._unstick): backing out, and giving the errand up
     // a steady noise it has stopped caring about (mind: mem.steady)
     if (s.hushT > (p.hushT ?? -99)) q('hush', 'feel', 0.75, ['that noise again', 'just that noise', 'noise. nothing there'], 'hush', { cool: 30 });
-    if (s.crashT > (p.crashT ?? -99) && m.mem.crash) q('crash', 'body', m.mem.crash.hard ? 0.82 : 0.6, m.mem.crash.hard ? ['oof! hit hard', 'bang. hard thing', 'ran into hard thing'] : ['bump. side hit', 'hit something', 'hard there'], 'crash', { ok: (z) => z.t - z.crashT < 3, cool: 20 });
+    if (s.crashT > (p.crashT ?? -99) && m.mem.crash) q('crash', 'body', m.mem.crash.hard ? 0.82 : 0.6, m.mem.crash.hard ? ['oof! hit hard', 'bang. hard thing', 'ran into hard thing'] : ['bump. side hit', 'hit something', 'hard. go round'], 'crash', { ok: (z) => z.t - z.crashT < 3, cool: 20 });
     // (its head met the wall round a gap it was bringing it into on purpose: the reach, not a knock; the owner did not want "something hard" there)
     else if (s.bumpT > (p.bumpT ?? -99) && s.bumpReach) q('reachBump', 'body', 0.7, ['tight. push more', 'head not fit'], 'bump+reach', { ok: (z) => z.t - z.bumpT < 3 && z.beh === 'besiege', cool: 25 });
     else if (s.bumpT > (p.bumpT ?? -99)) q('bump', 'body', 0.7, m.mem.bump && m.mem.bump.hard ? ['bump! hard', 'hit hard thing', 'ow. hard there'] : ['bump head. ow', 'hard. go round'], 'bump', { ok: (z) => z.t - z.bumpT < 3, cool: 25 });

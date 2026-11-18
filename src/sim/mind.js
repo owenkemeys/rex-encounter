@@ -1819,7 +1819,7 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
           const h = sim.head, d = sp && sim.senseKey === sp.key ? sp.d : { x: h.f.x, y: h.f.y, z: h.f.z }, bk = sp ? Math.max(1.2, sp.back) : 1.5;
           b.wd = { H: { x: h.pos.x - d.x * bk, y: h.pos.y - d.y * bk + 0.15, z: h.pos.z - d.z * bk }, d, low: sim.lowness, back: 0.3, key: 'w' + b.t.toFixed(2), until: b.t + 8, from: b.t, best: 99 };
         };
-        const fail = (w) => { if (w === 4 && b.phase === 'probe' && sure && inside) fv.shortT = this.t; withdraw(); if (sp) { b.avoid.push({ ...sp.E, s: sp.eye, w }); this._siegeUse(S, sp.E); } b.lined = false; b.si++; b.tried++; b.sub = 'shift'; const nx = b.spots && b.spots[b.si]; b.phase = nx && Math.hypot(nx.B.x - sim.x, nx.B.z - sim.z) < 1.0 ? 'probe' : 'go'; b.at = b.t; b.fitT = 0; };
+        const fail = (w) => { withdraw(); if (sp) { b.avoid.push({ ...sp.E, s: sp.eye, w }); this._siegeUse(S, sp.E); } b.lined = false; b.si++; b.tried++; b.sub = 'shift'; const nx = b.spots && b.spots[b.si]; b.phase = nx && Math.hypot(nx.B.x - sim.x, nx.B.z - sim.z) < 1.0 ? 'probe' : 'go'; b.at = b.t; b.fitT = 0; };
         // the way in it works is the one nearest where it believes you are: every second or two it asks whether another gap it
         // has found (not this one) is nearer you by a clear margin, and if so draws its head out and goes round to that one, planned
         // afresh for where you are now (the margin keeps it from flipping between two gaps while you stand between them)
@@ -1924,6 +1924,8 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
             //  him, over and over, the body standing 5 m off the wall. Through a gap it closes up first, the body stepping up behind the head, and only
             //  bites when the jaws can reach; a body that will not come on any nearer, or a way that does not take it, is given up for the next place)
             const tipD = a ? Math.hypot(sim.head.pos.x + sim.head.f.x * this.sp.dims.headLen - a.x, sim.head.pos.y + sim.head.f.y * this.sp.dims.headLen - (a.y - 0.4), sim.head.pos.z + sim.head.f.z * this.sp.dims.headLen - a.z) : 99;
+            // (its head is in the gap and you are still beyond its jaws: the reach falls short; once a visit, for the thoughts)
+            if (b.shortAt !== b.thereT && c.seen && sure && inside && tipD > 1.5 && b.t - b.thereT > 1.5) { b.shortAt = b.thereT; fv.shortT = this.t; }
             const closing = !!a && (thru || c.aff.reach) && tipD > 1.5 && !(b.strikeAt !== undefined && b.t - b.strikeAt < 1.4);
             if (closing) {
               if (b.closeT === undefined || tipD < (b.closeBest ?? 99) - 0.1) { b.closeBest = tipD; b.closeT = b.t; }
