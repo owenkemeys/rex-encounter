@@ -88,6 +88,17 @@ Status: step 1 built 2026-11-17 (branch gatehouse-start), awaiting the owner; st
 ### N1 follow-up: global incident counter
 Owner: fine to use a real counter if the card falls back gracefully. Plan: after the per-device count ships, call a free public counter (no account) once per run; on any failure or timeout show the device count. Not built yet.
 
+### F1. Rex focus on you inside a building (owner 2026-11-18, words in QUEUE)
+Status: built 2026-11-18 (Grok Bot), unplayed. In besiege, when it believes you are inside, it works the opening nearest where it believes you
+are: every 1 to 2 s it asks whether another found way in is nearer you by 1.2 m or more and, if so, draws its head out and goes round (brisk,
+2.6 m/s). Head, eyes and sniff stay on you (I.look on you, locked). Thoughts (owner's lines, verbatim): in there, you moved, reach falls short,
+going round / waiting by a way out, you have gone quiet; a bump while reaching in says "tight. push more" / "head not fit", an accidental bump
+"bump head. ow" / "hard. go round". A belief of you inside no longer drifts out through the wall. `node test/focus.mjs all 240 45`.
+Numbers (8 seeds, he stays 45 s a side): head at the opening nearest him 79% of its time at openings (main: 57%); it decides to go round about
+2 s after he starts across, but walking round the hut takes ~21 s median (main ~20 s), so a player who crosses every 20 s keeps it chasing.
+Side effect: with its head at the right window it seized a player standing 1.2 m from the glass in 3 of 8 four-minute runs (main 1 of 8).
+Unverified: nobody has watched or played it. No window strike (separate item).
+
 ## Batch of 2026-11-15 21:47-21:59 UTC (sessions 20261115T214343Z-9vrm and 20261115T215107Z-xr5v)
 
 ### T1. Head does not lead into a turn or round a corner
