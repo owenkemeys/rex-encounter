@@ -1,11 +1,18 @@
 // Doors and shutters: shut every leaf of the barn, hide a person inside, let the animal besiege it knowing where you are.
-// Reports door events (creak, bang, burst) and which leaves end open.
+// Reports door events (creak, bang, thud, burst) and which leaves end open. Every door opens outward: pressed from outside it
+// holds (it cannot pull it open), from inside it gives; checked first on the Gatehouse door (exit 1 if not).
 //   node test/doors.mjs [seed] [secs]
 import { makeTerrain } from '../src/terrain.js';
 import { Creature } from '../src/sim/rex.js';
 import { Mind } from '../src/sim/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const seed = +(process.argv[2] || 3), secs = +(process.argv[3] || 60);
+for (const side of [-1, 1]) {      // -1 outside the Gatehouse's south door, 1 inside: its head pressing on the shut leaf for 3 s
+  const H = makeTerrain(7), d = H.doors.find((x) => x.id === 'gatehouse.door.S'), mx = d.hinge[0] + Math.sin(d.closedYaw) * d.len / 2, mz = d.hinge[1] + Math.cos(d.closedYaw) * d.len / 2;
+  const sim = { head: { pos: { x: mx, y: d.y0 + 1.5, z: mz + side * 2.2 }, f: { x: 0, y: 0, z: -side } }, spine: { 18: { p: { x: mx, y: -50, z: mz } } } };
+  for (let i = 0; i < 360; i++) H.stepDoors(1 / 120, sim, null);
+  const ok = d.state === (side < 0 ? 'closed' : 'open'); console.log(`Gatehouse door pressed from ${side < 0 ? 'outside: holds' : 'inside: gives'}: ${ok ? 'ok' : 'FAIL (' + d.state + ')'}`); if (!ok) process.exitCode = 1;
+}
 const T = makeTerrain(7), S = T.structures.find((s) => s.key === 'barn');
 const ev = [];
 const gaps = [...new Set(T.doors.filter((d) => d.of === 'barn').map((d) => d.gap))];

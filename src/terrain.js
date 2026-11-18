@@ -160,8 +160,9 @@ export function makeTerrain(seed = 7) {
   const CG = 6, cgrid = new Map();
   for (const c of colliders) { const i0 = Math.floor((c.x - c.r) / CG), i1 = Math.floor((c.x + c.r) / CG), j0 = Math.floor((c.z - c.r) / CG), j1 = Math.floor((c.z + c.r) / CG); for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const k = i * 8192 + j; (cgrid.get(k) || cgrid.set(k, []).get(k)).push(c); } }
   const gridAdd = (c) => { const i0 = Math.floor((c.x - c.r) / CG), i1 = Math.floor((c.x + c.r) / CG), j0 = Math.floor((c.z - c.r) / CG), j1 = Math.floor((c.z + c.r) / CG); for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const k = i * 8192 + j; (cgrid.get(k) || cgrid.set(k, []).get(k)).push(c); } };
-  // ---- doors and shutters: leaves that swing about a hinge (states open / closed). The person swings them (useDoor); the
-  // animal's head or chest pressing on a closed leaf bursts it open; each emits events for the audio.
+  // ---- doors and shutters: leaves that swing about a hinge (states open / closed), all opening outward. The person swings them
+  // (useDoor); the animal's head or chest pressing on a closed leaf from inside bursts it open (it cannot pull one open from
+  // outside: it thuds and holds); each emits events for the audio.
   const leafAt = (d, out) => {
     const n = d.cols.length, sx = Math.sin(d.ang), sz = Math.cos(d.ang);
     for (let i = 0; i < n; i++) { const u = (i + 0.5) / n * d.len; out[i].x = d.hinge[0] + sx * u; out[i].z = d.hinge[1] + sz * u; }
@@ -194,19 +195,21 @@ export function makeTerrain(seed = 7) {
     T.ver2 = (T.ver2 || 0) + 1; return nx;
   };
   const segD = (px, pz, d) => { const sx = Math.sin(d.ang), sz = Math.cos(d.ang), t = clamp01(((px - d.hinge[0]) * sx + (pz - d.hinge[1]) * sz) / d.len); return Math.hypot(px - d.hinge[0] - sx * t * d.len, pz - d.hinge[1] - sz * t * d.len); };
-  /** Step the doors: the animal's head and chest burst closed leaves open; leaves swing toward their state. */
+  /** Step the doors: the animal's head and chest burst closed leaves open from the side they push; leaves swing toward their state. */
   const stepDoors = (dt, sim, events) => {
     T.doorT = (T.doorT || 0) + dt;
     const pts = [];
     if (sim) { const h = sim.head; pts.push([h.pos.x + h.f.x * 1.6, h.pos.y + h.f.y * 1.6, h.pos.z + h.f.z * 1.6, 0.45], [h.pos.x + h.f.x * 0.6, h.pos.y, h.pos.z + h.f.z * 0.6, 0.6], [sim.spine[18].p.x, sim.spine[18].p.y, sim.spine[18].p.z, 1.1]); }
     for (const d of doors) {
       // pressing: its snout, head or chest within touching distance of a shut leaf (the head is held ~0.8 m off solids) for a
-      // moment builds pressure, and the door gives (burst open)
+      // moment builds pressure: pushed (from the side away from where it folds open) the door gives (burst open); pulled, it thuds and holds
       if (d.state !== 'open' && d.ang === d.closedYaw) {
-        let touch = false;
-        for (const [x, y, z, r] of pts) if (y > d.y0 - r && y < d.y0 + d.h + r && segD(x, z, d) < r + 0.5) { touch = true; break; }
+        let touch = null;
+        for (const p of pts) { const [x, y, z, r] = p; if (y > d.y0 - r && y < d.y0 + d.h + r && segD(x, z, d) < r + 0.5) { touch = p; break; } }
         d.press = touch ? (d.press || 0) + dt : Math.max(0, (d.press || 0) - dt);
-        if (d.press > 0.35) { for (const e of doors) if (e.gap === d.gap) { e.state = 'open'; e.moving = true; e.speed = 7; e.burst = true; e.press = 0; } ev(events, 'bang', d, { burst: true }); T.ver2 = (T.ver2 || 0) + 1; }
+        const pull = touch && (Math.sin(d.closedYaw) * (touch[2] - d.hinge[1]) - Math.cos(d.closedYaw) * (touch[0] - d.hinge[0])) * Math.sin(d.closedYaw - d.openYaw) > 0;
+        if (pull && d.press > 0.35) { d.press = 0; if (T.doorT - d.thudT > 1.2) { d.thudT = T.doorT; ev(events, 'thud', d); } }
+        else if (touch && d.press > 0.35) { for (const e of doors) if (e.gap === d.gap) { e.state = 'open'; e.moving = true; e.speed = 7; e.burst = true; e.press = 0; } ev(events, 'bang', d, { burst: true }); T.ver2 = (T.ver2 || 0) + 1; }
       }
       if (!d.moving) continue;
       const goal = d.state === 'open' ? d.openYaw : d.closedYaw, da = goal - d.ang, st = d.speed * dt;
