@@ -39,7 +39,8 @@ export class Director {
     c.occl = visible ? 0 : c.occl + dt;
     const engaged = mind.know.seen && mind.know.target && mind.know.target.id === 'observer';
     // move the camera only when the animal is lost from view, far away, or the shot has gone stale and nothing is happening to it
-    if (c.cut || c.occl > 4 || d > 70 || (!engaged && c.since > 40 && R() < dt * 0.1)) {
+    // tooClose (a host's fixed cameras, main.js GATE): the animal right under the camera fills the shot; another mount is asked for
+    if (c.cut || c.occl > 4 || d > 70 || (!engaged && c.since > 40 && R() < dt * 0.1) || (this.tooClose && this.mount && d < this.tooClose && c.since > 2)) {
       const s = (this.mount && this.mount(sim, mind)) || this._spot(sim, mind); c.x = s.x; c.z = s.z; c.y = s.y; c.cut = true; c.since = 0; c.occl = 0; c.mount = this.mount ? s : null;      // mount: a host's fixed cameras (main.js GATE)
     }
     // disturbances: a stone falls somewhere near it after a quiet spell

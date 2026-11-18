@@ -1891,7 +1891,7 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
             //  him, over and over, the body standing 5 m off the wall. Through a gap it closes up first, the body stepping up behind the head, and only
             //  bites when the jaws can reach; a body that will not come on any nearer, or a way that does not take it, is given up for the next place)
             const tipD = a ? Math.hypot(sim.head.pos.x + sim.head.f.x * this.sp.dims.headLen - a.x, sim.head.pos.y + sim.head.f.y * this.sp.dims.headLen - (a.y - 0.4), sim.head.pos.z + sim.head.f.z * this.sp.dims.headLen - a.z) : 99;
-            const closing = (thru || c.aff.reach) && tipD > 1.5 && !(b.strikeAt !== undefined && b.t - b.strikeAt < 1.4);
+            const closing = !!a && (thru || c.aff.reach) && tipD > 1.5 && !(b.strikeAt !== undefined && b.t - b.strikeAt < 1.4);
             if (closing) {
               if (b.closeT === undefined || tipD < (b.closeBest ?? 99) - 0.1) { b.closeBest = tipD; b.closeT = b.t; }
               I.goal = { kind: 'drive', throttle: sim.headBlocked > 0.3 ? 0 : clamp(0.5 * (tipD - 1.0), 0.25, 0.6), steer: clamp(1.6 * wrap(bearing(a.x - sim.x, a.z - sim.z) - sim.psi), -0.5, 0.5) }; I.pace = 1.0;
