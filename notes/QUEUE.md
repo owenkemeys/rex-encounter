@@ -214,3 +214,5 @@ i am not qualified to comment on when the tips should show, and i need to be abl
 
 ## Owner, 2026-11-17 late night, on the pause card's start over
 "Start over button, does that refresh the page? That's clunky and ugly, just reset the extension"
+
+- Rex-perspective view (Owen 2026-11-18): watch from, or later play as, the rex, with a camera above its head aimed at its current attention focus. Watch mode first; playing as it is a much bigger build.
