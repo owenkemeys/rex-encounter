@@ -32,7 +32,8 @@ import { Fn, uniform, texture, uv, vec2, vec3, vec4, float, mix, smoothstep, cla
 /** n x n cells of size cell metres (it repeats every n * cell). relax: seconds for a press to fade to a third. */
 export function createField({ n = 96, cell = 0.75, relax = 2.4 } = {}) {
   const W = n * cell, dat = new Uint8Array(n * n * 4), fl = new Float32Array(n * n * 3), wakes = new Map(), ears = [];
-  for (let i = 0; i < n * n; i++) { dat[i * 4] = dat[i * 4 + 1] = 128; dat[i * 4 + 3] = 255; }
+  const rest = () => { fl.fill(0); for (let i = 0; i < n * n; i++) { dat[i * 4] = dat[i * 4 + 1] = 128; dat[i * 4 + 2] = 0; dat[i * 4 + 3] = 255; } };
+  rest();
   const tex = new THREE.DataTexture(dat, n, n, THREE.RGBAFormat, THREE.UnsignedByteType);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
   let live = false, clock = 0;
@@ -75,6 +76,8 @@ export function createField({ n = 96, cell = 0.75, relax = 2.4 } = {}) {
       }
       tex.needsUpdate = true; live = any;
     },
+    /** Everything back at rest at once, no wakes remembered (a new scenario). */
+    clear() { rest(); wakes.clear(); live = false; tex.needsUpdate = true; },
     dispose() { tex.dispose(); },
   };
   return F;

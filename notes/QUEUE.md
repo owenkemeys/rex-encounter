@@ -211,3 +211,6 @@ previously the start game button just eliminated the overlay box and left you wa
 the rex should be spawned over near the hut and maybe visible from the window, but approaching from a distance, so we can see it move before it starts its investigation.
 
 i am not qualified to comment on when the tips should show, and i need to be able to get the new-player experience whenever i want with a debug option or something"
+
+## Owner, 2026-11-17 late night, on the pause card's start over
+"Start over button, does that refresh the page? That's clunky and ugly, just reset the extension"

@@ -51,14 +51,15 @@ export function stuckStep(st, x) {
 }
 
 /** A recorder that does nothing (telemetry off, or it could not be made). */
-export const NO_TELEMETRY = { frame() {}, afterDraw() {}, flush() {}, notes: 0, off: true };
+export const NO_TELEMETRY = { frame() {}, afterDraw() {}, flush() {}, restart() {}, notes: 0, off: true };
 
 export function createTelemetry(o) {
   try { return make(o); } catch (e) { try { console.warn('[dino] telemetry off:', e); } catch {} return NO_TELEMETRY; }
 }
 
 function make(o) {
-  const { S, sim, mind, arena, act, audio, camera, canvas, Q, ui, props, post } = o;
+  const { S, arena, act, audio, camera, canvas, Q, ui, props, post } = o;
+  let { sim, mind } = o;
   const $ = (id) => document.getElementById(id);
   const T0 = performance.now(), now = () => (performance.now() - T0) / 1000, tt = () => r1(now());
   const startISO = new Date().toISOString();
@@ -477,6 +478,8 @@ function make(o) {
     },
     /** Right after the frame is drawn: the only moment the canvas can be read without preserveDrawingBuffer. */
     afterDraw() { if (shotWant) grab(); },
+    /** "Start over" (main.js startOver): the same session goes on with the new animal (its seed in the event and the header). */
+    restart(n) { ({ sim, mind } = n); o.SEED = n.SEED; log('restart', n.SEED); },
     /** Debug/test handles (read only). */
     _peek: () => ({ ev: ev.length, tl: tl.length, chunks: chunkN, notes: notes.length, bytes: total(), db: dbState, snd: sndCount }),
   };

@@ -92,6 +92,11 @@ export class Effects {
       d.life = d.max = (0.9 + R() * 0.9) * (this.wet ? 0.6 : 1); d.size = (0.5 + R() * 0.7) * (0.6 + 0.8 * k) * (this.wet ? 0.6 : 1); d.inw = 0; d.s.visible = true; }
   }
   kick(k) { this.trauma = Math.min(1, this.trauma + k); }
+  /** Start over: no dust or breath in the air, no prints on the ground, no shake to come. */
+  reset() {
+    for (const d of [...this.dust, ...this.vap]) { d.life = 0; d.s.visible = false; }
+    this.prints.count = this.pi = 0; this.trauma = this.jolt = 0; this.pending.length = this.sniffQ.length = 0; this.rum = null;
+  }
 
   footfall(e, camPos, audio) {
     const T = this.terrain, R = this.rand;

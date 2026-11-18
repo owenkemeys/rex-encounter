@@ -162,7 +162,7 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
   const boltMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xdfe6ff).multiplyScalar(lo ? 1.5 : 6), fog: false, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
   const bolt = new THREE.Mesh(new THREE.BufferGeometry(), boltMat); bolt.visible = false; bolt.frustumCulled = false; scene.add(bolt);
   const makeBolt = (cx, cz, cam) => {
-    const P = [], I = [], R = r;
+    const P = [], I = [], R = wx;
     const seg = (x, y, z, dx, dy, dz, n, w) => {
       let px = x, py = y, pz = z;
       for (let i = 0; i < n; i++) {
@@ -1055,13 +1055,14 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
   { const dir = normalize(positionLocal), y = dir.y; envMat.colorNode = mix(mix(vec3(U.fog).mul(0.5), vec3(U.hor), smoothstep(-0.3, 0.0, y)), vec3(U.top).mul(0.5).add(vec3(U.cloud).mul(0.6)), smoothstep(0.0, 0.6, y)).add(vec3(U.sunCol).mul(pow(max(dot(dir, U.sunDir), 0), 8)).mul(U.sunGlow).mul(0.5)); }
   envScene.add(new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16), envMat));
 
-  let mood = MOODS.storm, flash = 0, nextFlash = 5, pulses = [], time0 = 0, boltT = 0;
+  let mood = MOODS.storm, flash = 0, nextFlash = 5, pulses = [], time0 = 0, boltT = 0, wx = makeRng(9);      // wx: the weather's own dice, the same from each fresh start
   const white = new THREE.Color(0xcfd8ff), cFog = new THREE.Color(), flashDir = new THREE.Vector3();
 
   const windV = new THREE.Vector2(2.4, 1.2);
   const api = {
     groundFog: gfog,      // the ground fog (src/fogarina.js), for tests and tuning
     trampleField: field,      // the trample field (src/fogarina.js createField), for tests
+    get nextFlash() { return nextFlash; },      // seconds to the next lightning strike, for tests
     /** The simulation's wind (m/s, x and z): what carries scent also bends the grass and slants the rain. */
     setWind(w) { windV.set(w.x, w.z); },
     get wind() { return windV; },
@@ -1084,6 +1085,8 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
       scene.environmentIntensity = mood.env; envDirty = true;
       nextFlash = 4;
     },
+    /** "Start over" (main.js startOver): the lightning as at a fresh load (the mood itself is a setting and stays). */
+    resetWeather() { wx = makeRng(9); flash = 0; pulses = []; boltT = 0; nextFlash = 4; api.flash = false; },
     followLight(x, y, z) { sun.target.position.set(x, y, z); sun.position.set(x, y, z).addScaledVector(lightDir.lengthSq() ? lightDir : sunDir, 120); sun.target.updateMatrixWorld(); rim.target.position.set(x, y, z); rim.position.set(x - sunDir.x * 50, y + 18, z - sunDir.z * 50); rim.target.updateMatrixWorld(); },
     /** The running quality level's knobs (src/view/quality.js PROFILE): instance counts, shadow map and casters, rain, mist,
      *  tree LOD reach. Counts only ever shrink from what was built (the light build has no meadow and fewer of everything). */
@@ -1110,8 +1113,8 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
       if (mood.rain && dt > 0) {
         nextFlash -= dt;
         if (nextFlash <= 0) {
-          nextFlash = FLASH.gap + r() * FLASH.span; pulses = [0, 0.09 + r() * 0.08, 0.3 + r() * 0.2].map((d) => time0 + d); struck = true;
-          const a = r() * 6.283, d = 380 + r() * 260; flashDir.set(Math.sin(a), 0.32 + r() * 0.25, Math.cos(a)).normalize();
+          nextFlash = FLASH.gap + wx() * FLASH.span; pulses = [0, 0.09 + wx() * 0.08, 0.3 + wx() * 0.2].map((d) => time0 + d); struck = true;
+          const a = wx() * 6.283, d = 380 + wx() * 260; flashDir.set(Math.sin(a), 0.32 + wx() * 0.25, Math.cos(a)).normalize();
           makeBolt(camera.position.x + Math.sin(a) * d, camera.position.z + Math.cos(a) * d, camera); boltT = 0.55;
         }
       }

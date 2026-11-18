@@ -13,7 +13,7 @@ import { Director } from './director.js';
 import { Arena } from './sim/arena.js';
 import { Props } from './view/props.js';
 import { makePost } from './view/post.js';
-import { clamp, bearing, makeRng } from './math.js';
+import { clamp, bearing, makeRng, renew } from './math.js';
 import { pickRespawn } from './paddock.js';
 import * as JMP from './jump.js';      // the on-foot jump (pure numbers; test/jump.mjs)
 import { createUI, KIT as KIT_START } from './ui.js';
@@ -32,7 +32,8 @@ const $ = (id) => document.getElementById(id);
 const TEST = location.hash.startsWith('#test');
 // quality: chosen by measured frame time (src/view/quality.js); hints (GPU name, cores, memory, phone) only make the first guess
 const Q = detectQuality(TEST);
-const SEED = (() => { const m = location.hash.match(/seed(\d+)/); return m ? +m[1] : TEST ? 3 : (Date.now() % 100000); })();
+const pickSeed = () => { const m = location.hash.match(/seed(\d+)/); return m ? +m[1] : TEST ? 3 : (Date.now() % 100000); };
+let SEED = pickSeed();      // a new one for each scenario: every page load and every start over
 
 async function boot() {
   let canvas = $('view'), renderer, backend, swapping = false;
@@ -95,12 +96,9 @@ async function boot() {
   // away (the feed carries on, with sound); the first move or look (takeOver) cuts to you, the guard, looking down at that monitor, and you
   // look up from it, out of the east window it is coming to. Respawns use the usual spots, never the hut.
   const GATE = OPEN && SPOTS && SPOTS.gate && !/crash|nogate/.test(location.hash) ? SPOTS.gate : null;
-  const sim = new RexSim(terrain, GATE ? { x: GATE.rex.x, z: GATE.rex.z, yaw: GATE.rex.yaw, seed: SEED } : { x: OPEN ? OPEN.rx : 0, z: OPEN ? OPEN.rz : 0, yaw: OPEN ? OPEN.yaw : 0.4, seed: SEED });
-  const mind = new Mind(sim, SEED);
-  const body = new RexBody(Q); scene.add(body.group); body.fix = sim.fix;
+  const body = new RexBody(Q); scene.add(body.group);
   const fx = new Effects(scene, terrain), audio = new Audio(), ov = new Overlays(scene, terrain);
-  audio.attach({ camera, sim, mind, terrain, world, tier: Q.tier });
-  const director = new Director(terrain, SEED + 1);
+  const props = new Props(scene, terrain, Q);
   // the gatehouse feed: the hut's own cameras (SE and SW corners) while one can see the animal, and still while it is round the hut out of
   // their sight (the owner: never cut away to the paddock while it is at the hut); a pole camera out where the director would stand only
   // when it has gone off. The splash uses `director` (observe mode later, 'o' or watching after a death, frames as before); the monitor on
@@ -116,28 +114,41 @@ async function boot() {
     if (Math.hypot(sm.x - GATE.guard.x, sm.z - GATE.guard.z) < 22) return at(cur || HUTCAMS[0]);      // round the back of the hut: stay on the hut
     const s = D._spot(sm, md); return { ...s, y: s.y + 3.3, cam: 3 + ((Math.abs(Math.round(s.x * 7 + s.z * 3)) % 7)), label: 'PADDOCK' };
   };
-  if (GATE) { const m = gateMount(director); director.mount = (sm, md) => (S.gate ? null : m(sm, md)); director.tooClose = 6; }
-  const feedDir = GATE ? new Director(terrain, SEED + 3) : null;
-  if (feedDir) { feedDir.mount = gateMount(feedDir); feedDir.tooClose = 6; }
-  if (GATE) { const c = director.cam, M = GATE.cam; c.x = M.x; c.z = M.z; c.y = terrain.height(M.x, M.z) + M.y; c.cut = true; c.mount = { ...HUTCAMS[0], y: c.y }; }
-  else if (OPEN) {      // the opening camera stands on the start point, framed as the director frames it (a long lens, stand-off distance), with no cut to a new spot
-    const c = director.cam, hy = terrain.height(OPEN.rx, OPEN.rz) + 2.4, dx = OPEN.rx - OPEN.x, dz = OPEN.rz - OPEN.z;
-    c.x = OPEN.x; c.z = OPEN.z; c.y = terrain.height(OPEN.x, OPEN.z) + 1.7; c.lx = OPEN.rx; c.ly = hy; c.lz = OPEN.rz;
-    c.fov = clamp(2 * Math.atan(6.5 / Math.hypot(dx, dz, hy - c.y)) * 57.3, 18, 70); c.cut = false;
+  // The scenario: the animal, its mind, the things, herd and people in the paddock, the cameras that follow it. Built here, and built
+  // again from nothing by the pause card's "start over" (startOver), which is a fresh start without a page load. `arena` keeps its
+  // identity (the view and telemetry tap its step); everything else is new.
+  let sim, mind, arena, things, herd, director, feedDir, fidget, wr, rpx;
+  function newScenario() {
+    sim = new RexSim(terrain, GATE ? { x: GATE.rex.x, z: GATE.rex.z, yaw: GATE.rex.yaw, seed: SEED } : { x: OPEN ? OPEN.rx : 0, z: OPEN ? OPEN.rz : 0, yaw: OPEN ? OPEN.yaw : 0.4, seed: SEED });
+    mind = new Mind(sim, SEED); body.fix = sim.fix;
+    audio.attach({ camera, sim, mind, terrain, world, tier: Q.tier });
+    director = new Director(terrain, SEED + 1);
+    if (GATE) { const m = gateMount(director); director.mount = (sm, md) => (S.gate ? null : m(sm, md)); director.tooClose = 6; }
+    feedDir = GATE ? new Director(terrain, SEED + 3) : null;
+    if (feedDir) { feedDir.mount = gateMount(feedDir); feedDir.tooClose = 6; }
+    if (GATE) { const c = director.cam, M = GATE.cam; c.x = M.x; c.z = M.z; c.y = terrain.height(M.x, M.z) + M.y; c.cut = true; c.mount = { ...HUTCAMS[0], y: c.y }; }
+    else if (OPEN) {      // the opening camera stands on the start point, framed as the director frames it (a long lens, stand-off distance), with no cut to a new spot
+      const c = director.cam, hy = terrain.height(OPEN.rx, OPEN.rz) + 2.4, dx = OPEN.rx - OPEN.x, dz = OPEN.rz - OPEN.z;
+      c.x = OPEN.x; c.z = OPEN.z; c.y = terrain.height(OPEN.x, OPEN.z) + 1.7; c.lx = OPEN.rx; c.ly = hy; c.lz = OPEN.rz;
+      c.fov = clamp(2 * Math.atan(6.5 / Math.hypot(dx, dz, hy - c.y)) * 57.3, 18, 70); c.cut = false;
+    }
+    const A = new Arena(terrain, sim, mind, SEED); arena = arena ? renew(arena, A) : A; things = arena.things; herd = arena.herd;
+    if (OPEN && !GATE) arena.opening({ x: OPEN.x, z: OPEN.z });
+    fidget = GATE ? gateFidget(GATE, terrain, SEED) : null; wr = makeRng(SEED + 5);
+    rpx = Object.create(sim); rpx.head = Object.create(sim.head); rpx.head.pos = new THREE.Vector3(); rpx.act = null; rpx.headTouch = null;      // what the audio sees of the animal while it plays: the recorded head
   }
-  const arena = new Arena(terrain, sim, mind, SEED), things = arena.things, herd = arena.herd, props = new Props(scene, terrain, Q);
-  if (OPEN && !GATE) arena.opening({ x: OPEN.x, z: OPEN.z });
-  const desk = GATE ? makeGatehouseDesk(scene, terrain, GATE) : null, fidget = GATE ? gateFidget(GATE, terrain, SEED) : null;
+  newScenario();
+  const desk = GATE ? makeGatehouseDesk(scene, terrain, GATE) : null;
   let gateWarm = 0;      // the feed's look goes on after a few frames in the camcorder look, so that look is built before the cut (else the first frames after it came out blank)
-  const wr = makeRng(SEED + 5);
 
-  const S = {
-    mode: 'observe', mindOn: true, timeScale: 1, acc: 0, pace: DIM.walk, stalk: false, lure: false, mx: 0, my: 0,
-    goal: null, goalId: 1, keys: new Set(), noises: [], stones: [],
+  // what a scenario starts from ("start over" puts these back and drops every field added in play: startOver)
+  const freshS = () => ({
+    mode: 'observe', acc: 0, goal: null, goalId: 1, noises: [], stones: [], item: 0, started: false, paused: false, invite: false,
     you: { x: 0, z: 0, yaw: 0, pitch: 0.1, vx: 0, vz: 0, px: 0, pz: 0, crouch: false, eye: 1.7, stepT: 0, push: { x: 0, z: 0 }, up: null, rustleT: 0, J: JMP.newJump(), dip: 0 },
     fly: { x: 0, y: 8, z: 0, yaw: 0, pitch: -0.2 },
-    wind: { a: wr() * 6.283, s: 3 }, clock: 0, fps: 60, hudT: 0, stepTimes: [],
-  };
+    wind: { a: wr() * 6.283, s: 3 }, clock: 0, hudT: 0, stepTimes: [],
+  });
+  const S = { mindOn: true, timeScale: 1, pace: DIM.walk, stalk: false, lure: false, mx: 0, my: 0, keys: new Set(), fps: 60, ...freshS() };
   const prev = { v: new Float32Array(sim.pose.v.length), s: new Float32Array(sim.pose.s.length) };
   const blend = { v: new Float32Array(sim.pose.v.length), s: new Float32Array(sim.pose.s.length) };
   prev.v.set(sim.pose.v); prev.s.set(sim.pose.s);
@@ -146,7 +157,6 @@ async function boot() {
   // The replay is shot by a security camera (src/view/ptz.js picks the mount and moves the camera; post.setCCTV is the look, on whatever the VHS setting).
   // While it runs the things in the world are the recorded ones (rec.things), live sim events are not played, and the recorded sound events are
   // re-emitted through the usual audio calls with the listener at the camera, through a thin small-microphone filter (audio.mic). Dust, rain, the herd stay as now.
-  const rpx = Object.create(sim); rpx.head = Object.create(sim.head); rpx.head.pos = new THREE.Vector3(); rpx.act = null; rpx.headTouch = null;      // what the audio sees of the animal while it plays: the recorded head
   let torchLive = false, micHeld = false;
   const clip = createClip({ getCanvas: () => canvas, audio, tape: rec, extra: () => { const V = arena.victims && arena.victims.get('you'); return { cause: V && V.cause, motive: V && V.lastHurt && V.lastHurt.motive, deaths: V ? V.lives : 1, crouch: !!S.you.crouch, label: rec.label, lasted: S.footSince && V ? (performance.now() - S.footSince) / 1000 - (V.dead ? Math.max(0, (V.clock || 0) - (V.deadT || 0)) : 0) : 0 }; } }); S.clip = clip;      // closeout: the card's facts      // clip: "save clip" on the death card records the replay to a file
   function startClip() {      // closeout: "save clip" on the death menu when there is no finished clip (the replay was skipped): the replay and card play once more, recorded, with the small tag
@@ -356,7 +366,7 @@ async function boot() {
   kitReset();
   S.kit = KIT;
   // one hand, one held thing: left click (RT, a tap on the view) uses it; the wheel, 1 2 3, the d-pad or the item button changes it
-  const ITEMS = [['flare', KIT_START.flares], ['stone', KIT_START.stones], ['meat', KIT_START.meat]].filter(([, c]) => c > 0).map(([k]) => k); S.item = 0; S.items = ITEMS;
+  const ITEMS = [['flare', KIT_START.flares], ['stone', KIT_START.stones], ['meat', KIT_START.meat]].filter(([, c]) => c > 0).map(([k]) => k); S.items = ITEMS;
   function kitTick(dt) {
     for (const k in KIT) { const c = KIT[k]; if (c.n < c.max) { c.t += dt; if (c.t >= c.every) { c.t = 0; c.n++; } } else c.t = 0; }
     const el = $('tItem'), cur = KIT[ITEMS[S.item]], none = !ITEMS.some((k) => KIT[k].n >= 1);
@@ -450,7 +460,6 @@ async function boot() {
   // ---- the session: a start gate (secures focus, audio and the pointer), pause, pointer lock, fullscreen with keyboard lock.
   // Nothing is bound to Ctrl, Alt or Meta, so browser shortcuts (Ctrl+W, Ctrl+T...) are never needed for play; in fullscreen
   // the Keyboard Lock API keeps every key in the game (hold Esc to leave fullscreen).
-  S.started = false; S.paused = false; S.invite = false;
   // Pointer lock (FPS mouse). It needs a user gesture, and a host page that frames us in a sandbox without allow-pointer-lock
   // refuses it: the request rejects / 'pointerlockerror' fires, or nothing happens at all. Either way S.lock.fail is set and
   // the mouse looks by plain movement over the view (no button held), turning on at the edges of the view; a later
@@ -575,12 +584,26 @@ async function boot() {
   // no selecting, dragging or context menus over the game (the drawer's own controls still work)
   const formy = (t) => t && t.closest && t.closest('input, select, textarea');
   for (const ev of ['contextmenu', 'selectstart', 'dragstart']) document.addEventListener(ev, (e) => { if (!formy(e.target)) e.preventDefault(); });
-  window.addEventListener('beforeunload', (e) => { if (S.started && S.mode === 'foot' && !TEST && !S.startingOver) { e.preventDefault(); e.returnValue = ''; } });
+  window.addEventListener('beforeunload', (e) => { if (S.started && S.mode === 'foot' && !TEST) { e.preventDefault(); e.returnValue = ''; } });
+  // "start over" (pause card): the whole scenario from scratch, as a fresh page load gives it but without one: back to the gatehouse feed
+  // and "click to begin", with a new animal, mind and memory, herd, people, things, doors, trample field, tape, tips and death card.
+  // Settings, the sandbox drawer and the hash stay; the run count goes up on the next step out, as after a load (setMode). Every field
+  // play adds to S is dropped (KEEP is S as boot left it). test/restart.py checks the result against a fresh load.
   function startOver() {
-    if (S.startingOver) return;
-    S.startingOver = true; S.paused = true;
-    try { audio.away(60, 0.03); } catch {}      // quiet at once rather than a stutter while the page goes
-    location.reload();
+    gaitEnd(); if (crashRun) { crashRun = null; setMind(true); }
+    releasePointer(); releaseTouch(); drag = null; touches.clear(); pinch = null; setCrouch(false); setMode('observe');
+    SEED = pickSeed(); newScenario(); mind.ov = OV; if ($('temper').value) mind.setTemper($('temper').value); herd.disabled = !$('herdOn').checked;
+    prev.v.set(sim.pose.v); prev.s.set(sim.pose.s);
+    for (const k of Object.keys(S)) if (!KEEP.has(k)) delete S[k];
+    Object.assign(S, freshS()); S.keys.clear(); Object.assign(S.zoom, { toggle: false, hold: false, padHold: false, cur: 1 }); $('tZoom').setAttribute('aria-pressed', 'false');
+    kitReset(); kitTick(0); props.reset(); for (const b of document.querySelectorAll('[data-torch]')) b.setAttribute('aria-pressed', 'false');
+    rec.reset(); clip.resetLine(); torchLive = false; micHeld = false; eatKey = null;
+    fx.reset(); world.trampleField.clear(); terrain.resetDoors();
+    if (desk) desk.noSignal(); gateWarm = 0; if (post && post.setCCTV) post.setCCTV(false);
+    world.resetWeather(); audio.restart();
+    ui.restart({ sim, mind, SEED }); tel.restart({ sim, mind, SEED });
+    document.body.classList.remove('started', 'paused');
+    try { document.activeElement.blur(); } catch {}
   }
   // look speed (the pause card's setting) and the lens: zoomed in, the same hand movement turns you less
   S.sens = (() => { try { const v = +localStorage.getItem('dh.sens'); return v > 0.1 && v < 5 ? v : 1; } catch { return 1; } })();
@@ -779,10 +802,6 @@ async function boot() {
   $('pauseBtn').addEventListener('click', () => { audio.resume(); setPaused(!S.paused); });
   $('pResume').addEventListener('click', () => setPaused(false));
   { const b = $('pDebug'); if (b) b.addEventListener('click', () => { setPaused(false); setTimeout(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: '`' })), 60); }); }      // the sandbox drawer without a backtick key (phones; the claude.ai frame has no URL hash)
-  // "start over" (pause card): the whole scenario from scratch, exactly as a fresh page load (back to the gatehouse feed and "click to begin";
-  // the animal, its mind and memory, the herd, victims, flares, doors, trample and fog fields, clock, tape all new). It IS a fresh load: the state
-  // lives in a hundred places, and an in-place reset forgets whichever was added last. The hash is kept; the run count goes up once, on the
-  // new page's first step (runs.js). Any new scenario state is covered automatically; test/restart.py checks it.
   $('pAgain').addEventListener('click', () => startOver());
   $('pFull').addEventListener('click', () => { audio.resume(); fullscreen(); });
   if (!KIT_START.torch) $('tTorch').hidden = true;
@@ -1294,10 +1313,11 @@ async function boot() {
   qualityMenu(qc);
   watchBody(renderer, body);      // self-check a few frames in: is the skin visible and drawing? (window.__bodyCheck, #perf)
   document.body.dataset.mode = 'observe'; document.body.dataset.mind = 'on'; document.body.classList.toggle('gatestart', !!GATE); S.gateStart = !!GATE;
+  const KEEP = new Set(Object.keys(S));      // settings and session fields: what startOver leaves in S
   $('boot').remove();
   if (TEST) {
     window.__dino = {
-      ui, start, setPaused, takeOver, renderer, scene, sim, mind, S, director, camera, setMode, setMind, reachTo, fx, ov, body, act, world, applyMood, arena, props, qc, post, Q, get backendNow() { return backend; },
+      ui, start, setPaused, takeOver, renderer, scene, get sim() { return sim; }, get mind() { return mind; }, S, get director() { return director; }, camera, setMode, setMind, reachTo, fx, ov, body, act, world, applyMood, arena, props, qc, post, Q, get backendNow() { return backend; },
       advance(sec, fdt = 1 / 30) { S.noRender = true; for (let t = 0; t < sec - fdt - 1e-9; t += fdt) frame(fdt); S.noRender = false; frame(fdt); },
       look(px, py, pz, tx, ty, tz) { camera.position.set(px, py, pz); camera.lookAt(tx, ty, tz); body.update(sim.pose); world.followLight(sim.x, sim.groundY, sim.z); world.update(0, camera, renderer); draw(); },
     };
@@ -1305,7 +1325,7 @@ async function boot() {
     if (!/start/.test(location.hash)) start(false);      // tests begin past the start card unless they ask to see it
     frame(1 / 30);
   } else {
-    window.__rex = { clip, audio /* jaw-from-voice */, get sim() { return sim; }, rec, setMode, desk, director, feedDir, get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
+    window.__rex = { clip, audio /* jaw-from-voice */, get seed() { return SEED; }, get sim() { return sim; }, rec, setMode, desk, get director() { return director; }, get feedDir() { return feedDir; }, get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
     let last = performance.now();
     // a rAF timestamp is when the frame began, which can be earlier than the performance.now() taken above (by seconds after a
     // long boot on a slow device): never hand the simulation a negative step (it ran the director's easing backwards, so its

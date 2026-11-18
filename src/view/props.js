@@ -216,6 +216,13 @@ export class Props {
     this.scene.add(G); return G;
   }
 
+  /** Start over (main.js startOver): what is left of you, the smoke and the torch go with the last scenario (its things' meshes go on the next update). */
+  reset() {
+    for (const r of this.remains || []) this.scene.remove(r.g); this.remains = [];
+    for (const p of this.smoke) { p.life = 0; p.sp.visible = false; }
+    this.torchOn = false;
+  }
+
   // ---------------------------------------------------------------- frame
   update(dt, things, herd, camera, t) {
     const seen = new Set();

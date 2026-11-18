@@ -14,6 +14,8 @@ export const wrap = (a) => {
 };
 /** Fraction to move toward a target this tick for a first-order lag with time constant tau. */
 export const expK = (dt, tau) => 1 - Math.exp(-dt / tau);
+/** A fresh state for an object others hold on to: `fresh`'s own fields replace all of its data (functions patched onto it stay). */
+export const renew = (o, fresh) => { for (const k of Object.keys(o)) if (typeof o[k] !== 'function') delete o[k]; return Object.assign(o, fresh); };
 
 /** Second-order spring toward a moving target (semi-implicit Euler). */
 export class Spring {

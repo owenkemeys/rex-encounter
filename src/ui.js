@@ -3,7 +3,7 @@
 // opening invitation, the pause card, injury and the end card, the take action and the photo key.
 import * as THREE from 'three/webgpu';
 import { Achievements, ACHIEVEMENTS } from './achievements.js';
-import { clamp } from './math.js';
+import { clamp, renew } from './math.js';
 import { placeThought, clearOf, damp } from './thoughtplace.js';
 import { touchLayout } from './touchlayout.js';
 import { tuneInstall, tuneOpen, tuneAvailable, tuneShowStrip } from './view/tune.js';      // tune
@@ -56,8 +56,9 @@ const TEACH_TOUCH = { use: 'tap {use} to throw one', call: 'tap {call} to call. 
 const DONE = 2, SHOW = 3;
 
 export function createUI(o) {
-  const { S, sim, mind, camera, canvas, arena, terrain, act, Q, audio, SEED, session } = o;
-  const things = arena.things, OV = mind.ov;
+  const { S, camera, canvas, arena, terrain, act, Q, audio, session } = o;
+  let { sim, mind, SEED } = o;
+  const OV = mind.ov;
   // the device in use (main.js keeps S.dev live: the last of keyboard/mouse, touch, gamepad used)
   const dev = () => S.dev || (o.pad && o.pad.on ? 'pad' : Q.touch ? 'touch' : 'kb');
   const kb = (k) => `<b>${esc(KEYS[dev()][k])}</b>`;
@@ -198,7 +199,8 @@ export function createUI(o) {
     clearTimeout(toastT); toastT = setTimeout(() => { T.classList.remove('on'); document.body.classList.remove('toasting'); setTimeout(nextToast, 500); }, 5200);
   }
   let lifeEarned = [];
-  const achv = new Achievements({ sim, mind, terrain, things, arena }, {
+  const AC = { sim, mind, terrain, things: arena.things, arena };
+  const achv = new Achievements(AC, {
     onDone(a, n, total) { queue.push({ ...a, n, total: shownTotal() }); lifeEarned.push(a); drawList(); if (!toasting) nextToast(); },
   });
   drawList();
@@ -218,7 +220,7 @@ export function createUI(o) {
   act.take = () => {
     if (S.mode !== 'foot' || S.dead) return;
     const Y = S.you; let best = null, bd = 2.4;
-    for (const t of things.list) if (t.kind === 'meat' && t.amount > 0) { const d = Math.hypot(t.x - Y.x, t.z - Y.z); if (d < bd) { bd = d; best = t; } }
+    for (const t of arena.things.list) if (t.kind === 'meat' && t.amount > 0) { const d = Math.hypot(t.x - Y.x, t.z - Y.z); if (d < bd) { bd = d; best = t; } }
     if (!best) return; achv.took(best); arena.take(best.id, 'you'); if (act.gotMeat) act.gotMeat(); audio.resume(); audio.step && audio.step(0.12);
   };
   // ------------------------------------------------------------ mind readout
@@ -260,7 +262,7 @@ export function createUI(o) {
   // view near the centre, faster when it is looking back at you. "only when close": within ~30 m.
   const bub = $('bubble'), pills = $('bpills'), cueI = $('bcue').querySelector('i');
   const pv = new THREE.Vector3(), LIFE = [99, 6.5, 3.2];
-  const B = { items: [], text: '', sx: undefined, sy: undefined, vis: false, L: 1, on: 0, off: 0, docked: false, side: 1, mode: '' };
+  const B0 = () => ({ items: [], text: '', sx: undefined, sy: undefined, vis: false, L: 1, on: 0, off: 0, docked: false, side: 1, mode: '' }), B = B0();
   function crude(t) { t = (t || '').trim().replace(/\s+/g, ' '); if (t.length > 60) { t = t.slice(0, 60); t = t.slice(0, t.lastIndexOf(' ')) + '...'; } return t; }
   function retire(it) { if (it.dead) return; it.dead = true; it.el.classList.add('gone'); setTimeout(() => it.el.remove(), 700); }
   function pushThought(text, now) {
@@ -427,7 +429,7 @@ export function createUI(o) {
   }
 
   // ------------------------------------------------------------ the opening: watch first, then a gentle invitation to step in
-  const inv = { stage: 0, t: 0, tipAt: -999, clock: 0, unseen: 0, html: '' };
+  const inv0 = () => ({ stage: 0, t: 0, tipAt: -999, clock: 0, unseen: 0, html: '' }), inv = inv0();
   const IV = $('invite');
   function showInvite(html) { if (inv.html !== html) { IV.innerHTML = html; inv.html = html; } IV.classList.add('on'); }
   function inviteFrame(dt) {
@@ -463,7 +465,7 @@ export function createUI(o) {
     if (inv.clock < (inv.tipEnd || 0)) showInvite(fmtB('{call} to call it')); else IV.classList.remove('on');
   }
   // what the player has done (uses) and how often each tip has been shown, remembered between visits where storage allows
-  const teach = { used: {}, shown: {}, cur: null, until: 0, gap: 0, count: 0 };
+  const lesson0 = () => ({ cur: null, until: 0, gap: 0, count: 0 }), teach = { used: {}, shown: {}, ...lesson0() };
   try {
     if (!o.test) {
       const st = JSON.parse(localStorage.getItem('dh.teach') || 'null');
@@ -550,7 +552,7 @@ export function createUI(o) {
   }
 
   // ------------------------------------------------------------ the end: what happened, in its words; how long you lasted
-  const D = { evt: null, at: 0, shown: false, cause: '', auto: false, fade: -9, fadeLen: 0.8 };
+  const D0 = () => ({ evt: null, at: 0, shown: false, cause: '', auto: false, fade: -9, fadeLen: 0.8 }), D = D0();
   // the cut: a fraction of a second after the jaws close the picture is gone, hard (no fade): black, or with the camcorder look
   // the tape running out into snow and then black. The end card comes up out of that.
   const CUT = document.createElement('div'), CC = document.createElement('canvas'), cg = CC.getContext('2d');
@@ -610,7 +612,7 @@ export function createUI(o) {
     document.body.classList.add('dead');
     try { $('xAgain').focus({ preventScroll: true }); } catch {}      // Enter, Space or A goes again
   }
-  /** Go again: a new life after a death (the pause card's "start over" is a fresh load instead: main.js startOver). */
+  /** Go again: a new life after a death (the pause card's "start over" is a new scenario instead: main.js startOver). */
   function retry(watch, force) {
     if (!S.dead && !force) return;
     act.respawn();
@@ -699,6 +701,13 @@ export function createUI(o) {
   return {
     clipReady, clipResult, deathMenu: showDeath, deathFocus, flags, set, achv, photo, whistle, toggleAll: () => set('bare'), taught, peek, held, note, devChanged,
     get debug() { return debugOn; }, setDebug,
+    /** "Start over" (main.js startOver): the new animal and mind, and nothing left of the last scenario on screen: thoughts, tips, the death card. */
+    restart(n) {
+      ({ sim, mind, SEED } = n); Object.assign(AC, { sim, mind, things: arena.things }); achv.t = 0; achv.reset(false); lifeEarned = [];
+      for (const it of B.items) retire(it); renew(B, B0()); bub.classList.remove('on');
+      renew(inv, inv0()); IV.classList.remove('on'); Object.assign(teach, lesson0()); renew(D, D0()); CUT.style.display = 'none'; document.body.classList.remove('dead');
+      peek(false); set('panel', false); lastThink = ''; prWhat = ''; hudKey = ''; lastH = 1; flashT = 0;
+    },
     paused(p) { if (p) { drawPause(); if (!pausedOnce) { pausedOnce = true; $('gKeys').open = dev() !== 'touch'; } } },      // phones: the start card and "?" carry the controls; the settings come first
     get lastShot() { return o.lastShot; },
     /** dt stops while paused; dtReal keeps running (fades, the end card's timing). */
