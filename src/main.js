@@ -37,6 +37,8 @@ let SEED = pickSeed();      // a new one for each scenario: every page load and 
 
 async function boot() {
   let canvas = $('view'), renderer, backend, swapping = false;
+  // the loading bar (index.html fills the first half as the code arrives): each step is shown before the next one holds the page
+  const bootAt = (f) => { const i = document.querySelector('#bootBar i'); if (i) i.style.width = (f * 100).toFixed(1) + '%'; return new Promise((ok) => setTimeout(ok, 0)); };
   // WebGPU first, WebGL2 if it is missing. If the WebGPU device dies mid-session the page
   // restarts itself on the WebGL2 path.
   // A GPU that an earlier session found slower on WebGPU than on WebGL2 starts on WebGL2 (#webgpu forces WebGPU back).
@@ -60,12 +62,13 @@ async function boot() {
     location.reload();
   }
   await makeRenderer(location.hash.includes('webgl') || (!location.hash.includes('webgpu') && !TEST && backendPreference(Q.hints.gpu) === 'webgl'));
+  await bootAt(0.56);
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 1200);
   camera.rotation.order = 'YXZ';
-  const terrain = makeTerrain(7);
-  const world = buildWorld(scene, terrain, Q);
+  const terrain = makeTerrain(7); await bootAt(0.62);
+  const world = buildWorld(scene, terrain, Q); await bootAt(0.72);
   const post = makePost(renderer, scene, camera, Q), draw = () => (post ? post.render() : renderer.render(scene, camera));
   // the quality loops; the backend trial: WebGPU that cannot hold the frame rate even at the bottom of the low level is
   // compared once against WebGL2 on this GPU (a reload while still on the start card, else on the next load); the faster wins
@@ -98,7 +101,7 @@ async function boot() {
   const GATE = OPEN && SPOTS && SPOTS.gate && !/crash|nogate/.test(location.hash) ? SPOTS.gate : null;
   const body = new RexBody(Q); scene.add(body.group);
   const fx = new Effects(scene, terrain), audio = new Audio(), ov = new Overlays(scene, terrain);
-  const props = new Props(scene, terrain, Q);
+  const props = new Props(scene, terrain, Q); await bootAt(0.78);
   // the gatehouse feed: the hut's own cameras (SE and SW corners) while one can see the animal, and still while it is round the hut out of
   // their sight (the owner: never cut away to the paddock while it is at the hut); a pole camera out where the director would stand only
   // when it has gone off. The splash uses `director` (observe mode later, 'o' or watching after a death, frames as before); the monitor on
@@ -399,12 +402,12 @@ async function boot() {
       if (Y.up) return 'climb down';
       for (const t of things.list) if (t.kind === 'meat' && t.amount > 0 && Math.hypot(t.x - Y.x, t.z - Y.z) < 2.4) return 'take the meat';
       if (ladderNear(Y)) return 'climb';
-      const D = terrain.doorNear && terrain.doorNear(Y.x, Y.z); if (D) return { open: 'shut the door', closed: 'bar the door', barred: 'unbar the door' }[D[0].state];
+      const D = terrain.doorNear && terrain.doorNear(Y.x, Y.z); if (D) return (D[0].state === 'open' ? 'shut the door' : 'open the door');
       return null;
     },
     interact() { const w = act.interactable(); if (!w) return; if (w === 'take the meat') act.take(); else if (w.endsWith('door')) act.door(); else act.climb(); ui.taught('interact'); },
-    /** Swing the nearest door or shutter shut, bar it, or unbar and open it (terrain.useDoor); its sounds go out as events. */
-    door() { const Y = S.you, D = terrain.doorNear && terrain.doorNear(Y.x, Y.z); if (!D) return; const st = terrain.useDoor(D, arena.events); const [x, z] = D[0].hinge; S.noises.push({ x, y: D[0].y0 + 1, z, loud: st === 'barred' ? 0.12 : 0.22, kind: 'door', you: true }); },
+    /** Swing the nearest door or shutter shut or open (terrain.useDoor); its sounds go out as events. */
+    door() { const Y = S.you, D = terrain.doorNear && terrain.doorNear(Y.x, Y.z); if (!D) return; terrain.useDoor(D, arena.events); const [x, z] = D[0].hinge; S.noises.push({ x, y: D[0].y0 + 1, z, loud: 0.22, kind: 'door', you: true }); },
     // call: a tap whistles (carries across the paddock), holding it shouts (loud, close)
     callDown() { if (S.call) return; S.call = { at: performance.now(), shouted: false }; },
     callUp() { const c = S.call; S.call = null; if (c && !c.shouted) { audio.resume(); act.whistle(); ui.taught('call'); } },
@@ -1143,7 +1146,7 @@ async function boot() {
     if (S.replay || S.clipLive) return;
     const sc = desk.screenAt(), near = camera.position.distanceTo(sc) < FEED_NEAR, lowOver = Q.tier === 'low' && M.t > FEED_LOW;
     if (!near || lowOver || S.mode !== 'foot') { if (!M.off) { M.off = true; desk.noSignal((feedDir.cam.mount && feedDir.cam.mount.cam) || 1); } return; }
-    frus.setFromProjectionMatrix(frusM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    camera.updateMatrixWorld(); frus.setFromProjectionMatrix(frusM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
     if (!frus.containsPoint(sc)) return;      // close but looking away: nothing drawn, the screen keeps what it had
     if (M.acc < 1 / FEED_HZ) return;
     feedDir.update(Math.min(M.acc, 1), sim, mind, desk.feedCam); feedDir.noises.length = 0; feedDir.drop = null; M.acc = 0;
@@ -1274,7 +1277,7 @@ async function boot() {
     ov.update(sim, blend, S.mindOn ? (mind.intent.goal && mind.intent.goal.kind === 'reach' ? mind.intent.goal : null) : S.goal, null, 9);
     ov.updateSenses(sim, mind);
     audio.breath(shown.s[1], camera.position.distanceTo(S.replay ? rpx.head.pos : sim.head.pos));
-    if (!S.noRender && !swapping) { try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.gate && post) { if (post.cctv) desk.grab(canvas, performance.now() / 1000); else if (++gateWarm === 3 && post.setCCTV) post.setCCTV(true); } if (desk && S.gate) monitorTick(dtReal); }      // clip: copy the picture right after the render
+    if (!S.noRender && !swapping) { if (desk && S.gate) monitorTick(dtReal); try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.gate && post && !post.cctv && ++gateWarm === 3 && post.setCCTV) post.setCCTV(true); }      // the monitor before the frame that shows it; clip: copy the picture right after the render
 
     S.fps += (1 / Math.max(dtReal, 1e-3) - S.fps) * 0.05;
     // hold the frame rate: resolution (fast) and the quality level (slow), from measured frame times (src/view/quality.js)
@@ -1314,7 +1317,8 @@ async function boot() {
   watchBody(renderer, body);      // self-check a few frames in: is the skin visible and drawing? (window.__bodyCheck, #perf)
   document.body.dataset.mode = 'observe'; document.body.dataset.mind = 'on'; document.body.classList.toggle('gatestart', !!GATE); S.gateStart = !!GATE;
   const KEEP = new Set(Object.keys(S));      // settings and session fields: what startOver leaves in S
-  $('boot').remove();
+  await bootAt(0.9);      // the rest is the first picture (its shaders): the loading screen goes once it is drawn
+  let unboot = () => { $('boot').remove(); unboot = () => {}; };
   if (TEST) {
     window.__dino = {
       ui, start, setPaused, takeOver, renderer, scene, get sim() { return sim; }, get mind() { return mind; }, S, get director() { return director; }, camera, setMode, setMind, reachTo, fx, ov, body, act, world, applyMood, arena, props, qc, post, Q, get backendNow() { return backend; },
@@ -1323,14 +1327,14 @@ async function boot() {
     };
     window.__dino.backend = backend;
     if (!/start/.test(location.hash)) start(false);      // tests begin past the start card unless they ask to see it
-    frame(1 / 30);
+    frame(1 / 30); unboot();
   } else {
     window.__rex = { clip, audio /* jaw-from-voice */, get seed() { return SEED; }, get sim() { return sim; }, rec, setMode, desk, get director() { return director; }, get feedDir() { return feedDir; }, get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
     let last = performance.now();
     // a rAF timestamp is when the frame began, which can be earlier than the performance.now() taken above (by seconds after a
     // long boot on a slow device): never hand the simulation a negative step (it ran the director's easing backwards, so its
     // look point and lens blew up before the start card was dismissed, and the takeover inherited a ground-facing, whited-out view)
-    const loop = (now) => { const dt = clamp((now - last) / 1000, 0, 0.1); last = Math.max(last, now); frame(dt); requestAnimationFrame(loop); };
+    const loop = (now) => { const dt = clamp((now - last) / 1000, 0, 0.1); last = Math.max(last, now); frame(dt); unboot(); requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
   }
 }

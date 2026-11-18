@@ -284,7 +284,7 @@ export function createUI(o) {
     return (TV = { key, w, h: hh, insets: ins, keep });
   }
   function bubbleFrame(now, dt) {
-    const mode = flags.thoughts, on = mode !== 'never' && !flags.bare && S.mindOn && S.started;
+    const mode = flags.thoughts, on = mode !== 'never' && !flags.bare && S.mindOn && S.started && !(o.post && o.post.cctv);      // never on a security-camera picture (the gatehouse feed, replays)
     const raw = on ? crude(voice().think) : '';
     const st = mind.voice && mind.voice.stream, tail = st && st.length ? st[st.length - 1] : null, key = raw && tail ? tail.t + '|' + raw : raw;
     if (raw && key !== B.text) { B.text = key; pushThought(raw, now); }

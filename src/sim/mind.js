@@ -2996,6 +2996,32 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
     // less, it does not pivot to face something; its head turns instead (the neck would swing into what is beside it)
     // (the same for a goal that lies well round to one side: in a tight spot it backs round toward it, a three-point turn, instead
     // of pivoting the trunk into what is beside it)
+    // in a lane narrower than its tail sweeps (wider than its turning room, so the planner and the check below call it room to
+    // turn in, but the tail meets the sides as it goes round, the body brakes the turn on it and it stands wedged crosswise: it
+    // stood minutes like that in the gap between the Warehouse and the Containers) with the way it wants behind it and the lane
+    // open ahead: it walks on straight out of the lane and 3 m on (12 m or 10 s at most; its head meeting something ends it) and turns
+    // round in the open
+    if (U.lane) {
+      const L = U.lane, s = this._lane();
+      if (!(s.left && s.right) && !L.ox) { L.ox = sim.x; L.oz = sim.z; }      // (out of the lane: 3 m more, so the tail is out too)
+      if ((!L.ox || Math.hypot(sim.x - L.ox, sim.z - L.oz) < 3) && Math.hypot(sim.x - L.x, sim.z - L.z) < 12 && this.t - L.t < 10 && !(sim.headBlocked > 0.3) && !((sim.headJam || 0) > 0.2) && !this.attacking && !this._handling()) {
+        I.goal = { kind: 'drive', throttle: 0.35, steer: 0 }; I.pace = 2.5; I.freeze = false; U.x = sim.x; U.z = sim.z; U.psi = sim.psi; U.t = this.t; return;
+      }
+      U.lane = null; sim.path = null;
+    }
+    // (the way it wants: the next point of its route to the goal, when it has one)
+    const P = sim.path, wp = g && P && P.pts && P.pts[0] && Math.hypot(P.gx - g.x, P.gz - g.z) < 6 ? P.pts[0] : g;
+    if (g && g.x !== undefined && nav && nav.room > nav.body && this.T.near && !this.attacking && !this._handling() && g.kind !== 'face' && Math.abs(wrap(bearing(wp.x - sim.x, wp.z - sim.z) - sim.psi)) > 2.0 && Math.hypot(g.x - sim.x, g.z - sim.z) > 6) {
+      const s = this._lane(), fx = Math.sin(sim.psi), fz = Math.cos(sim.psi), gy = sim.groundY;
+      let ahead = s.left && s.right && !s.close;
+      for (const d of [4, 8]) {
+        if (!ahead) break;
+        const ax = sim.x + fx * d, az = sim.z + fz * d;
+        if (!Number.isFinite(nav.costAt(ax, az))) ahead = false;
+        else for (const o of this.T.near(ax, az, nav.body + 2)) if ((o.top ?? 99) > gy + 1 && Math.hypot(o.x - ax, o.z - az) - o.r < nav.body + 0.5) { ahead = false; break; }
+      }
+      if (ahead) { U.lane = { x: sim.x, z: sim.z, t: this.t }; I.goal = { kind: 'drive', throttle: 0.35, steer: 0 }; I.pace = 2.5; I.freeze = false; U.x = sim.x; U.z = sim.z; U.psi = sim.psi; U.t = this.t; return; }
+    }
     if (g && g.x !== undefined && nav && nav.room > nav.body && this.T.near && !this.attacking && !this._handling()) {
       const err = wrap(bearing(g.x - sim.x, g.z - sim.z) - sim.psi), turnK = g.kind === 'face' ? 0 : Math.abs(err) > 1.2 ? 1 : -1;
       if (turnK >= 0) {
@@ -3013,6 +3039,7 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
           }
           else { I.goal = { kind: 'drive', throttle: -0.35, steer: TP.steer }; I.pace = 2; I.freeze = false; U.x = sim.x; U.z = sim.z; U.psi = sim.psi; U.t = this.t; return; }
         }
+        if (!tight && turnK === 0) { const s = this._lane(); tight = s.left && s.right; }      // (in a lane its tail sweeps: no pivot to look round either)
         if (tight && turnK === 0) { if (!I.look) I.look = { x: g.x, y: this.T.height(g.x, g.z) + 1.5, z: g.z }; I.goal = null; }
         else if (tight && this.t >= TP.fwdUntil) {
           // (the side that brings its nose round toward the goal; tried that way once already with no gain in heading, the other)
@@ -3060,6 +3087,19 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
     const side = nav ? nav.costAt(sim.x + (bx + lx) * 3, sim.z + (bz + lz) * 3) - nav.costAt(sim.x + (bx - lx) * 3, sim.z + (bz - lz) * 3) : 0;
     U.phase = 'back'; U.bt = this.t; U.bx = sim.x; U.bz = sim.z; U.steer = !Number.isFinite(side) ? (side > 0 ? 0.5 : -0.5) : Math.abs(side) < 0.5 ? 0 : side > 0 ? 0.5 : -0.5;
     I.goal = { kind: 'drive', throttle: -0.35, steer: U.steer }; I.pace = 2.5; I.noIdle = true;
+  }
+
+  /** What stands either side of its hips within the sweep of its tail (from its turning room out 3.5 m more, squarely off each
+   *  flank): something on its left, something on its right, and anything inside the turning room itself (close). */
+  _lane() {
+    const sim = this.sim, nav = sim.nav, lx = Math.cos(sim.psi), lz = -Math.sin(sim.psi), gy = sim.groundY, out = { left: false, right: false, close: false };
+    for (const o of this.T.near(sim.x, sim.z, nav.room + 4.5)) if ((o.top ?? 99) > gy + 1 && Math.hypot(o.x - sim.x, o.z - sim.z) - o.r < nav.room - 0.3) out.close = true;
+    // (square off its sides, not round it: a wall across its path, ahead or behind, is no lane)
+    for (const sd of [1, -1]) for (let d = nav.room; d <= nav.room + 3.5 && !out[sd > 0 ? 'left' : 'right']; d += 0.7) {
+      const px = sim.x + lx * d * sd, pz = sim.z + lz * d * sd;
+      for (const o of this.T.near(px, pz, 1.5)) if ((o.top ?? 99) > gy + 1 && Math.hypot(o.x - px, o.z - pz) - o.r < 0.4) { out[sd > 0 ? 'left' : 'right'] = true; break; }
+    }
+    return out;
   }
 
   /** Something solid against its body or hemming it in: a collider (anything standing higher than its shins) within its

@@ -25,6 +25,8 @@ html, body { height: 100%; margin: 0; background: #b9b7a6; color: var(--ink); fo
 #view { width: 100%; height: 100%; display: block; }
 body[data-mode="observe"] #stage { cursor: default; }
 #boot { position: fixed; inset: 0; display: grid; place-items: center; background: #23251f; font: 500 20px var(--display); letter-spacing: 0.06em; text-transform: uppercase; padding: 24px; text-align: center; z-index: 20; }
+#bootBar { width: min(260px, 60vw); height: 3px; margin: 16px auto 0; background: rgba(239, 230, 207, 0.14); }
+#bootBar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.25s; }
 #vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 46%, transparent 52%, rgba(6,8,10,0.5) 100%); }
 
 /* ---- the mind readout: no box, just type over a soft scrim */
@@ -400,7 +402,7 @@ body.tuning #tuneStrip { display: none; }
   <div id="tHint" hidden><b class="h1">move</b><b class="h2">look</b><b class="h3">jump · crouch · flare<br>torch · call</b></div>
 </div>
 <button id="muteIcon" hidden aria-label="sound is off: tap to turn on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
-<div id="boot">Waking the animal</div>
+<div id="boot"><div>Waking the animal<div id="bootBar"><i></i></div></div></div>
 <div id="hurt"></div>
 <div id="start" class="cardwrap" role="dialog" aria-label="Start">
   <div class="card">
@@ -605,6 +607,19 @@ body.tuning #tuneStrip { display: none; }
   </details>
 </section>
 
-<script type="module" src="./app.js"></script>
+<script type="module">
+// The loading bar: the game's code arriving fills it to DL (its size from app.size, written by the build), then main.js (bootAt)
+// carries it on through building the world and the first picture. It never gives up on a timer: without a size it just waits.
+const bar = document.querySelector('#bootBar i'), DL = 0.5, at = (f) => { if (bar) bar.style.width = (f * 100).toFixed(1) + '%'; };
+let src = './app.js';
+try {
+  const [r, size] = await Promise.all([fetch(src), fetch('./app.size').then((s) => (s.ok ? s.text() : '')).catch(() => '')]);
+  if (!r.ok || !r.body) throw new Error(r.status);
+  const total = +size || (r.headers.get('content-encoding') ? 0 : +r.headers.get('content-length')) || 0, rd = r.body.getReader(), parts = [];
+  for (let got = 0; ;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); got += value.length; if (total) at(DL * Math.min(1, got / total)); }
+  src = URL.createObjectURL(new Blob(parts, { type: 'text/javascript' }));
+} catch {}
+at(DL); import(src);
+</script>
 </body>
 </html>

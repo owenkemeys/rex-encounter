@@ -619,7 +619,8 @@ export class Creature {
     if (this.yawKick) { const Y = this.yawKick; Y.t += dt; const w = Y.w * Math.sin(Math.PI * Math.min(1, Y.t / 0.5)); this.psi += w * dt * 2.4; this.psiV += w * dt * 2.4; if (Y.t > 0.5) this.yawKick = null; }
     if ((this.headJam || 0) > 0.35) { vT = Math.min(vT, -0.7); omT *= 0.3; }      // head wedged: it backs out rather than forcing it
     vT *= 1 - 0.6 * (this.avoidK || 0); this.avoidK = 0;      // a hard swerve round rock is taken slower
-    if (this.tailLat * omT > 0) omT *= 1 - Math.max(sstep(0.1, 0.45, this.tailSat), sstep(0.05, 0.3, this.tailNear || 0)); else omT *= 1 - 0.8 * sstep(0.1, 0.35, this.tailNear || 0);      // (a tail among things on both sides: any turn is slow)      // a turn that drives the tail, bent as far as it goes, into something is taken slower
+    if (spd < 1 && (this.tailBack || 0) >= 0.8 * (this.tailNear || 0)) { /* turning slowly with the tail against something straight behind it: the turn swings it off along the surface (curled to one side), it does not brake the turn (it stood wedged across a lane: the curl read as a contact on the side it turned to and stopped every turn) */ }
+    else if (this.tailLat * omT > 0) omT *= 1 - Math.max(sstep(0.1, 0.45, this.tailSat), sstep(0.05, 0.3, this.tailNear || 0)); else omT *= 1 - 0.8 * sstep(0.1, 0.35, this.tailNear || 0);      // (a tail among things on both sides: any turn is slow)      // a turn that drives the tail, bent as far as it goes, into something is taken slower
     if (this.freeze) { vT = 0; omT *= 0.2; }
     if (this.lying) { vT = 0; omT = 0; }      // lying, or on the way down or up: the legs are not for walking
     // the legs move the body: the hips go only as far and as fast as the feet on the ground can carry them until the next foot
