@@ -30,6 +30,58 @@ He wants to post the game publicly soon. Deliver these first, in this order unle
 - **P8. The pubic boot.** "the rex model is missing a pubic bone hump between the legs I think?" He is right about the anatomy: the pubis of Tyrannosaurus ends in a large "boot" that makes a keel-like bulge low on the belly just in front of and between the thighs. Check src/view/rexgeo.js / body.js for the belly profile there and add it (and to Saltline's drawing, or wait for T20).
 - Then: T20 (creature package), T21 (strip the doors), T14/T15 (splayed poses), T17 (brow), the dark-barn and portrait kill cam cases (T19).
 
+## New notes from the owner, 2026-11-17 (personal notepad)
+
+Triage written 2026-11-17; not started. His words are verbatim below. Doors (T21) are parked: "the doors actually work more than i thought, just that some are janky. lets set it to one side because i want to improve assets generally anyway." He has now seen the current build on phone and desktop: "fine and fun". Replay LINKS (T23) stay LOW. Thought text placement has been seen and is not a current complaint.
+
+Owner's answers 2026-11-17 (verbatim in QUEUE): 1 incident number OK, being built; 2 iPhone clip sound: he will trial it himself and report back; 3 hut start: agreed in outline, but first a short discussion with him on the starting experience (what it teaches; must help new players without trapping or boring repeat players) and on the transition from the opening observation mode, where the rex does not sense you and it is not clear you are not in the world yet, into active play; 4 ground fog: investigate feasibility and report; 5 kids mode: later.
+
+Recommended next order: 1 incident number on the closeout card (N1), 2 iPhone clip-sound check (existing, unclosed), 3 one starting scenario that merges the hut start, the trapped tutorial, and the arena re-centre around the Barn (N5 + N6 + P6 layout only; bamboo looks stay with the asset pass / T2), 4 cheap Ocarina-style ground fog (N2), 5 the "distract it from the kids for 5 minutes" mode (P5 / N4), 6 one or two delightful general behaviours (P7). Body work, T20, monetisation (N7/N8) and multiplayer (N9) are later. N3 (nicer trees, grass, buildings) is for the Art Department plus a later code pass, not a launch block.
+
+### N1. Incident number should be the all-time play session number
+"Incident number on the video closeout screen should be all time play session number (decide how to handle this if&when the number gets so big it overflows the space and/or becomes meaningless - maybe down to daily/weekly number)"
+Status: open. Today `incidentNo` in `src/view/closeout.js` is `40 +` this session's death count, padded to 4 digits, so it is a prop, not a real count. All-time and global are not the same: a number in `localStorage` is this device only; a true all-time count needs a tiny anonymous increment (no names, no tapes, no notes). Overflow: 4 digits hold to 9999; after that follow his suggestion and drop to a daily or weekly number rather than letting the line spill. Do not invent a large fake serial.
+
+### N2. Ocarina of Time responsive ground fog
+"ocarina of time responsive ground fog shader if possible and performant - very hot topic right now so would be great for virality - look for this on Twitter, I've seen people replicating on Godot"
+Status: open, research done 2026-11-17. This is the Switch 2 remake's reactive ground fog (it parts, swirls and puffs when you walk, jump or swing), not ordinary distance fog. People are faking it cheaply: a low-resolution 2D density/velocity field that moving bodies write into, sampled by a mesh or stacked shells, not raymarched volumetrics. The game already has height-weighted exponential fog and (on medium/high) drifting mist sprites in `src/view/world.js`, plus a 96x96 trample/wake field that already flattens grass under feet and the body. A phone-safe first version can reuse that field and the existing quality tiers (off on low). Must not hide the animal (VISION.md). Sources: https://x.com/ray_ervian/status/2119792125881524302 , https://x.com/MjTheHunter/status/2120646081369268455 , https://oddpotatodev.itch.io/godot-cheap-ground-fog (CC0, Godot, WebGL demo), https://gamedev.northlight.ai/post/5f71a862-bf2c-4c37-a470-2d360ae5e9c5 (this fetch failed from the triage box; URL as published). Effort: M for a cheap convincing pass.
+
+### N3. Open-source / self-made routes for nicer trees, grass, buildings
+"Find open source routes for nicer graphics: trees, grass, buildings. Prefer stuff you model yourself even if there's janky charm to it - being able to say that it was all AI built is valuable"
+Status: open, for the Art Department plus a later code pass, not a launch block. The paddock already builds trees, tree ferns, cycads, instanced grass and ferns in code (`buildTree` in `src/view/world.js`), with wind and the trample field. Do not replace that with downloaded art stores if the "all AI built" claim matters. Code-side options to hand Art Department: improve `buildTree` (or study MIT `https://github.com/dgreenheck/ez-tree`, 1779 stars, Three.js procedural trees with LODs), keep grass instanced and trample-aware, build buildings as procedural kits in code the way the Barn / Ruins / Containers already are. Bamboo cone LODs (T2 looks) belong here, not in the arena-layout pass.
+
+### N4. Scenario: distract it from eating some kids for 5 minutes
+"Scenario: Have to distract it from eating some kids for 5 mins"
+Status: open. This is the same idea as P5 ("i like the 'distract it from eating the kids for X minutes' scenario idea"), still not built. A real timer, kids the animal can actually reach, and a clear win/lose is a bigger build than the hut start. Recommend as a second mode after N5/N6/P6, not the first scenario to ship.
+
+### N5. Scenario 2: start in the hut and get past it to an exit
+"Scenario 2: Start in the hut and have to get past it to an exit - each life represents a new person saved"
+Status: open. Overlaps N6 (trapped start that teaches the tools) and P6 (spawn by the Barn / Ruins / Containers instead of a long sprint). Cheap cut: one mode that starts you in or beside the Barn, the animal snooping outside, the goal is to reach an exit, and each death is a new visitor saved. Do not build this and a separate tutorial map and a separate arena shrink as three projects.
+
+### N6. A trapped starting location that teaches the mechanics
+"A trapped starting location with the Rex snooping around could teach you about the game mechanics one by one"
+Status: open. Merge with N5 and the P6 re-centre. Teach torch, flare, shout and cover by what the animal does around the hut, not with UI.
+
+### N7 / N8. What would people pay for? If this is the free version, what is the paid version?
+"What would people pay to access to increase the fun?"
+"If this is the free version of a game then what's the paid version? I do not have dreams of making it a giant "real game" experience, keep expectations low, simple fun"
+Status: later; do not design a paid edition before the free alpha is posted. Cheap cut when the time comes: keep the public page free; a small itch.io pay-what-you-want or supporter pack (extra scenarios such as N4, maybe a second animal), not a giant "real game". itch.io treats a $0 minimum as pay-what-you-want and allows priced bonus files on a free game (https://itch.io/docs/creators/pricing). Grounded parallels: Cookie Clicker stays free in the browser, with a paid Steam edition for extras (https://store.steampowered.com/app/1454400/Cookie_Clicker/ ; official web URL https://orteil.dashnet.org/cookieclicker/ returned 403 from the triage box). The Battle of Polytopia is free with a few tribes, and charges for more (https://polytopia.com/). Cosmetics are a weak fit here unless they are CCTV/visitor-pass jokes on the closeout card.
+
+### N9. Later multiplayer: be one of the herd and run a gauntlet
+"Later multiplayer ideas are being one of the herd of prey animals and having to run a gauntlet past the rex all together"
+Status: later, a scope bomb if taken as netcode. Cheap cut: the arena already has a prey herd; a single-player "run with the herd" gauntlet can be tried first. Real multiplayer waits until the creature package (T20) and a host contract exist. VISION.md is still single-player first; co-op PvE possible later; no PvP.
+
+### N10. List of games and tips (X article)
+"List of games I could put it in, maybe borrow content or techniques from, and some technical tips:
+https://x.com/29meat_ai/status/2121548600308334759"
+Status: research done 2026-11-17. The post is an X Article by @29meat_ai, "ガチ勢に学ぶClaude Fable 5.2 × Three.jsの教科書" (https://x.com/i/article/2121544989817868288), a roundup of 18 Fable 5.2 × Three.js works, not a thread of replies. Most useful to this repo: Saltline itself, already the host variant (`variants/saltline`, notes/HOSTING.md) — Felix Rieseberg's 8-hour, zero-asset FPS (https://x.com/felixrieseberg/status/2119925633564463609 , playable at https://claude.ai/artifact/BGY1SztrAYcJQHSsnHHGmp). Other playable Three.js games in the article (Meng To's sakura-valley FPS, Andrew Blumson's MAAD MAXXING) are possible future hosts only after T20. Atlas / 3D Gaussian splat worlds are a poor host (no collision, heavy on phones). Techniques already in this project's grain: all models, textures and sound made in code; ship a URL; test on a phone; quality tiers. T20 stays below the alpha work.
+
+### Agreed design 2026-11-17: gatehouse start (merges N4/P5 kids, N5 hut, N6 teaching, P6 re-centre)
+Status: agreed in outline, not started. Splash = the CCTV feed on the gatehouse monitor showing the rex sniffing round the gatehouse (keeps the long-lens "watch it live its life" the owner likes). On "click to begin" you are the guard at that monitor and look up from it (the diegetic reason the view changes; no blended camera move from the fixed CCTV view); a beat later the rex peers in the window. Leaving by the door straight away gets you eaten. After a while investigating you, the rex smells the kids and heads for them: that is your opening, and the goal becomes to GET and HOLD its attention so it does not reach the kids. The draw to the kids is very strong and works from anywhere on the map; must stay tense for repeat players. Hints appear only when their moment comes (good-reaction scenarios), no forced tutorial steps. Needs a lot of balancing. Build order: 1 CCTV monitor splash and look-up transition; 2 the kids' pull; 3 objective and end of run. Owner plays each before the next. The kids mode is therefore no longer "later": it is the core of this scenario.
+
+### N1 follow-up: global incident counter
+Owner: fine to use a real counter if the card falls back gracefully. Plan: after the per-device count ships, call a free public counter (no account) once per run; on any failure or timeout show the device count. Not built yet.
+
 ## Batch of 2026-11-15 21:47-21:59 UTC (sessions 20261115T214343Z-9vrm and 20261115T215107Z-xr5v)
 
 ### T1. Head does not lead into a turn or round a corner

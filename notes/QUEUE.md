@@ -159,3 +159,38 @@ With two phone screenshots: "The touch UI layout came out really weird, please n
 
 ## Owner, 2026-11-17 (last of the session; usage limit near, next work after the weekly reset)
 "Reorg that list: shareable replay links is much less important now that the video capture is excellent / Arena design is more important / Removing the doors is high priority because they mostly don't work anyway / Thoughts staying off controls is good - also look into thought placement on screen when the rex head is offscreen as they quickly get weird and unintuitive / Yes update the Claude project side stuff to point to the repo as master / Go ahead with the small bug fixes you wanted and then we'll let you rest for the week til the reset"
+
+## Owner, 2026-11-17 (after playing the public build)
+"the doors actually work more than i thought, just that some are janky. lets set it to one side because i want to improve assets generally anyway."
+"ive seen the current nbuild on phone and desktop and it's fine and fun, so we are onto the todo list."
+(On starting the arena next: "no, not yet.")
+"triage this stuff into the todo list, make priority recommendations, follow the research threads too, and come back to me with what you think we sohuld work on in what order."
+
+## Owner, 2026-11-17 (personal notepad, pasted in chat)
+Rex game ideas
+- Incident number on the video closeout screen should be all time play session number (decide how to handle this if&when the number gets so big it overflows the space and/or becomes meaningless - maybe down to daily/weekly number)
+- ocarina of time responsive ground fog shader if possible and performant - very hot topic right now so would be great for virality - look for this on Twitter, I've seen people replicating on Godot
+- Find open source routes for nicer graphics: trees, grass, buildings. Prefer stuff you model yourself even if there's janky charm to it - being able to say that it was all AI built is valuable
+- Scenario: Have to distract it from eating some kids for 5 mins
+- Scenario 2: Start in the hut and have to get past it to an exit - each life represents a new person saved
+- A trapped starting location with the Rex snooping around could teach you about the game mechanics one by one
+- What would people pay to access to increase the fun?
+- If this is the free version of a game then what's the paid version? I do not have dreams of making it a giant "real game" experience, keep expectations low, simple fun
+- Later multiplayer ideas are being one of the herd of prey animals and having to run a gauntlet past the rex all together
+- List of games I could put it in, maybe borrow content or techniques from, and some technical tips:
+https://x.com/29meat_ai/status/2121548600308334759
+
+## Owner, 2026-11-17, on the proposed order
+"1 ok"
+"2 i willtrial that and report back"
+"3 this sounds good. we need a brief discussion about the starting experience and what the teaching will be so as to help new players but not trap/bore repeat players. also the transition currently from the starting observation mode where the rex doesnt sense you (its not clear that you're not in the game world yet) into the active player mode."
+"4. please look into this and see if we can do it"
+"5. this second mode can come later"
+"please make sure all the stuff discussed in these two messages doesn't get forgotten, log it wherever you need"
+
+## Owner, 2026-11-17, on the starting experience (hut start + kids)
+"hints with befitting scenarios for good reactions are good, dont know if your suggested scenarios are good though. we also need to ensure that the whole setup is still tense even if you're a repeat player and want to just leave via the door. we still need to give you an objective to get to, so maybe thats it: its positioned such that going out the door just gets you immediatley eaten, after a while of investigating you it smells the kids and starts heading toward them which gives you an opening, but now your goal is to GET and hold its attention rather than let it keep wandering over to the kids. its draw toward the kids should be very strong and applies from anywhere in the map. we'll hav e to do a lot for balancing"
+"only thing i do like about the current setup is the heavily zoomed view and seeing the rex going about its little life from a distance, you get a chance to observe the creature in action. the security cameras also show this. we could use those for the starting splash and show it sniffing around the gatehouse you're inside, but then just need a nice transition to the play experience that isnt jarring"
+"no i dont think that makes sense, security cam is a fixed viewpoint, we just need a diegetic reason why you see the viewpoint change. or we dont at all and just start in first person mode, with the rex peering in a window a beat after you spawn. otherwise good."
+On the proposal that you are the guard watching the CCTV on the gatehouse monitor and look up from it: "oh that's funny, great idea!"
+On the incident counter: "i know people like those a lot. i'l ltake your advice on whats best for the application. it sjust a fun detail on the finishing card and not a hugely serious matter. if there's a default if the true counter isn't available so the experience isn't ruined that's fine"
