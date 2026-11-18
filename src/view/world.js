@@ -1043,7 +1043,7 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
     }
   }
 
-  // ---- ground fog (medium and high, src/fogarina.js): ankle-deep sheets on the baked height map, kept off built floors
+  // ---- ground fog (medium and high, src/fogarina.js): ankle-deep fog that flows round bodies, on the baked height map, kept off built floors
   const gfog = hmap ? createFogarina({ field, heightAt: (xz) => texture(hmap, xz.div(HS).add(0.5)).level(0).r, maskAt: (xz) => texture(hmap, xz.div(HS).add(0.5)).level(0).b, color: vec3(U.fog).mul(0.9), flash: U.flash, wind: U.wind }) : null;
   if (gfog) scene.add(gfog.mesh);
 
@@ -1059,6 +1059,7 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
 
   const windV = new THREE.Vector2(2.4, 1.2);
   const api = {
+    groundFog: gfog,      // the ground fog (src/fogarina.js), for tests and tuning
     /** The simulation's wind (m/s, x and z): what carries scent also bends the grass and slants the rain. */
     setWind(w) { windV.set(w.x, w.z); },
     get wind() { return windV; },
@@ -1125,7 +1126,7 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
           sp.material.opacity = (built ? 0 : 1) * u.a * dens * Math.min(1, Math.max(0, (d - 6) / 10)) * Math.min(1, Math.max(0, (W / 2 - d) / 12));
         }
       }
-      if (gfog) gfog.update(camera, { storm: 1, dusk: 0.8, day: 0.45 }[api.moodKey] ?? 0.7);
+      if (gfog) gfog.update(camera, { storm: 1, dusk: 0.8, day: 0.45 }[api.moodKey] ?? 0.7, renderer, dt);
       U.fogBase.value = Math.min(camera.position.y - 2.5, terrain.height(camera.position.x, camera.position.z) - 0.8);      // ground mist lies on the ground, wherever the eye is
       // plants springing back
       field.update(dt);
@@ -1187,7 +1188,7 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
       tune(G, 'Wet look of the ground', M, 'wet', 0, 1, 0.02, f, c + '.wet');      // tune
     }
     if (gfog) tuneGroup('Ground fog', { order: 4 });      // tune
-    for (const [key, label, lo2, hi, st] of [['thick', 'Thickness', 0, 1.2, 0.01], ['depth', 'Depth (m, top sheet above the lowest)', 0, 0.8, 0.01], ['swirl', 'Swirl where bodies push through', 0, 6, 0.05], ['clear', 'Clearing where bodies press', 0, 1, 0.01]])      // tune
+    for (const [key, label, lo2, hi, st] of gfog ? gfog.knobs : [])      // tune
       if (gfog) tune('Ground fog', label, { [key]: gfog.params[key].value }, key, lo2, hi, st, (v) => { gfog.params[key].value = v; }, 'groundFog.' + key);      // tune
     tune('Storm look', 'Rain amount', MOODS.storm, 'rain', 0, 1.5, 0.02, re('storm'), 'storm.rain');      // tune
     tune('Storm look', 'Lightning: lift to sky light', FLASH, 'hemi', 0, 6, 0.05, null, 'flash.hemi'); tune('Storm look', 'Lightning: lift to sun', FLASH, 'sun', 0, 8, 0.05, null, 'flash.sun'); tune('Storm look', 'Lightning: lift to reflections', FLASH, 'env', 0, 6, 0.05, null, 'flash.env');      // tune
