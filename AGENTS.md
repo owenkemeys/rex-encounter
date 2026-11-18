@@ -17,7 +17,7 @@ npm i
 npm start            # builds dist/app.js, serves dist/ on http://localhost:8080
 ```
 
-Useful URL hashes: `#tune` (tuning sliders), `#debug` (debug drawer, crash tests, gait demos, note box), `#webgl` (force WebGL2), `#perf`, `#quality-low|medium|high`, `#crash=headon|glancing|corner|barn|gate|post|bamboo` (run one crash test after load). `#nogate` (the old open-field opening instead of the gatehouse start).
+Useful URL hashes: `#tune` (tuning sliders), `#debug` (debug drawer, crash tests, gait demos, note box), `#webgl` (force WebGL2), `#perf`, `#quality-low|medium|high`, `#crash=headon|glancing|corner|barn|gate|post|bamboo` (run one crash test after load). `#nogate` (the old open-field opening instead of the gatehouse start). `#newplayer` (play like a first visit: wipes the tips, the run count, the touch hint, achievements and recent closing lines from this browser, keeps settings, then drops itself from the URL so a reload or start over does not wipe again; `src/newplayer.js`).
 In play: backtick opens the debug drawer; the pause card has a "debug tools" button for phones.
 
 `dist/app.js` is build output and is not committed. Everything else in `dist/` (page, audio, assets) is source.

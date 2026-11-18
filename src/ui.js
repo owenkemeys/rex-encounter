@@ -437,9 +437,10 @@ export function createUI(o) {
     if (inv.stage === 0) { inv.stage = 1; inv.t = 0; }
     if (inv.stage === 1) {
       if (S.mode !== 'observe') { inv.stage = 2; inv.t = 0; IV.classList.remove('on'); return; }
-      if (inv.t > 1.5) showInvite(d === 'touch' ? 'use the <b>left stick</b> to walk, the <b>right</b> to look: you step in where the camera stands.<small>or just watch.</small>'
-        : d === 'pad' ? '<b>left stick</b> to walk, <b>right stick</b> to look: you step in where the camera stands.<small>or just watch.</small>'
-        : `${kb('move')} to walk, or move the <b>mouse</b> to look: you step in where the camera stands.<small>or just watch.</small>`);
+      const at = S.gateStart ? '' : ': you step in where the camera stands';      // the gatehouse start: you are the guard watching this feed (not said: that is the gag)
+      if (inv.t > 1.5) showInvite(d === 'touch' ? `use the <b>left stick</b> to walk, the <b>right</b> to look${at}.<small>or just watch.</small>`
+        : d === 'pad' ? `<b>left stick</b> to walk, <b>right stick</b> to look${at}.<small>or just watch.</small>`
+        : `${kb('move')} to walk, or move the <b>mouse</b> to look${at}.<small>or just watch.</small>`);
       return;
     }
     if (S.mode !== 'foot') { IV.classList.remove('on'); return; }
@@ -480,7 +481,7 @@ export function createUI(o) {
     const d = camera.position.distanceTo(sim.head.pos), t = inv.foot;
     const B = mind.beh && mind.beh.name, chased = ['chase', 'pounce', 'prowl', 'bluff', 'test'].includes(B);
     if (ok('run') && chased && d < 45) return 'run';
-    if (ok('use') && t > 2) return 'use';
+    if (ok('use') && mind.know.seen && mind.know.target && mind.know.target.id === 'you') return 'use';      // the flare: once it has you in sight, the moment one is worth throwing
     if (ok('call') && t > 8 && (d > 40 || !mind.know.seen)) return 'call';
     if (ok('zoom') && t > 6 && d > 45 && B && inViewNow()) return 'zoom';
     if (ok('crouch') && t > 12 && d < 35) return 'crouch';
