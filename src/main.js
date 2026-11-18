@@ -560,7 +560,13 @@ async function boot() {
   // no selecting, dragging or context menus over the game (the drawer's own controls still work)
   const formy = (t) => t && t.closest && t.closest('input, select, textarea');
   for (const ev of ['contextmenu', 'selectstart', 'dragstart']) document.addEventListener(ev, (e) => { if (!formy(e.target)) e.preventDefault(); });
-  window.addEventListener('beforeunload', (e) => { if (S.started && S.mode === 'foot' && !TEST) { e.preventDefault(); e.returnValue = ''; } });
+  window.addEventListener('beforeunload', (e) => { if (S.started && S.mode === 'foot' && !TEST && !S.startingOver) { e.preventDefault(); e.returnValue = ''; } });
+  function startOver() {
+    if (S.startingOver) return;
+    S.startingOver = true; S.paused = true;
+    try { audio.away(60, 0.03); } catch {}      // quiet at once rather than a stutter while the page goes
+    location.reload();
+  }
   // look speed (the pause card's setting) and the lens: zoomed in, the same hand movement turns you less
   S.sens = (() => { try { const v = +localStorage.getItem('dh.sens'); return v > 0.1 && v < 5 ? v : 1; } catch { return 1; } })();
   S.zoom = { toggle: false, hold: false, padHold: false, cur: 1 };
@@ -758,7 +764,11 @@ async function boot() {
   $('pauseBtn').addEventListener('click', () => { audio.resume(); setPaused(!S.paused); });
   $('pResume').addEventListener('click', () => setPaused(false));
   { const b = $('pDebug'); if (b) b.addEventListener('click', () => { setPaused(false); setTimeout(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: '`' })), 60); }); }      // the sandbox drawer without a backtick key (phones; the claude.ai frame has no URL hash)
-  $('pAgain').addEventListener('click', () => { ui.restart(); setPaused(false); });
+  // "start over" (pause card): the whole scenario from scratch, exactly as a fresh page load (back to the gatehouse feed and "click to begin";
+  // the animal, its mind and memory, the herd, victims, flares, doors, trample and fog fields, clock, tape all new). It IS a fresh load: the state
+  // lives in a hundred places, and an in-place reset forgets whichever was added last. The hash is kept; the run count goes up once, on the
+  // new page's first step (runs.js). Any new scenario state is covered automatically; test/restart.py checks it.
+  $('pAgain').addEventListener('click', () => startOver());
   $('pFull').addEventListener('click', () => { audio.resume(); fullscreen(); });
   if (!KIT_START.torch) $('tTorch').hidden = true;
   press('tTorch', () => { act.torch(); ui.taught('torch'); });

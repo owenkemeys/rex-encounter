@@ -609,7 +609,7 @@ export function createUI(o) {
     document.body.classList.add('dead');
     try { $('xAgain').focus({ preventScroll: true }); } catch {}      // Enter, Space or A goes again
   }
-  /** Go again: a new life (also "start over" on the pause card). */
+  /** Go again: a new life after a death (the pause card's "start over" is a fresh load instead: main.js startOver). */
   function retry(watch, force) {
     if (!S.dead && !force) return;
     act.respawn();
@@ -698,8 +698,6 @@ export function createUI(o) {
   return {
     clipReady, clipResult, deathMenu: showDeath, deathFocus, flags, set, achv, photo, whistle, toggleAll: () => set('bare'), taught, peek, held, note, devChanged,
     get debug() { return debugOn; }, setDebug,
-    /** The pause card's "start over": a new life, as after a death. */
-    restart() { retry(false, true); },
     paused(p) { if (p) { drawPause(); if (!pausedOnce) { pausedOnce = true; $('gKeys').open = dev() !== 'touch'; } } },      // phones: the start card and "?" carry the controls; the settings come first
     get lastShot() { return o.lastShot; },
     /** dt stops while paused; dtReal keeps running (fades, the end card's timing). */

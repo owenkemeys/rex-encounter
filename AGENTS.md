@@ -49,7 +49,8 @@ It is one app, not yet packages. The seams are already clean enough to split lat
 1. Run the Node tests that cover what you touched. Body: `test/review.mjs`, `test/corner.mjs`, `test/striketime.mjs`, `test/strikepass.mjs`, `test/crashread.mjs` (each crash test twice: knock, speed lost, how far it comes back off the thing). Crash sounds: `python3 test/crash_audio.py` (renders each, prints level, share above 300 Hz, tonality). Mind: `test/mind.mjs all <seed>`, `test/commit.mjs`, `test/platform.mjs`, `test/saltline.mjs`.
 2. Build and run `tools/load_check.py`; console must be clean.
 3. A body change that helps the arena can stall the animal in Saltline. Check both.
-4. Say plainly what was verified by test and what nobody has seen or heard. The owner playtests by eye and ear; most things here have only ever been checked by numbers.
+4. Any new scenario state must be reset by the pause card's "start over" (it reloads the page, `main.js startOver`, so state that lives in the page is covered; state you keep in localStorage or a server is not): run `python3 test/restart.py` (start over must equal a fresh load).
+5. Say plainly what was verified by test and what nobody has seen or heard. The owner playtests by eye and ear; most things here have only ever been checked by numbers.
 
 ## Working with the owner
 

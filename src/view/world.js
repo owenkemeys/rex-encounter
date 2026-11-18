@@ -1060,6 +1060,7 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
   const windV = new THREE.Vector2(2.4, 1.2);
   const api = {
     groundFog: gfog,      // the ground fog (src/fogarina.js), for tests and tuning
+    trampleField: field,      // the trample field (src/fogarina.js createField), for tests
     /** The simulation's wind (m/s, x and z): what carries scent also bends the grass and slants the rain. */
     setWind(w) { windV.set(w.x, w.z); },
     get wind() { return windV; },
