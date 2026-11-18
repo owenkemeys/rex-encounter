@@ -1,5 +1,5 @@
 // node test/closeout.mjs : the closing card's advice. Varied synthetic fact sets, 10 draws each; repetition with the recent list; robustness on empty facts.
-import { advice, pick, facts, incidentNo, TABLE_STATS } from '../src/view/closeout.js';
+import { advice, pick, facts, TABLE_STATS } from '../src/view/closeout.js';
 let seed = 12345; const rng = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
 const sets = {
   'whistled, then stood still in the open': { whistleLast10: 2, still: true, openField: true, deaths: 2 },
@@ -39,5 +39,5 @@ for (const s of [advice({ whistleLast10: 1 }, rng, [])]) if (/!/.test(s)) bad++;
 // house style: no exclamation marks, nothing says dead / death / kill
 { const all = new Set(); for (let i = 0; i < 4000; i++) { const f = {}; for (const k of ['running', 'still', 'openField', 'inside', 'crouch', 'air', 'held', 'dining', 'many', 'early']) f[k] = rng() < 0.4; all.add(advice(f, rng, [])); }
   for (const s of all) if (/[!]|dead|death|die|kill|\bdied\b|eaten/i.test(s)) { console.log('STYLE', s); bad++; } }
-console.log(`\ntable: ${TABLE_STATS.entries} entries, ${TABLE_STATS.phrasings} phrasings; incident for death 7: No. ${incidentNo(7)}`);
+console.log(`\ntable: ${TABLE_STATS.entries} entries, ${TABLE_STATS.phrasings} phrasings`);
 console.log(bad ? `\nFAILED (${bad})` : '\nok'); process.exit(bad ? 1 : 0);

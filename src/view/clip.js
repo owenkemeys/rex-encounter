@@ -8,7 +8,8 @@ import { tune, tuneGroup } from './tune.js';      // tune
 export const CAPT = { size: 1, shadow: 0.85 };      // tune: the caption's size (x) and the strength of its shadow
 { tuneGroup('Clip and closing card', { order: 90 }); tune('Clip and closing card', 'Caption size (x)', CAPT, 'size', 0.4, 3, 0.05, null, 'clip.captionSize'); tune('Clip and closing card', 'Caption shadow strength', CAPT, 'shadow', 0, 1, 0.01, null, 'clip.captionShadow'); }      // tune
 export const CLIP_CAPTION = 'rex encounter · alpha';      // burned into a corner of every clip: change it here
-import { facts as cardFacts, pick as cardPick, incidentNo, makeTape, note as cardNote, LEN as CARD_LEN } from './closeout.js';      // closeout
+import { facts as cardFacts, pick as cardPick, makeTape, note as cardNote, LEN as CARD_LEN } from './closeout.js';      // closeout
+import { incidentNo } from '../runs.js';
 // clipsound: every candidate names a video AND an audio codec; a stream that has an audio track never gets a video-only type (some browsers then drop the sound).
 const MIMES_AV = ['video/mp4;codecs="avc1.640028,mp4a.40.2"', 'video/mp4;codecs="avc1.42E01E,mp4a.40.2"', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs="avc1.640028,opus"', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=h264,opus', 'video/webm;codecs=av1,opus', 'video/mp4', 'video/webm'];      // the last two: container only, the audio track is in the stream so the browser adds its own codec (iOS Safari: mp4 + AAC)
 const MIMES_V = ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
@@ -109,7 +110,7 @@ export function createClip({ getCanvas, audio, tape, extra }) {      // closeout
     let fx = {}; try { const ex = extra ? extra() : {}; fx = cardFacts(tape, { ...ex, live: !!live, deaths: live ? Math.max(0, (ex.deaths | 0) - 1) : ex.deaths }); } catch {}
     let r; try { r = cardPick(fx, Math.random, recent); } catch { r = { text: 'Please enjoy the exhibit responsibly.', index: -1, id: 'x' }; }
     if (r.index >= 0) remember(r.index);
-    return { text: r.text, id: r.id, no: incidentNo(live ? (fx.deaths || 0) + 1 : fx.deaths || 1), facts: fx, live: !!live };
+    return { text: r.text, id: r.id, no: incidentNo(), facts: fx, live: !!live };
   }
   let deathLine = null;
   /** The advice line for this death, chosen once so the death menu and the closing card agree. */
