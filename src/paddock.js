@@ -286,7 +286,7 @@ export function makePaddock(seed = 7) {
   // ---- the Gatehouse by the shut main gate
   {
     const S = frame('gatehouse', 'gatehouse', 'the Gatehouse', -7, 95, 0, 3, 2.5, 3, { mat: 'concrete', doorMat: 'steel' });
-    rect(S, 3, 2.5, 3, 0.3, [[2, 0.6, 1.0, 0, 2.1, { tag: 'S', type: 'person', state: 'closed' }], [1, 0, 1.7, 0.9, 2.7, { tag: 'wE', type: 'shutter', leaves: 2, state: 'open' }], [3, 0, 1.0, 0.9, 2.1]], 'concrete');
+    rect(S, 3, 2.5, 3, 0.3, [[2, 0.6, 1.0, 0, 2.1, { tag: 'S', type: 'person', state: 'closed' }], [1, 0, 1.7, 0.9, 2.7], [3, 0, 1.0, 0.9, 2.1]], 'concrete');
     S.roof = 3; S.hide = { x: -7.6, z: 95.6 }; roofOf(S, 0.3);
     for (let lz = -2.5; lz <= 2.51; lz += 0.7) slabL(S, -3, lz, 3, lz, 0.5, 3.0, 3.3, 'concrete');      // a concrete roof the head cannot come down through
     refuges.push({ name: 'gatehouse', of: 'gatehouse', rect: [-9.7, 92.8, -4.3, 97.2], y: null });

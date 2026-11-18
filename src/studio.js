@@ -113,6 +113,8 @@ async function main() {
     var eyePos = new THREE.Vector3(tip.x + d.x * 5, 1.7, tip.z + d.z * 5), eyePts = headPts.pts, eyePad = 0.35; }
   else if (cam === 'dist') { const d = +(H.d || 8); look = pel.clone().setY(pel.y * 0.85); const dd = fwd.clone().multiplyScalar(0.5).add(left).normalize();      // SKIN3: a game-like view from d metres
     var eyePos = new THREE.Vector3(look.x + dd.x * d, 1.7, look.z + dd.z * d), eyePts = all, eyePad = 1.0; }
+  else if (cam === 'groin') { look = pel.clone().addScaledVector(fwd, 0.1).setY(pel.y - 0.9); const d = fwd.clone().multiplyScalar(-1).addScaledVector(left, +(H.side || 0.35)).normalize();      // the pelvis from low behind: the keel between the thighs
+    var eyePos = new THREE.Vector3(look.x + d.x * +(H.d || 3), +(H.y || 0.5), look.z + d.z * +(H.d || 3)); }
   else if (cam === 'eye') { look = pel.clone().setY(pel.y * 0.75); const d = fwd.clone().multiplyScalar(0.8).add(left).normalize(); dist = 8; pts = null;
     var eyePos = new THREE.Vector3(look.x + d.x * 8, 1.7, look.z + d.z * 8); }
   else if (cam === 'foot_L' || cam === 'foot_R') { const k = cam === 'foot_L' ? kL : 1 - kL, tf = legP(k, 4).setY(0).normalize(), lat = new THREE.Vector3(tf.z, 0, -tf.x).multiplyScalar(k === kL ? 1 : -1);
@@ -158,7 +160,7 @@ async function main() {
     }
   }
   // cam=dist: a plain lens (fov=, default 62 like the game's) from eye height at d= metres (default 8) from the hips, not fitted
-  if (cam === 'dist') { camera.position.copy(eyePos); camera.lookAt(look); camera.fov = +(H.fov || 62); }
+  if (cam === 'dist' || cam === 'groin') { camera.position.copy(eyePos); camera.lookAt(look); camera.fov = +(H.fov || (cam === 'groin' ? 50 : 62)); }
   // orthographic views at a known scale (`scale` px per metre, default 64): oside | ofront | otop. Horizontally centred on the
   // animal's extent (front: on the hips), the ground 0.4 m above the bottom edge; a 1 m grid stands 4 m behind the animal
   // (on the ground for otop), every 5th line darker. The view is logged (`ortho`) so pixels convert to metres.

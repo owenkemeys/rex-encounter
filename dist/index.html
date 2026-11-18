@@ -149,6 +149,11 @@ body:not(.touch) #tClip, body:not(.touch) .touchonly { display: none; }
 #tHint b { position: absolute; padding: 5px 10px; border-radius: 8px; background: rgba(18,20,17,0.6); white-space: nowrap; transform: translate(-50%, -50%); text-align: center; }
 #tHint .h3 { font-size: 12px; line-height: 1.35; white-space: normal; transform: none; }
 @keyframes thint { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+#muteIcon { position: fixed; left: var(--sl); top: var(--st); z-index: 40; width: 44px; height: 44px; padding: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(18,20,17,0.55); border: 1px solid rgba(241,238,228,0.3); color: var(--ink); opacity: 0.75; animation: mutepulse 2.6s ease-in-out infinite; touch-action: manipulation; }
+#muteIcon[hidden] { display: none; }
+#muteIcon svg { width: 24px; height: 24px; }
+@keyframes mutepulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.95; } }
+body.bare #muteIcon { display: none; }
 /* the one contextual action, only while it is available */
 #prompt { position: fixed; left: 50%; top: 62%; transform: translateX(-50%); z-index: 4; opacity: 0; pointer-events: none; font: 400 14px/1 var(--body); text-transform: lowercase; color: var(--ink); text-shadow: 0 1px 6px rgba(0,0,0,0.8); transition: opacity .25s; white-space: nowrap; }
 #prompt.on { opacity: 0.95; }
