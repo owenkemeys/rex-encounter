@@ -20,7 +20,7 @@ export function clipSupported() {
   try { return typeof MediaRecorder === 'function' && typeof HTMLCanvasElement !== 'undefined' && typeof HTMLCanvasElement.prototype.captureStream === 'function'; } catch { return false; }
 }
 
-export function createClip({ getCanvas, audio, tape, extra }) {      // closeout: `tape` the Replay, `extra` () => what the game knew at death (see closeout.js)
+export function createClip({ getCanvas, audio, tape, extra, onCard }) {      // closeout: `tape` the Replay, `extra` () => what the game knew at death (see closeout.js), `onCard(live)` the closing card is up
   // Recording is by default (the owner): the automatic death replay is recorded as it plays, so the clip is finished when the menu comes up. `tagged` recordings
   // (a clip taken in play, SAVE CLIP after a skipped replay) show a small "recording" tag on screen; none ever shows anything in the video.
   const C = { active: false, state: 'idle', blob: null, name: '', mime: '', dl: null, error: '', frames: 0, tagged: false, wantSave: false, autoOff: false, guarded: false, onState: null };
@@ -124,6 +124,7 @@ export function createClip({ getCanvas, audio, tape, extra }) {      // closeout
       tp = null; if (C.active && g) { try { tp = makeTape(W, H, cardInfo.text, cardInfo.no, undefined, C.live, cardInfo.story); } catch (e) { C.error = String(e && e.message || e); } }
       try { ov = document.createElement('canvas'); ov.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;background:#000;z-index:11;pointer-events:auto'; document.body.appendChild(ov); overlayG = ov.getContext('2d'); ovKey = ''; } catch { ov = null; }      // the player's own view of the card, laid out for the window (not the recording's size)
       try { const m = audio && audio._mic, c = audio && audio.ctx; if (m && c) m.g.gain.setTargetAtTime(0, c.currentTime, 0.3); } catch {}      // the taped ambience fades; the rest is silence
+      try { onCard && onCard(C.live); } catch {}
     }
     ct += Math.min(dt, 0.1);
     return ct < CARD_LEN;

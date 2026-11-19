@@ -1,5 +1,6 @@
 # Render the death card's PA chime and a saved clip's tape load (test/pa_audio.js) in headless Chrome: level, and the pitch of each bong
-# (the third must sag and wobble); the tape load must be the recording (dist/audio/tape_load.mp3). Also: silent with sound off, one chime when called twice, cut by start over.
+# (the third must sag and wobble); the tape load must be the recording (dist/audio/tape_load.mp3). Also: silent with sound off, one chime when called twice, cut by start over;
+# in a clip: the first bong 0.5 s after it is asked for, under the limiter with the tape load on top.
 # usage: python3 test/pa_audio.py [outdir]   (writes pa_chime.wav, tape_load.wav)
 SR = 48000
 import sys, os, base64, subprocess, time, socket, numpy as np
@@ -43,6 +44,9 @@ try:
     two = R(what='chime', twice=True); print(f'called twice: peak {db(np.abs(two).max()):.1f} dBFS (once: {db(np.abs(c).max()):.1f})'); fail |= np.abs(two).max() > np.abs(c).max() * 1.05
     cut = R(what='chime', stopAt=0.9); print(f'start over at 0.9 s: rms after 1.0 s {db(rms(cut[int(1.0*SR):])):.1f} dBFS'); fail |= rms(cut[int(1.0 * SR):]) > 1e-4
     fail |= np.abs(c).max() < 0.01 or np.abs(t).max() < 0.01
+    k = R(what='clip'); on = np.nonzero(np.abs(k) > 0.01)[0]; at = on[0] / SR - 0.2 if len(on) else -1
+    print(f'chime in a clip: first bong {at:.3f} s after asked, peak {db(np.abs(k).max()):.1f} dBFS'); fail |= abs(at - 0.5) > 0.02 or np.abs(k).max() < 0.05
+    bt = R(what='both'); print(f'chime with the tape load: peak {db(np.abs(bt).max()):.1f} dBFS'); fail |= np.abs(bt).max() > 0.99
     b.close()
 finally: srv.kill()
 print('FAIL' if fail else 'ok'); sys.exit(1 if fail else 0)
