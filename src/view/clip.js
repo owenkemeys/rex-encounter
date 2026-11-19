@@ -71,7 +71,7 @@ export function createClip({ getCanvas, audio, tape, extra }) {      // closeout
       chunks = []; cancelled = false; C.blob = null; C.file = null; C.frames = 0; C.error = '';
       rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
       done = new Promise((res) => { rec.onstop = () => res(); rec.onerror = () => res(); });
-      rec.start(1000); meter(true); C.active = true; C.state = 'recording'; tag(C.tagged); emit();
+      rec.start(1000); try { audio && audio.tapeLoad && audio.tapeLoad(); } catch {} meter(true); C.active = true; C.state = 'recording'; tag(C.tagged); emit();
       return true;
     } catch (e) { C.error = String(e && e.message || e); C.active = false; C.state = 'idle'; try { rec && rec.state !== 'inactive' && rec.stop(); } catch {} rec = null; return false; }
   };

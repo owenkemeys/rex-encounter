@@ -251,7 +251,7 @@ async function boot() {
     clipStop(natural); clip.dim(true);
     S.replayHold = true; document.body.classList.remove('replay'); document.body.classList.add('hold'); tagEl.hidden = true;
     if (audio.mic) audio.mic(true, true); audio.hiss(0); post.cctvU.burst.value = 0;
-    try { ui.deathMenu(); } catch {}
+    try { ui.deathMenu(); audio.chime(); } catch {}
   }
   function endReplay(natural) {
     if (!S.replay) return;
