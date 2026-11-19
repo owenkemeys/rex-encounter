@@ -142,8 +142,8 @@ export function createUI(o) {
 
   // ------------------------------------------------------------ achievements
   // Dares (src/achievements.js). Each one done shows a toast with "n of total"; the pause card and the drawer list them all
-  // (done ones ticked), and the death card suggests the next one.
-  const item = (a) => `<li class="${a.got ? 'done' : 'lock'}${a.bonus ? ' bonus' : ''}"><b>${esc(a.title)}</b><small>${esc(a.dare)}</small></li>`;
+  // (done ones ticked, with their line; the rest by title alone), and the death card suggests the next one.
+  const item = (a) => `<li class="${a.got ? 'done' : 'lock'}${a.bonus ? ' bonus' : ''}"><b>${esc(a.title)}</b>${a.got ? `<small>${esc(a.dare)}</small>` : ''}</li>`;
   const logHTML = () => achv.listing().map(item).join('');
   function drawList() {
     $('dpanel').innerHTML = logHTML(); $('dpanel').classList.add('tries');

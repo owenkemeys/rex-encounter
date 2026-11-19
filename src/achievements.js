@@ -7,14 +7,14 @@
 // Saved progress: localStorage 'dh.achv' ({ v: 3, done: [ids] }). Ids saved by the old list (v 2) are not carried over.
 const hyp = Math.hypot;
 
-// Each one: a short title and a one-line dare (the same line is shown locked or earned). The list order is the order the
+// Each one: a short title and a one-line dare (the lists show the line only once it is earned; the death card shows it as the next dare). The list order is the order the
 // death card suggests the next one in. `bonus` ones are listed last and never suggested. `again`: flashed every time it
 // happens, not only the first.
 export const ACHIEVEMENTS = [
-  { id: 'stare', title: 'Stare down', dare: 'Stand still while it sniffs you for 5 seconds' },
+  { id: 'stare', title: 'Stare down', dare: 'Stand still while it sniffs you' },
   { id: 'yeet', title: 'Yeet', dare: 'Get thrown by it' },
   { id: 'rude', title: 'Rude', dare: 'Shout right in its face' },
-  { id: 'decoy', title: 'Decoy', dare: 'Get it going for a flare while you run the other way' },
+  { id: 'decoy', title: 'Decoy', dare: 'Throw a flare, then run the other way' },
   { id: 'near', title: 'Near miss', dare: 'Get within a metre of its jaws and live', again: true },
   { id: 'corner', title: 'Round the corner', dare: 'Break its line of sight while it chases you' },
   { id: 'matador', title: 'Matador', dare: 'Make it crash into something while it chases you' },
