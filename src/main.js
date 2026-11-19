@@ -180,7 +180,7 @@ async function boot() {
     if (!rec.play(camera.aspect, true)) { S.clipLive = false; liveSaved = null; return false; }
     S.replay = true; document.body.classList.add('replay'); tagEl.hidden = true; clip.dropCard();
     if (post && post.setCCTV) post.setCCTV(true);
-    torchLive = props.torchOn; audio.sim = rpx; if (audio.mic) audio.mic(true, false); micHeld = false;
+    torchLive = props.torchOn; audio.sim = rpx; if (audio.mic) audio.mic(true, false, 0.03, 1.5); micHeld = false;      // the replay's sound comes up from silence (it may open on a roar)
     if (!clip.start(true, true)) { endReplay(); return false; }
     document.body.classList.add('clipping'); return true;
   }
@@ -198,7 +198,7 @@ async function boot() {
     const was = S.replayHold; S.replayHold = false; document.body.classList.remove('hold'); audio.chimeStop();
     S.replay = true; document.body.classList.add('replay'); tagEl.hidden = false;
     if (post && post.setCCTV) post.setCCTV(true);
-    if (!was) torchLive = props.torchOn; audio.sim = rpx; if (audio.mic) audio.mic(true, false); micHeld = false;
+    if (!was) torchLive = props.torchOn; audio.sim = rpx; if (audio.mic) audio.mic(true, false, 0.03, 1.5); micHeld = false;      // the replay's sound comes up from silence (it may open on a roar)
     clip.dropCard(); clip.dim(false);
     if (!clip.hasClip() && !clip.active && (tagged ? clip.supported : clip.canRecord())) { if (clip.start(false, !!tagged) && tagged) document.body.classList.add('clipping'); }      // record by default; the file is finished by the time the menu is up
     return true;
@@ -1248,7 +1248,7 @@ async function boot() {
       else if (!clip.closing() && rec.update(S.frozen ? 0 : dtReal, camera)) {      // closeout: once the tape has ended a recording goes on into the closing card
         shown = rec.pose; rpx.head.pos.copy(rec.head); props.torchOn = rec.torchOn;
         for (const e of rec.fired) hear(e);
-        if (S.frozen !== micHeld) { micHeld = S.frozen; if (audio.mic) audio.mic(true, micHeld); }      // paused: the sound is held (muted); T resumes it
+        if (!!S.frozen !== micHeld) { micHeld = !!S.frozen; if (audio.mic) audio.mic(true, micHeld); }      // paused: the sound is held (muted); T resumes it
         const I = post.cctvInfo; I.cam = rec.camNo; I.label = rec.label; I.stamp = rec.stampMs; I.clock = performance.now() / 1000; I.paused = !!S.frozen; post.cctvU.burst.value = S.frozen ? 0 : rec.burst;
       } else if (clip.card(S.frozen ? 0 : dtReal)) { shown = rec.pose; }      // closeout: the closing card, at the end of every replay
       else stopReplay(true);
