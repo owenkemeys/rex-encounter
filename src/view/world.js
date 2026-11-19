@@ -71,17 +71,14 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
   const flatN = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1); flatN.needsUpdate = true;
   const TX = { ground: mkSlot('ground', true, grey1), mud: mkSlot('mud', true, grey1), rock: mkSlot('rock', true, grey1), bark: mkSlot('bark', true, grey1), concrete: mkSlot('concrete', true, grey1) };
   if (!lo) Object.assign(TX, { groundN: mkSlot('ground_n', false, flatN), mudN: mkSlot('mud_n', false, flatN), rockN: mkSlot('rock_n', false, flatN) });
-  const loadAssets = () => {
-    for (const S of texSlots) {
-      fetch(new URL(`assets/tex/${S.name}.jpg`, document.baseURI)).then((res) => { if (!res.ok) throw new Error(res.status); return res.blob(); })
-        .then((b) => createImageBitmap(b, lo ? { resizeWidth: 512, resizeHeight: 512, resizeQuality: 'medium' } : {}))
-        .then((img) => {
-          const tx = new THREE.Texture(img); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.anisotropy = lo ? 2 : 8; tx.flipY = false;
-          if (S.srgb) tx.colorSpace = THREE.SRGBColorSpace; tx.needsUpdate = true;
-          for (const n of S.nodes) n.value = tx; S.on.value = 1;
-        }).catch((e) => console.warn('texture', S.name, e && e.message));
-    }
-  };
+  const loadAssets = () => texSlots.map((S) =>
+    fetch(new URL(`assets/tex/${S.name}.jpg`, document.baseURI)).then((res) => { if (!res.ok) throw new Error(res.status); return res.blob(); })
+      .then((b) => createImageBitmap(b, lo ? { resizeWidth: 512, resizeHeight: 512, resizeQuality: 'medium' } : {}))
+      .then((img) => {
+        const tx = new THREE.Texture(img); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.anisotropy = lo ? 2 : 8; tx.flipY = false;
+        if (S.srgb) tx.colorSpace = THREE.SRGBColorSpace; tx.needsUpdate = true;
+        for (const n of S.nodes) n.value = tx; S.on.value = 1;
+      }).catch((e) => console.warn('texture', S.name, e && e.message)));
   /** Triplanar sample of a slot in world space (scale: repeats per metre), weights from the world normal. */
   const tri = (S, sc, P = positionWorld, Nw = normalWorld) => {
     const w = abs(Nw).pow(vec3(4)), ws = w.div(w.x.add(w.y).add(w.z));
@@ -160,7 +157,7 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
 
   // ---- lightning bolt: a jagged ribbon far off, drawn only during a strike
   const boltMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xdfe6ff).multiplyScalar(lo ? 1.5 : 6), fog: false, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
-  const bolt = new THREE.Mesh(new THREE.BufferGeometry(), boltMat); bolt.visible = false; bolt.frustumCulled = false; scene.add(bolt);
+  const bolt = new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(9, 3)).setIndex([0, 1, 2]), boltMat);      // (a placeholder of the same layout, so the loading screen can build its shader) bolt.visible = false; bolt.frustumCulled = false; scene.add(bolt);
   const makeBolt = (cx, cz, cam) => {
     const P = [], I = [], R = wx;
     const seg = (x, y, z, dx, dy, dz, n, w) => {
@@ -1200,7 +1197,8 @@ export function buildWorld(scene, terrain, Q = { tier: 'high' }) {
     tune('Storm look', 'Lightning: fade speed (bigger = shorter)', FLASH, 'decay', 1, 20, 0.1, null, 'flash.decay'); tune('Storm look', 'Lightning: quiet between strikes (s)', FLASH, 'gap', 1, 40, 0.5, null, 'flash.gap'); tune('Storm look', 'Lightning: extra random wait (s)', FLASH, 'span', 0, 40, 0.5, null, 'flash.span');      // tune
   }
   api.setMood('storm');
-  if (typeof document !== 'undefined' && typeof fetch === 'function') loadAssets();
+  /** The downloads still on their way (textures, the arena's models): the loading screen waits for them. */
+  api.loading = [...(typeof document !== 'undefined' && typeof fetch === 'function' ? loadAssets() : []), ...(features && features.ready ? [features.ready] : [])];
   return api;
 }
 

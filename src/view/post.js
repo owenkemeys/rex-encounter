@@ -100,6 +100,7 @@ export function makePost(renderer, scene, camera, Q) {
   const scenePass = pass(scene, camera);
   const color = scenePass.getTextureNode('output');
   P.outputColorTransform = false;
+  const PC = new THREE.RenderPipeline(renderer); PC.outputColorTransform = false;      // the security-camera look's own, so going to it and back builds no shader
   const U = { lift: uniform(new THREE.Vector3()), gain: uniform(new THREE.Vector3(1, 1, 1)), sat: uniform(1), con: uniform(1), vig: uniform(0.35), flash: uniform(0), tape: uniform(1) };
   let B = null, graded;
   // the full build's chains, by quality level (src/view/quality.js): high = bloom + grade, medium = grade, low = tone map only.
@@ -208,7 +209,7 @@ export function makePost(renderer, scene, camera, Q) {
     const inside = step(0, q0.x).mul(step(q0.x, 1)).mul(step(0, q0.y)).mul(step(q0.y, 1));
     c = clamp(c, 0, 1).mul(inside);
     const t = osdT.sample(screenUV);      // the lettering last: straight, sharp, not distorted or noisy
-    cctvNode = vec4(mix(c, t.rgb, t.a), 1);
+    cctvNode = vec4(mix(c, t.rgb, t.a), 1); PC.outputNode = cctvNode; PC.needsUpdate = true;
   };
   // Warm the camcorder look once, off screen, when the page is idle after load: build its nodes and draw the pipeline
   // with it into a 1x1 target, so its shaders (and, on phones, the scene's materials in the pass's linear context) are
@@ -237,12 +238,12 @@ export function makePost(renderer, scene, camera, Q) {
     setQuality(Pq) {
       if (low) return;
       const key = Pq.bloom ? 'bloom' : Pq.grade ? 'grade' : 'plain';
-      if (scenePass.options.samples !== Pq.msaa) { scenePass.options.samples = Pq.msaa; scenePass.renderTarget.samples = Pq.msaa; P.needsUpdate = true; }
+      if (scenePass.options.samples !== Pq.msaa) { scenePass.options.samples = Pq.msaa; scenePass.renderTarget.samples = Pq.msaa; P.needsUpdate = PC.needsUpdate = true; }
       if (key !== chainKey) {
         chainKey = key; graded = chain(key);
         if (vhsNode) { vhsNode = null; if (vhsOn) buildVHS(); }      // the camcorder look reads the graded picture: rebuild it on the new one
         cctvNode = null; if (cctvOn) buildCCTV();
-        P.outputNode = cctvOn ? cctvNode : vhsOn ? vhsNode : graded; P.needsUpdate = true;
+        P.outputNode = vhsOn ? vhsNode : graded; P.needsUpdate = true;
         if (key === 'bloom') api.setMood(moodKey);
       }
     },
@@ -251,13 +252,13 @@ export function makePost(renderer, scene, camera, Q) {
     setVHS(on, opts = {}) {
       vhsOn = !!on; if (opts.stamp !== undefined) stamp = !!opts.stamp; if (opts.year) V.year = opts.year;
       if (vhsOn && !vhsNode) buildVHS();
-      if (!cctvOn) { P.outputNode = vhsOn ? vhsNode : graded; P.needsUpdate = true; }
+      P.outputNode = vhsOn ? vhsNode : graded; P.needsUpdate = true;
     },
     /** The security-camera look on or off, whatever the camcorder setting; off puts back whichever of the camcorder look or the plain grade was on. */
     setCCTV(on) {
       on = !!on; if (on === cctvOn) return; cctvOn = on;
       if (on && !cctvNode) buildCCTV();
-      P.outputNode = on ? cctvNode : vhsOn ? vhsNode : graded; P.needsUpdate = true; CU.burst.value = 0;
+      CU.burst.value = 0;
     },
     setMood(key) {
       moodKey = key;
@@ -269,7 +270,7 @@ export function makePost(renderer, scene, camera, Q) {
     render() {
       if (low && !vhsOn && !cctvOn) { renderer.render(scene, camera); return; }
       if (cctvOn) cosd.draw(cctvInfo); else if (vhsOn) osd.draw(stamp, V.year);
-      P.render();
+      (cctvOn ? PC : P).render();
     },
   };
   // tune: the grade per mood (re-applied on change) and the camcorder and security-camera looks (their knobs are uniforms, so live)

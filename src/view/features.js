@@ -637,7 +637,7 @@ function dressArena(scene, terrain, Q, U, out) {
       for (const im of T2.fm) { im.count = f; im.instanceMatrix.needsUpdate = true; }
     }
   };
-  lib.ready.then(() => { try { buildTrees(); } catch (e) { console.warn('[dress] trees', e); out.pending = false; } }).catch(() => { out.pending = false; });
+  out.ready = lib.ready.then(() => { try { buildTrees(); } catch (e) { console.warn('[dress] trees', e); out.pending = false; } }).catch(() => { out.pending = false; });
 
   // the blockout's door updater no longer needed (leaves are dressed); chain the frame update
   out.update = (dt, cam) => { if (out.doorUpdate) out.doorUpdate(); lod(cam); if (cam && lib.setWind && U.wind) lib.setWind(Math.min(2, 0.4 + U.wind.value.length() * 0.9), U.wind.value.x || 1, U.wind.value.y || 0.3); };

@@ -1335,6 +1335,17 @@ async function boot() {
     frame(1 / 30); unboot();
   } else {
     window.__rex = { clip, audio /* jaw-from-voice */, get seed() { return SEED; }, get sim() { return sim; }, rec, setMode, desk, get director() { return director; }, get feedDir() { return feedDir; }, get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
+    // the downloads in, then pictures with nothing culled or hidden and in both looks before the loading screen goes, so every
+    // shader, texture and buffer is ready (else the first fast turn built them a few at a time: lag until you had looked everywhere)
+    let got = 0; await Promise.all(world.loading.map((p) => p.then(() => bootAt(0.9 + 0.06 * ++got / world.loading.length))));
+    const culled = []; scene.traverse((o) => { if (o.frustumCulled) { o.frustumCulled = false; culled.push(o); } });
+    frame(1 / 30);
+    const hidden = []; scene.traverse((o) => { if (!o.visible && !o.isLight && (!o.geometry || o.geometry.attributes.position)) { o.visible = true; hidden.push(o); } });
+    await new Promise((ok) => requestAnimationFrame(ok)); draw();      // (the scene pass draws once per animation frame)
+    for (const o of hidden) o.visible = false;
+    if (post && !post.cctv) { post.setCCTV(true); draw(); post.setCCTV(false); }
+    for (const o of culled) o.frustumCulled = true;
+    await bootAt(0.97);
     let last = performance.now();
     // a rAF timestamp is when the frame began, which can be earlier than the performance.now() taken above (by seconds after a
     // long boot on a slow device): never hand the simulation a negative step (it ran the director's easing backwards, so its

@@ -362,7 +362,7 @@ export function createUI(o) {
     const line = text.toUpperCase();
     const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
     const W = line.length * CW + 4, H = LH + 4;
-    const A = mk(W, H), a = A.getContext('2d'); a.font = `bold ${FS}px "Courier New", Courier, monospace`; a.textBaseline = 'top'; a.textAlign = 'left'; a.fillStyle = '#fff';
+    const A = mk(W, H), a = A.getContext('2d', { willReadFrequently: true }); a.font = `bold ${FS}px "Courier New", Courier, monospace`; a.textBaseline = 'top'; a.textAlign = 'left'; a.fillStyle = '#fff';      // (read back below: on the CPU, else each new line waits on the GPU)
     for (let i = 0; i < line.length; i++) a.fillText(line[i], 2 + i * CW + (CW - a.measureText(line[i]).width) / 2, 2);      // on the character grid
     const id = a.getImageData(0, 0, W, H), d = id.data, on = new Uint8Array(W * H);
     for (let i = 0; i < W * H; i++) on[i] = d[i * 4 + 3] > 110 ? 1 : 0;
