@@ -14,6 +14,7 @@ import { tune, tuneGroup } from './tune.js';      // tune
 
 const TENSE = new Set(['stalk', 'stare', 'watch', 'display', 'circle', 'besiege', 'inspect', 'bluff', 'ambush', 'hunt']);
 const SNIFFY = new Set(['sniff', 'trail', 'investigate', 'search', 'revisit', 'inspect']);
+const CHIME_CLIP = 0.5;      // the PA chime's level in a saved clip (into the tap's make-up gain, like the tape load)
 const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 const sstep = (a, b, x) => { const u = clamp((x - a) / (b - a), 0, 1); return u * u * (3 - 2 * u); };
 
@@ -130,12 +131,16 @@ export class Audio {
   /** "Start over" (main.js startOver): the timers of the ambience and the animal's sounds as when the sound first started (wind, far thunder, its breath and sniffs). */
   restart() { if (this.st) this.st = ST0(); this.chimeStop(); }
   /** The death card's public-address chime: three bell tones through a horn's narrow band; on the third the tape is chewed (sagging, wobbling pitch
-   *  and dropouts). Straight to the speakers, past the camera microphone (held silent on the card) and the clip tap: never in a saved clip.
-   *  Sound off or the page going to the back cuts it. One at a time. */
-  chime() {
-    this.chimeStop(); if (!this._ok() || !this.master || this._away) return;
-    const c = this.ctx, t0 = c.currentTime + 0.05, out = c.createGain(), hp = c.createBiquadFilter(), lp = c.createBiquadFilter(), src = [];
-    out.gain.value = 0.2 * this.vol.master; hp.type = 'highpass'; hp.frequency.value = 380; lp.type = 'lowpass'; lp.frequency.value = 3000; out.connect(hp); hp.connect(lp); lp.connect(c.destination);
+   *  and dropouts). `spk`: straight to the speakers, past the camera microphone (held silent on the card); sound off cuts it there. `clip`: also into
+   *  the clip tap, so the recording running has it. The first bong starts `delay` seconds from now. Start over and the page going to the back cut it. One at a time. */
+  chime(spk = true, clip = false, delay = 0.05) {
+    if (!this.master) return;
+    spk = spk && this._ok() && !this._away; const T = clip && (this.offline || this.ctx.state === 'running') ? this._clipTap() : null; if (!spk && !T) return;
+    this.chimeStop();
+    const c = this.ctx, t0 = c.currentTime + delay, out = c.createGain(), hp = c.createBiquadFilter(), lp = c.createBiquadFilter(), src = [];
+    out.gain.value = 0.2; hp.type = 'highpass'; hp.frequency.value = 380; lp.type = 'lowpass'; lp.frequency.value = 3000; out.connect(hp); hp.connect(lp);
+    const s = c.createGain(); s.gain.value = this.vol.master; if (spk) { lp.connect(s); s.connect(c.destination); }
+    if (T) { const k = c.createGain(); k.gain.value = CHIME_CLIP; lp.connect(k); k.connect(T.mk); }
     const bong = (f, at, tau, dest) => {
       for (const [m, a, k] of [[1, 1, 1], [2, 0.35, 0.6], [3.01, 0.18, 0.35]]) {
         const o = c.createOscillator(), g = c.createGain(); o.frequency.value = f * m;
@@ -151,7 +156,7 @@ export class Audio {
     for (const o of src.slice(n)) { o.detune.setValueCurveAtTime(sag, t3 + 0.12, 1.7); depth.connect(o.detune); }
     for (const [a, d] of [[0.75, 0.05], [1.05, 0.07], [1.3, 0.05]]) { chew.gain.setValueAtTime(0, t3 + a); chew.gain.setValueAtTime(1, t3 + a + d); }
     chew.gain.setValueAtTime(1, t3 + 1.6); chew.gain.linearRampToValueAtTime(0, t3 + 1.85);
-    lfo.start(t3); lfo.stop(t3 + 2); src.push(lfo); this._pa = { src, lp };
+    lfo.start(t3); lfo.stop(t3 + 2); src.push(lfo); this._pa = { src, lp, s };
   }
   chimeStop() { const p = this._pa; if (!p) return; this._pa = null; for (const o of p.src) { try { o.stop(); } catch {} } try { p.lp.disconnect(); } catch {} }
   /** clip: how a saved clip starts: a cassette going into a VCR (dist/audio/tape_load.mp3). Into the clip tap only, never the speakers. */
@@ -289,7 +294,7 @@ export class Audio {
   _applyVol() {
     if (!this.ctx) return; const t = this.ctx.currentTime, P = (a, v) => a.setTargetAtTime(v, t, 0.05);
     P(this.master.gain, this.on && !this._away ? this.vol.master : 0);      // _away: the page is not in front (away())
-    if (!this.on) this.chimeStop();
+    if (!this.on && this._pa) this._pa.s.disconnect();      // the chime leaves the speakers, not a recording
     P(this.busAmb.gain, this.vol.amb); P(this.busCre.gain, this.vol.cre); P(this.busFx.gain, this.vol.fx);
     P(this.sendAmb.gain, this.vol.amb); P(this.sendCre.gain, this.vol.cre); P(this.sendFx.gain, this.vol.fx);
   }
