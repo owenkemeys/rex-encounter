@@ -120,8 +120,8 @@ export const TYRANNOSAURUS = {
     peril: { rise: 0.05, leave: 0.45 },
     // the core (out/platform/CORE.md; meanings in sim/mind.js MIND_DEFAULT.core): food from a first clear look, curiosity that keeps
     // the thing alive while it lasts, the body's questions (sniff, nudge, shove, foot, the slow reach), the opening of a look away
-    core: { on: true, claimLook: 2.5, claim: 0.75, first: 0.75, fill: 0.5, habGain: 0.65, habT: 150, habHold: 30, drainT: 90, drainFar: 200, surprise: 0.2,
-      curPeril: 1.2, want: 1.1, hunt: 0.8, damp: 0.3, paceU: 2.3, paceG: 1.5, paceW: 0.55, paceFar: 1.5, farD: [8, 20], lookT: 2, glanceT: 1.2, hungryPace: 1.6, inspectD: 6.2,
+    core: { on: true, claimLook: 2.5, claim: 0.75, first: 0.75, fill: 0.5, habGain: 0.65, habT: 150, habHold: 30, drainT: 45, drainFar: 200, surprise: 0.2,
+      curPeril: 0.8, want: 1.1, hunt: 0.8, damp: 0.3, paceU: 2.3, paceG: 1.5, paceW: 0.55, paceFar: 1.5, farD: [8, 20], lookT: 2, glanceT: 1.2, hungryPace: 1.6, inspectD: 6.2,
       rungs: [0.3, 0.48, 0.64, 0.8], pause: [2.5, 4.5], shoveF: 0.2, fed: 0.4, reachT: [3.5, 5], reachFrom: 30, reachPace: 0.9,
       unwRise: 1.6, teeth: 0.2, balkKeep: 0.45, balkHold: 20, balkT: 240, immune: 1 },
   },
