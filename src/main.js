@@ -865,7 +865,7 @@ async function boot() {
     const card = document.querySelector('#start .card'), deadCard = document.querySelector('#dead > *'), dodge = () => { if (!miOn) return; mi.style.translate = ''; const b = document.body.classList;
       const o = !b.contains('started') ? card : b.contains('dead') ? deadCard : null; if (!o) return;
       const c = o.getBoundingClientRect(), m = mi.getBoundingClientRect(); if (c.width && m.right > c.left - 8 && m.left < c.right + 8 && m.bottom > c.top - 8 && m.top < c.bottom + 8) mi.style.translate = '0 ' + Math.round(c.top - 8 - m.bottom) + 'px'; };
-    const miTick = () => { const v = !document.hidden && !audio.offline && silent(); if (v !== miOn) { miOn = v; mi.hidden = !v; } dodge(); };
+    const miTick = () => { const v = !document.hidden && !audio.offline && !$('boot') && silent(); if (v !== miOn) { miOn = v; mi.hidden = !v; } dodge(); };
     mi.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); if (!audio.on) setSound(true); else { audioResume(); audio._applyVol(); } audio.back(true); miTick(); });
     mi.addEventListener('pointerdown', (e) => e.stopPropagation());
     setInterval(miTick, 250); miTick(); }
