@@ -9,6 +9,8 @@
 //   extra (from main.js): cause and motive of death, the death count, seconds survived this life, whether crouching at the end.
 //   note(): the player's whistles and shouts, which are noises and not taped events, are noted as they happen (clip.note, called from main.js).
 //   derived with the terrain: inside / next to / far from named structures, at a window (inside, with the animal's body outside and its head close), on top.
+//   story: the cause of death in plain words ("Visitor was tossed 4 m, then eaten."), from the player's state codes and heights on the tape's last
+//     10 s and the cause, eaten when the body was left as food (extra.eaten); drawn in small type under the title rule of the card.
 // NOT available: the animal's thoughts (the owner does not want them), the "through the gap" reason string (derived from geometry instead), day or night
 // (the arena is always at dusk: "torch on" stands for it), the player's facing relative to the animal (yaw convention not read; not used).
 const HZ = 30, NN = 480, M = 20;      // the tape's rate, ring length and floats per frame (replay.js)
@@ -56,6 +58,7 @@ export function facts(tape, extra = {}) {
   for (let i = Math.max(lo, D - 30); i <= D; i++) { if (st(i) === AIR) f.air = true; if (st(i) === PINNED) f.pinned = true; }
   if (st(D) === HELD || st(Math.max(lo, D - 3)) === HELD) f.held = true;
   f.air = !!(f.air || f.thrown); f.used.push('player state codes');
+  f.story = f.live ? '' : story(tape, lo, D, st, ex, f);
   if (L >= 0) {
     const p = P(L), ab = A(L), hd = Hd(L), dist = hyp(ab.x - p.x, ab.z - p.z); f.dist = dist;
     const sp = spd(L, 45), sp2 = spd(L, 60); f.speed = sp;
@@ -96,6 +99,28 @@ export function facts(tape, extra = {}) {
     f.used.push('taped events (hits, bites, contacts)');
   }
   return f;
+}
+
+/** The cause of death in plain words, from the tape's last 10 s (what happened to the body, in order) and how it ended:
+ *  "Visitor was tossed 4 m, then eaten." Heights are the body's peak above the ground while airborne. '' when nothing is known. */
+const ENDS = { eaten: 'eaten', bitten: 'bitten', bite: 'bitten', crushed: 'crushed in its jaws', shaken: 'shaken to death', pinned: 'crushed underfoot', thrown: 'thrown', butt: 'headbutted', tail: 'hit by its tail' };
+function story(tape, lo, D, st, ex, f) {
+  const N = tape.N || NN, m = tape.m, T = tape.terrain, at = (i) => (((i % N) + N) % N) * M, steps = [];
+  let air = null, prev = -1;
+  const push = (w) => { if (steps[steps.length - 1] !== w) steps.push(w); };
+  const endAir = () => { if (air) push(air.peak >= 1 ? `tossed ${Math.round(air.peak)} m` : 'knocked over'); air = null; };
+  for (let i = lo; i <= D; i++) {
+    const s = st(i);
+    if (s === AIR) { const o = at(i), g = T && T.height ? T.height(m[o], m[o + 2]) : 0; if (!air) air = { peak: 0 }; air.peak = Math.max(air.peak, m[o + 1] - g); }
+    else { endAir(); if (s !== prev) { if (s === HELD) push('picked up'); else if (s === PINNED) push('pinned'); } }
+    prev = s;
+  }
+  endAir();
+  const cause = f.cause, end = ex.eaten ? 'eaten' : ENDS[cause] || cause || '';
+  if (steps[steps.length - 1] === 'pinned' && /pin/.test(cause)) steps.pop();      // (pinned, then crushed underfoot: one thing)
+  const chain = steps.slice(-3);
+  if (!end && !chain.length) return '';
+  return 'Visitor was ' + (chain.length ? chain.join(', ') + (end ? ', then ' + end : '') : end) + '.';
 }
 
 // ------------------------------------------------------------------ the advice table
@@ -223,7 +248,7 @@ const shrinkTo = (g, txt, weight, fam, px, maxW, minPx) => { let p = px; g.font 
 /** The margin of black round the card, enough for the tape's lettering (shared with makeTape). */
 export const cardMargin = (W, H) => Math.round(Math.max(11, 20 * Math.min(W, H) / 720) * 2.1);
 /** Draw the flat card on any canvas size. Everything is proportional: `s` is the scale of the designed size (1280x720 wide, 720x1000-ish tall); the headline is fitted by measuring (3 lines wide, 5 tall). Returns { px, ls, tall, s }. */
-export function drawCard(g, W, H, line, no, link = CLIP_LINK, live = false) {
+export function drawCard(g, W, H, line, no, link = CLIP_LINK, live = false, story = '') {
   const tall = W / H < 1.15, s = Math.max(0.2, tall ? Math.min(W / 720, H / 1000) : Math.min(W / 1280, H / 720));
   const mg = cardMargin(W, H), x0 = mg, x1 = W - mg, iw = x1 - x0, ch = H - 2 * mg, pad = (tall ? 38 : 52) * s, ix0 = x0 + pad, ix1 = x1 - pad, cw = ix1 - ix0;
   const top = mg + pad * 0.9, bot = H - mg - pad * 0.9;      // the writing area, top to bottom
@@ -239,6 +264,7 @@ export function drawCard(g, W, H, line, no, link = CLIP_LINK, live = false) {
   if (!tall && titleW + g.measureText(posted).width + 30 * s < cw) { g.textAlign = 'right'; g.fillText(posted, ix1, y); g.textAlign = 'left'; }
   else { const mp = shrinkTo(g, posted, 500, MONO, mono, cw, 8); y += mp * 1.9; g.font = `500 ${mp}px ${MONO}`; g.fillText(posted, ix0, y); }
   y += 22 * s; const rule = Math.max(3, (tall ? 8 : 9) * s); g.fillRect(ix0, y, cw, rule); y += rule;
+  if (story) { const sp = shrinkTo(g, story, 700, MONO, (tall ? 19 : 21) * s, cw, 8); y += sp * 1.25 + 12 * s; g.font = `700 ${sp}px ${MONO}`; g.fillText(story, ix0, y); y += 4 * s; }      // the cause of death
   const spx = shrinkTo(g, 'The management kindly reminds all guests:', 500, SANS_PLAIN, (tall ? 29 : 31) * s, cw, 11);
   y += spx * 1.15 + 14 * s; g.font = `500 ${spx}px ${SANS_PLAIN}`; g.fillText('The management kindly reminds all guests:', ix0, y);
   const headTop = y + 16 * s;
@@ -289,9 +315,9 @@ import { tune, tuneGroup } from './tune.js';      // tune
 const CARDT = { seconds: CARD_SECONDS, stat: STATIC };      // tune: live copies; the exported lets follow them
 { const G = 'Clip and closing card'; tuneGroup(G, { order: 90 });      // tune
   tune(G, 'Closing card length (s)', CARDT, 'seconds', 1, 15, 0.1, (v) => { CARD_SECONDS = LEN = v; }, 'card.seconds'); tune(G, 'Static transition into the card (s)', CARDT, 'stat', 0, 2, 0.05, (v) => { STATIC = v; }, 'card.static'); }      // tune
-export function makeTape(W, H, line, no, link = CLIP_LINK, live = false) {
+export function makeTape(W, H, line, no, link = CLIP_LINK, live = false, story = '') {
   const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
-  const card = mk(), cg = card.getContext('2d'); drawCard(cg, W, H, line, no, link, live);
+  const card = mk(), cg = card.getContext('2d'); drawCard(cg, W, H, line, no, link, live, story);
   const tint = (col) => { const c = mk(), g = c.getContext('2d'); g.drawImage(card, 0, 0); g.globalCompositeOperation = 'multiply'; g.fillStyle = col; g.fillRect(0, 0, W, H); return c; };
   const red = tint('#ff4a4a'), cyan = tint('#4affff');
   const scan = mk(), sg = scan.getContext('2d'); sg.fillStyle = 'rgba(0,0,0,0.16)'; for (let y = 0; y < H; y += 3) sg.fillRect(0, y, W, 1);

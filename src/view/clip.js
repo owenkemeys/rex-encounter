@@ -110,7 +110,7 @@ export function createClip({ getCanvas, audio, tape, extra }) {      // closeout
     let fx = {}; try { const ex = extra ? extra() : {}; fx = cardFacts(tape, { ...ex, live: !!live, deaths: live ? Math.max(0, (ex.deaths | 0) - 1) : ex.deaths }); } catch {}
     let r; try { r = cardPick(fx, Math.random, recent); } catch { r = { text: 'Please enjoy the exhibit responsibly.', index: -1, id: 'x' }; }
     if (r.index >= 0) remember(r.index);
-    return { text: r.text, id: r.id, no: incidentNo(), facts: fx, live: !!live };
+    return { text: r.text, id: r.id, no: incidentNo(), facts: fx, live: !!live, story: live ? '' : fx.story || '' };
   }
   let deathLine = null;
   /** The advice line for this death, chosen once so the death menu and the closing card agree. */
@@ -121,7 +121,7 @@ export function createClip({ getCanvas, audio, tape, extra }) {      // closeout
   C.card = (dt) => {
     if (!closing) {
       closing = true; ct = 0; cardInfo = C.live ? chooseLine(true) : C.lineFor(); C.cardInfo = cardInfo;
-      tp = null; if (C.active && g) { try { tp = makeTape(W, H, cardInfo.text, cardInfo.no, undefined, C.live); } catch (e) { C.error = String(e && e.message || e); } }
+      tp = null; if (C.active && g) { try { tp = makeTape(W, H, cardInfo.text, cardInfo.no, undefined, C.live, cardInfo.story); } catch (e) { C.error = String(e && e.message || e); } }
       try { ov = document.createElement('canvas'); ov.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;background:#000;z-index:11;pointer-events:auto'; document.body.appendChild(ov); overlayG = ov.getContext('2d'); ovKey = ''; } catch { ov = null; }      // the player's own view of the card, laid out for the window (not the recording's size)
       try { const m = audio && audio._mic, c = audio && audio.ctx; if (m && c) m.g.gain.setTargetAtTime(0, c.currentTime, 0.3); } catch {}      // the taped ambience fades; the rest is silence
     }
@@ -135,7 +135,7 @@ export function createClip({ getCanvas, audio, tape, extra }) {      // closeout
       if (tp && g && C.active) tp.frame(g, ct, stamp);
       if (overlayG && ov) {
         const dpr = Math.min(window.devicePixelRatio || 1, 1.5); let w = Math.max(200, Math.round(window.innerWidth * dpr)), h = Math.max(200, Math.round(window.innerHeight * dpr)); const k = Math.min(1, 1600 / Math.max(w, h)); w = Math.round(w * k); h = Math.round(h * k);
-        if (ovKey !== w + 'x' + h) { ovKey = w + 'x' + h; ov.width = w; ov.height = h; ovTp = makeTape(w, h, cardInfo.text, cardInfo.no, undefined, C.live); }
+        if (ovKey !== w + 'x' + h) { ovKey = w + 'x' + h; ov.width = w; ov.height = h; ovTp = makeTape(w, h, cardInfo.text, cardInfo.no, undefined, C.live, cardInfo.story); }
         ovTp.frame(overlayG, ct, stamp);
       }
       C.frames++;
@@ -146,7 +146,7 @@ export function createClip({ getCanvas, audio, tape, extra }) {      // closeout
   /** Take the card off the screen (a new replay, a new life, back to the game). */
   C.dropCard = () => { closing = false; ct = 0; tp = null; ovTp = null; cardInfo = null; C.live = false; if (ov) { try { ov.remove(); } catch {} } ov = null; overlayG = null; ovKey = ''; };
   /** For checking the look without a death: the card as it is at tape time t, drawn on a fresh canvas of the given size. */
-  C.previewCard = (w, h, line, t = 2, no = '0047') => { const c = document.createElement('canvas'); c.width = w; c.height = h; makeTape(w, h, line, no).frame(c.getContext('2d'), t, Date.now()); return c; };
+  C.previewCard = (w, h, line, t = 2, no = '0047', story = '') => { const c = document.createElement('canvas'); c.width = w; c.height = h; makeTape(w, h, line, no, undefined, false, story).frame(c.getContext('2d'), t, Date.now()); return c; };
 
   // ---- on screen only, never in the video: the small "recording" tag (recordings the player asked for) and, after a clip taken in play, the one small prompt
   const MONOF = "'IBM Plex Mono','Lucida Console','Courier New',monospace";

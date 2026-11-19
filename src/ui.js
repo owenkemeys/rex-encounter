@@ -1,8 +1,8 @@
 // The player-facing interface: which panels show (remembered), the mind readout, the thoughts above the animal's head,
-// achievements (a quiet toast with "n of total", a log in the pause card and the drawer), the
+// achievements (dares: a toast when one is done, the list in the pause card and the drawer, the next one on the death card), the
 // opening invitation, the pause card, injury and the end card, the take action and the photo key.
 import * as THREE from 'three/webgpu';
-import { Achievements, ACHIEVEMENTS } from './achievements.js';
+import { Achievements } from './achievements.js';
 import { clamp, renew } from './math.js';
 import { placeThought, clearOf, damp } from './thoughtplace.js';
 import { touchLayout } from './touchlayout.js';
@@ -42,9 +42,6 @@ const useName = () => (itemNames().length > 1 ? 'throw what is in hand' : 'throw
 const CTL = () => [['move', 'walk'], ['run', 'run'], ['crouch', 'crouch'], ['jump', 'jump'], ['look', 'look'], ['zoom', 'zoom'], itemNames().length && ['use', useName()], itemNames().length > 1 && ['items', 'change item'], ['call', 'call <i>(hold: shout)</i>'], ['act', 'climb, doors <i>(when shown)</i>'], KIT.torch && ['torch', 'torch'], ['note', 'note'], ['clip', 'save a clip of the last 15 s'], ['pause', 'pause']].filter(Boolean);
 // the start card: only what a first-time player needs
 const CTL_START = () => [['move', 'walk'], ['look', 'look'], itemNames().length && ['use', useName()], ['call', 'call <i>(hold: shout)</i>'], KIT.torch && ['torch', 'torch'], ['pause', 'pause']].filter(Boolean);
-// achievements that cannot be earned while the player carries no stones or meat: hidden from the lists and the counts
-const SECRET = new Set(['nose']);
-const RETIRED = () => new Set([...(KIT.meat > 0 ? [] : ['steal', 'hand', 'bribe', 'nose']), ...(KIT.stones > 0 ? [] : ['decoy'])]);
 // first-time prompts, in the order they tend to matter; each is shown once (remembered), then never again
 // A tip comes back (at most SHOW times) until the player has done the thing DONE times; then never again.
 const TEACH = {
@@ -144,22 +141,16 @@ export function createUI(o) {
   function peek(on) { if (on === peeking) return; peeking = on; if (on) { $('peekKeys').innerHTML = ctlHTML(); taught('peek'); } document.body.classList.toggle('peek', on); }
 
   // ------------------------------------------------------------ achievements
-  // Found by discovery. Each unlock shows a quiet toast with "n of total"; the pause card and the drawer keep the log (earned
-  // ones with their line, locked ones by title alone, secret ones only counted).
-  const shownTotal = () => achv.total - [...RETIRED()].filter((id) => !achv.has(id)).length;
-  const lockItem = (a) => `<li class="lock"><b>${esc(a.title)}</b></li>`;
-  const doneItem = (a) => `<li class="done"><b>${esc(a.title)}</b><small>${esc(a.story)}</small></li>`;
-  function logHTML() {
-    const L = achv.listing(), R = RETIRED(); L.secrets -= [...R].filter((id) => !achv.has(id) && SECRET.has(id)).length; L.locked = L.locked.filter((a) => !R.has(a.id));
-    return L.earned.map(doneItem).join('') + L.locked.map(lockItem).join('')
-      + (L.secrets ? `<li class="lock"><small>${L.secrets === 1 ? 'and one secret one' : 'and ' + L.secrets + ' secret ones'}</small></li>` : '');
-  }
+  // Dares (src/achievements.js). Each one done shows a toast with "n of total"; the pause card and the drawer list them all
+  // (done ones ticked), and the death card suggests the next one.
+  const item = (a) => `<li class="${a.got ? 'done' : 'lock'}${a.bonus ? ' bonus' : ''}"><b>${esc(a.title)}</b><small>${esc(a.dare)}</small></li>`;
+  const logHTML = () => achv.listing().map(item).join('');
   function drawList() {
     $('dpanel').innerHTML = logHTML(); $('dpanel').classList.add('tries');
-    $('dCount').textContent = `${achv.count} of ${shownTotal()}`;
+    $('dCount').textContent = `${achv.count} of ${achv.total}`;
   }
   function drawPause() {
-    $('pCount').textContent = `${achv.count} of ${shownTotal()}`;
+    $('pCount').textContent = `${achv.count} of ${achv.total}`;
     $('pLog').innerHTML = logHTML();
     $('pKeys').innerHTML = ctlHTML();
   }
@@ -194,14 +185,16 @@ export function createUI(o) {
     const T = $('toast'), a = queue.shift();
     if (!a) { toasting = false; return; }
     toasting = true;
-    $('tN').textContent = `${a.n} of ${a.total}`; T.querySelector('b').textContent = a.title; T.querySelector('span').textContent = a.story;
-    T.classList.remove('on'); void T.offsetWidth; T.classList.add('on'); ding(); document.body.classList.add('toasting');
-    clearTimeout(toastT); toastT = setTimeout(() => { T.classList.remove('on'); document.body.classList.remove('toasting'); setTimeout(nextToast, 500); }, 5200);
+    $('tN').textContent = a.repeat ? 'again' : `dare done \u00b7 ${a.n} of ${a.total}`; T.querySelector('b').textContent = a.title; T.querySelector('span').textContent = a.repeat ? '' : a.dare;
+    T.classList.toggle('hot', !!a.hot); T.classList.toggle('brief', !!a.repeat);
+    T.classList.remove('on'); void T.offsetWidth; T.classList.add('on'); if (!a.repeat) ding(); document.body.classList.add('toasting');
+    clearTimeout(toastT); toastT = setTimeout(() => { T.classList.remove('on'); document.body.classList.remove('toasting'); setTimeout(nextToast, 500); }, a.repeat ? 1600 : 5200);
   }
-  let lifeEarned = [];
   const AC = { sim, mind, terrain, things: arena.things, arena };
   const achv = new Achievements(AC, {
-    onDone(a, n, total) { queue.push({ ...a, n, total: shownTotal() }); lifeEarned.push(a); drawList(); if (!toasting) nextToast(); },
+    // a near miss jumps the queue and shows at once: it is about this very moment
+    onDone(a, n, total) { const q = { ...a, n, total, hot: !!a.again }; if (q.hot) { queue.unshift(q); clearTimeout(toastT); nextToast(); } else { queue.push(q); if (!toasting) nextToast(); } drawList(); },
+    onAgain(a) { if (toasting) return; queue.unshift({ ...a, repeat: true, hot: true }); nextToast(); },
   });
   drawList();
   const youNow = () => {
@@ -221,7 +214,7 @@ export function createUI(o) {
     if (S.mode !== 'foot' || S.dead) return;
     const Y = S.you; let best = null, bd = 2.4;
     for (const t of arena.things.list) if (t.kind === 'meat' && t.amount > 0) { const d = Math.hypot(t.x - Y.x, t.z - Y.z); if (d < bd) { bd = d; best = t; } }
-    if (!best) return; achv.took(best); arena.take(best.id, 'you'); if (act.gotMeat) act.gotMeat(); audio.resume(); audio.step && audio.step(0.12);
+    if (!best) return; arena.take(best.id, 'you'); if (act.gotMeat) act.gotMeat(); audio.resume(); audio.step && audio.step(0.12);
   };
   // ------------------------------------------------------------ mind readout
   const voice = () => {
@@ -606,6 +599,7 @@ export function createUI(o) {
     const cause = typeof D.cause === 'string' && D.cause ? (WORDS[D.cause.toLowerCase()] || D.cause.toUpperCase()) : '';
     $('xFacts').textContent = ['INCIDENT No. ' + (L ? L.no : '0000'), 'VISITOR LASTED ' + dur(D.lasted).toUpperCase(), cause].filter(Boolean).join(' \u00b7 ');
     $('xAdvice').textContent = L ? L.text : '';
+    { const n = achv.next(); $('xDare').textContent = n ? `NEXT DARE: ${n.dare}` : ''; $('xDare').hidden = !n; }
     const tape = !!(session && session.canReplay && session.canReplay());
     $('xReplay').hidden = !tape; { const b = $('xClip'); b.hidden = !(tape && session && session.clipOK && session.clipOK()); if (S.clip) S.clip.onState = syncClip; clipBusy = false; syncClip(); }      // (the clip of this death is kept: it was recorded as the replay played)
     $('xKeys').textContent = keysLine();
@@ -618,7 +612,7 @@ export function createUI(o) {
     act.respawn();
     const V = arena.victims && arena.victims.get('you');
     if (V) { if (V.dead) V.dead = false; if (typeof V.health === 'number' && V.health <= 0) V.health = V.health > 1 ? 100 : 1; }
-    D.evt = null; D.shown = false; D.auto = false; S.dead = false; lifeEarned = []; if (S.clip && S.clip.resetLine) S.clip.resetLine(); document.body.classList.remove('dead');
+    D.evt = null; D.shown = false; D.auto = false; S.dead = false; achv.reset(false); if (S.clip && S.clip.resetLine) S.clip.resetLine(); document.body.classList.remove('dead');
     if (S.zoom) { S.zoom.toggle = false; S.zoom.hold = false; const z = $('tZoom'); if (z) z.setAttribute('aria-pressed', 'false'); }      // a new life starts unzoomed
     if (watch && session) session.setMode('observe');
     if (session) session.lockPointer();
@@ -703,7 +697,7 @@ export function createUI(o) {
     get debug() { return debugOn; }, setDebug,
     /** "Start over" (main.js startOver): the new animal and mind, and nothing left of the last scenario on screen: thoughts, tips, the death card. */
     restart(n) {
-      ({ sim, mind, SEED } = n); Object.assign(AC, { sim, mind, things: arena.things }); achv.t = 0; achv.reset(false); lifeEarned = [];
+      ({ sim, mind, SEED } = n); Object.assign(AC, { sim, mind, things: arena.things }); achv.t = 0; achv.reset(false);
       for (const it of B.items) retire(it); renew(B, B0()); bub.classList.remove('on');
       renew(inv, inv0()); IV.classList.remove('on'); Object.assign(teach, lesson0()); renew(D, D0()); CUT.style.display = 'none'; document.body.classList.remove('dead');
       peek(false); set('panel', false); lastThink = ''; prWhat = ''; hudKey = ''; lastH = 1; flashT = 0;
