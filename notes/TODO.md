@@ -99,6 +99,9 @@ Numbers (8 seeds, he stays 45 s a side): head at the opening nearest him 79% of 
 Side effect: with its head at the right window it seized a player standing 1.2 m from the glass in 3 of 8 four-minute runs (main 1 of 8).
 Unverified: nobody has watched or played it. No window strike (separate item).
 
+### F2. Dares: achievements v2 (owner 2026-11-18, words in QUEUE)
+Status: BUILT on branch `achievements-v2` (Grok Bot), not merged: the owner sees the restyle (screenshots) before it ships. The old 31 achievements are gone; 8 dares + 1 bonus in `src/achievements.js` (thresholds in its `TH`), each detected from sim state: stare down, yeet (+ big yeet), rude, decoy, near miss (flashed every time), round the corner, matador, funny death. The death card names the next dare; the closing card names the cause of death ("Visitor was tossed 4 m, then eaten.") from the replay tape. `node test/achievements.mjs` stages each one. Unverified by hand: how often each happens in real play, and the wording (placeholders, to be polished with the owner).
+
 ## Batch of 2026-11-15 21:47-21:59 UTC (sessions 20261115T214343Z-9vrm and 20261115T215107Z-xr5v)
 
 ### T1. Head does not lead into a turn or round a corner

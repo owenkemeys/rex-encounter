@@ -161,7 +161,7 @@ async function boot() {
   // While it runs the things in the world are the recorded ones (rec.things), live sim events are not played, and the recorded sound events are
   // re-emitted through the usual audio calls with the listener at the camera, through a thin small-microphone filter (audio.mic). Dust, rain, the herd stay as now.
   let torchLive = false, micHeld = false;
-  const clip = createClip({ getCanvas: () => canvas, audio, tape: rec, extra: () => { const V = arena.victims && arena.victims.get('you'); return { cause: V && V.cause, motive: V && V.lastHurt && V.lastHurt.motive, deaths: V ? V.lives : 1, crouch: !!S.you.crouch, label: rec.label, lasted: S.footSince && V ? (performance.now() - S.footSince) / 1000 - (V.dead ? Math.max(0, (V.clock || 0) - (V.deadT || 0)) : 0) : 0 }; } }); S.clip = clip;      // closeout: the card's facts      // clip: "save clip" on the death card records the replay to a file
+  const clip = createClip({ getCanvas: () => canvas, audio, tape: rec, extra: () => { const V = arena.victims && arena.victims.get('you'); return { cause: V && V.cause, eaten: !!(V && V.gone), motive: V && V.lastHurt && V.lastHurt.motive, deaths: V ? V.lives : 1, crouch: !!S.you.crouch, label: rec.label, lasted: S.footSince && V ? (performance.now() - S.footSince) / 1000 - (V.dead ? Math.max(0, (V.clock || 0) - (V.deadT || 0)) : 0) : 0 }; } }); S.clip = clip;      // closeout: the card's facts      // clip: "save clip" on the death card records the replay to a file
   function startClip() {      // closeout: "save clip" on the death menu when there is no finished clip (the replay was skipped): the replay and card play once more, recorded, with the small tag
     if (!clip.supported || !S.dead || (S.replay && !S.replayHold) || clip.hasClip()) return false;
     try { audio.resume(); } catch {}      // clipsound: inside the tap on SAVE CLIP: wake the audio context so the re-recording has sound
@@ -1181,6 +1181,7 @@ async function boot() {
       if (S.mode === 'observe') { S.noises.push(...director.noises); director.noises.length = 0; }
       if (!aware() && S.noises.length) S.noises = S.noises.filter((q) => !q.you);
       for (const q of S.noises) if (q.you && clip) clip.note(q.kind);      // closeout: whistles and shouts, for the closing card
+      for (const q of S.noises) if (q.you && ui.achv) ui.achv.noise(q, { x: q.x, y: q.y, z: q.z });      // dares: a shout right in its face
       arena.step(DT, { agents: ag, noises: S.noises, light: world.light, flash: world.flash, wind }, S.mindOn ? null : directedIntent());
       if (gaitRun) gmeter.tick(sim, sim.t - gaitRun.t0);
       S.noises.length = 0;

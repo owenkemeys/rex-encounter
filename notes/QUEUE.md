@@ -232,3 +232,9 @@ He approved the draft hut lines (thumbs-up, 2026-11-18); they are in `src/sim/th
 ## Owner, 2026-11-18, on the opener ("this opener is really not landing")
 "lets revert the scenario then to just starting about eqidistant between a few structures, and the rex is curious at first but quickly progresses to deciding to eat you (normally). the nose nudges and tosses are also good. i'll playtest and see if the death cam alone there is enough incentive to make you want to mess around with it after you've seen from the outside how silly you looked."
 Done 2026-11-18 (Grok Bot): the open field is the default start (`LAYOUT.spawns.first`), the gatehouse start is kept behind `#gate`; curiosity runs down faster (`core.drainT` 90 -> 45 s, `core.curPeril` 1.2 -> 0.8) and the opening sets hunger 0.65-0.75 as you step in. Awaiting his playtest.
+
+## Owner, 2026-11-18, on getting players to make funny clips
+"thanks, this is feeling better
+probably one last thing before mvp is: for less creative players how can we encourage them to interact more and ideally create a funny death clip? im thinking achievements system (all the achievements need a revamp for the modern design, it was set out very early on) and maybe an achievement during gameplay about near misses? what else incites behavior that results in funny clips?"
+On the proposed set of eight dares, the next dare on the death card and the cause of death on the closing card: "this is good yes."
+Built 2026-11-18 (Grok Bot), branch `achievements-v2`, not merged: he sees screenshots of the restyle first. Texts are placeholders.
