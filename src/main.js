@@ -1342,6 +1342,7 @@ async function boot() {
     // the downloads in, then pictures with nothing culled or hidden and in both looks before the loading screen goes, so every
     // shader, texture and buffer is ready (else the first fast turn built them a few at a time: lag until you had looked everywhere)
     let got = 0; await Promise.all(world.loading.map((p) => p.then(() => bootAt(0.9 + 0.06 * ++got / world.loading.length))));
+    await audio.tapeIn;      // the cassette clunk a saved clip starts with
     const culled = []; scene.traverse((o) => { if (o.frustumCulled) { o.frustumCulled = false; culled.push(o); } });
     frame(1 / 30);
     const hidden = []; scene.traverse((o) => { if (!o.visible && !o.isLight && (!o.geometry || o.geometry.attributes.position)) { o.visible = true; hidden.push(o); } });

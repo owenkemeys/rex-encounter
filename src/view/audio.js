@@ -123,6 +123,7 @@ export class Audio {
     if (opts.low !== undefined) this.low = !!opts.low;
     this._bankStarted = false;
     try { this._startBanks(); } catch (e) { if (typeof console !== 'undefined') console.warn('audio bank', e); }
+    this.tapeIn = this._loadTape();
     if (typeof window !== 'undefined') window.__audio = this;      // handle for tests and the console
   }
   /** The world the sound lives in. tier: 'low' | 'high' (from main's quality detection). */
@@ -153,11 +154,21 @@ export class Audio {
     lfo.start(t3); lfo.stop(t3 + 2); src.push(lfo); this._pa = { src, lp };
   }
   chimeStop() { const p = this._pa; if (!p) return; this._pa = null; for (const o of p.src) { try { o.stop(); } catch {} } try { p.lp.disconnect(); } catch {} }
-  /** clip: how a saved clip starts: a cassette clunk, then tape hiss that settles (about 0.65 s). Into the clip tap only, never the speakers. */
+  /** clip: how a saved clip starts: a cassette going into a VCR (dist/audio/tape_load.mp3). Into the clip tap only, never the speakers. */
   tapeLoad() {
-    const T = this._clipTap(); if (!T || !(this.offline || this.ctx.state === 'running')) return; const at = this.ctx.currentTime + 0.02;
-    this._tone(T.mk, at, 150, 60, 0.05, 0.5); this._burst(T.mk, at, 0.07, 'bandpass', 1800, 1.2, 0.45, 0.002); this._burst(T.mk, at + 0.1, 0.05, 'bandpass', 900, 2, 0.3, 0.002);
-    this._burst(T.mk, at + 0.14, 0.5, 'highpass', 2500, 0.5, 0.2, 0.03);
+    const T = this._clipTap(), r = this._tape; if (!T || !r || !(this.offline || this.ctx.state === 'running')) return; const c = this.ctx;
+    if (!this._tapeBuf) { this._tapeBuf = c.createBuffer(1, r.x.length, r.sr); this._tapeBuf.getChannelData(0).set(r.x); }
+    const s = c.createBufferSource(), g = c.createGain(); s.buffer = this._tapeBuf; g.gain.value = 0.6; s.connect(g); g.connect(T.mk);
+    s.start(c.currentTime + 0.02); s.onended = () => { try { s.disconnect(); g.disconnect(); } catch {} };
+  }
+  /** Fetch and decode tape_load.mp3 into this._tape ({ sr, x }); main.js waits for it behind the loading bar. Never rejects (no file: no clunk). */
+  async _loadTape() {
+    try {
+      const r = await fetch((this.clipBase ?? 'audio/') + 'tape_load.mp3'); if (!r.ok) return;
+      const AC = OfflineAudioContext || webkitOfflineAudioContext, dctx = new AC(1, 1, 48000), ab = await r.arrayBuffer();
+      const b = await new Promise((res, rej) => { const p = dctx.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); });
+      this._tape = { sr: b.sampleRate, x: new Float32Array(b.getChannelData(0)) };
+    } catch {}
   }
   attach(o) { Object.assign(this, { cam: o.camera, sim: o.sim, mind: o.mind, terrain: o.terrain, world: o.world }); if (o.tier) { const low = o.tier === 'low'; if (low !== this.low && !this.ctx) { this.low = low; } } }
 
