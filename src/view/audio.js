@@ -15,6 +15,9 @@ import { tune, tuneGroup } from './tune.js';      // tune
 const TENSE = new Set(['stalk', 'stare', 'watch', 'display', 'circle', 'besiege', 'inspect', 'bluff', 'ambush', 'hunt']);
 const SNIFFY = new Set(['sniff', 'trail', 'investigate', 'search', 'revisit', 'inspect']);
 const CHIME_CLIP = 0.5;      // the PA chime's level in a saved clip (into the tap's make-up gain, like the tape load)
+/** Move a gain to v from time t: up from silence over `rise` seconds (on a square law, so it is heard as a steady turn of the dial), or else toward v with time constant tc.
+ *  Whatever was scheduled is dropped where it stands. */
+const glide = (p, v, t, tc, rise) => { if (p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(t); else p.cancelScheduledValues(t); if (rise) { p.setValueAtTime(0, t); for (let i = 1; i <= 8; i++) p.linearRampToValueAtTime(v * (i / 8) ** 2, t + rise * i / 8); } else p.setTargetAtTime(v, t, tc); };
 const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 const sstep = (a, b, x) => { const u = clamp((x - a) / (b - a), 0, 1); return u * u * (3 - 2 * u); };
 
@@ -131,7 +134,7 @@ export class Audio {
   /** "Start over" (main.js startOver): the timers of the ambience and the animal's sounds as when the sound first started (wind, far thunder, its breath and sniffs). */
   restart() { if (this.st) this.st = ST0(); this.chimeStop(); }
   /** The death card's public-address chime: three bell tones through a horn's narrow band; on the third the tape is chewed (sagging, wobbling pitch
-   *  and dropouts). `spk`: straight to the speakers, past the camera microphone (held silent on the card); sound off cuts it there. `clip`: also into
+   *  and dropouts). `spk`: to the speakers (and the iOS media-stream element), past the camera microphone (held silent on the card); sound off cuts it there. `clip`: also into
    *  the clip tap, so the recording running has it. The first bong starts `delay` seconds from now. Start over and the page going to the back cut it. One at a time. */
   chime(spk = true, clip = false, delay = 0.05) {
     if (!this.master) return;
@@ -139,7 +142,7 @@ export class Audio {
     this.chimeStop();
     const c = this.ctx, t0 = c.currentTime + delay, out = c.createGain(), hp = c.createBiquadFilter(), lp = c.createBiquadFilter(), src = [];
     out.gain.value = 0.2; hp.type = 'highpass'; hp.frequency.value = 380; lp.type = 'lowpass'; lp.frequency.value = 3000; out.connect(hp); hp.connect(lp);
-    const s = c.createGain(); s.gain.value = this.vol.master; if (spk) { lp.connect(s); s.connect(c.destination); }
+    const s = c.createGain(); s.gain.value = this.vol.master; if (spk) { lp.connect(s); s.connect(this.spk); }
     if (T) { const k = c.createGain(); k.gain.value = CHIME_CLIP; lp.connect(k); k.connect(T.mk); }
     const bong = (f, at, tau, dest) => {
       for (const [m, a, k] of [[1, 1, 1], [2, 0.35, 0.6], [3.01, 0.18, 0.35]]) {
@@ -163,7 +166,7 @@ export class Audio {
   tapeLoad() {
     const T = this._clipTap(), r = this._tape; if (!T || !r || !(this.offline || this.ctx.state === 'running')) return; const c = this.ctx;
     if (!this._tapeBuf) { this._tapeBuf = c.createBuffer(1, r.x.length, r.sr); this._tapeBuf.getChannelData(0).set(r.x); }
-    const s = c.createBufferSource(), g = c.createGain(); s.buffer = this._tapeBuf; g.gain.value = 0.6; s.connect(g); g.connect(T.mk);
+    const s = c.createBufferSource(), g = c.createGain(); s.buffer = this._tapeBuf; g.gain.value = 0.4; s.connect(g); g.connect(T.mk);
     s.start(c.currentTime + 0.02); s.onended = () => { try { s.disconnect(); g.disconnect(); } catch {} };
   }
   /** Fetch and decode tape_load.mp3 into this._tape ({ sr, x }); main.js waits for it behind the loading bar. Never rejects (no file: no clunk). */
@@ -391,22 +394,22 @@ export class Audio {
     clearTimeout(this._streamDog);
     this._streamDog = setTimeout(() => { if (this._streamAsk === ask && !this._streamPlaying && /asked|checking/.test(this.dbg.stream)) { this.dbg.stream += ' (stalled 2.5 s): direct kept'; this._directOn(); } }, 2500);
   }
-  _directOff() { if (this._direct && this.out && this.ctx) { try { this.out.disconnect(this.ctx.destination); this._direct = false; } catch {} } }
-  _directOn() { if (!this._direct && this.out && this.ctx && this.ctx.state !== 'closed') { try { this.out.connect(this.ctx.destination); this._direct = true; } catch {} } }
-  // replay: the security camera's microphone. on: what reaches the speakers goes through a thin band (about 300 Hz to 3.2 kHz) and a little quieter; mute holds it silent (the replay is paused).
-  mic(on, mute) {
+  _directOff() { if (this._direct && this.spk && this.ctx) { try { this.spk.disconnect(this.ctx.destination); this._direct = false; } catch {} } }
+  _directOn() { if (!this._direct && this.spk && this.ctx && this.ctx.state !== 'closed') { try { this.spk.connect(this.ctx.destination); this._direct = true; } catch {} } }
+  // replay: the security camera's microphone. on: what reaches the speakers goes through a thin band (about 300 Hz to 3.2 kHz) and a little quieter; mute holds it silent
+  // (the replay is paused, the closing card, the death menu), fading with time constant tc. rise: seconds to come up from silence (the start of a replay).
+  mic(on, mute, tc = 0.03, rise = 0) {
     const c = this.ctx; if (!c || !this.out) return;
     try {
       if (on && !this._mic) {
         const hp = c.createBiquadFilter(), lp = c.createBiquadFilter(), g = c.createGain(); hp.type = 'highpass'; hp.frequency.value = 300; lp.type = 'lowpass'; lp.frequency.value = 3200; g.gain.value = 0.6;
-        if (this._direct) this.out.disconnect(c.destination);
-        this.out.connect(hp); hp.connect(lp); lp.connect(g); g.connect(c.destination); this._mic = { hp, g };
-      } else if (!on && this._mic) { const m = this._mic; this._mic = null; this.out.disconnect(m.hp); m.g.disconnect(); if (this._direct) this.out.connect(c.destination); }
-      if (this._mic) this._mic.g.gain.setTargetAtTime(mute ? 0 : 0.6, c.currentTime, 0.03);
-    } catch (e) { this._mic = null; this._directOn(); }
-    this._clipMic(on, mute);      // replay: the recording's own copy of the camera microphone (never rebuilt, so the recording cannot lose its feed)
+        this.out.disconnect(this.spk); this.out.connect(hp); hp.connect(lp); lp.connect(g); g.connect(this.spk); this._mic = { hp, g };
+      } else if (!on && this._mic) { const m = this._mic; this._mic = null; this.out.disconnect(m.hp); m.g.disconnect(); this.out.connect(this.spk); }
+      if (this._mic) glide(this._mic.g.gain, mute ? 0 : 0.6, c.currentTime, tc, rise);
+    } catch (e) { this._mic = null; try { this.out.connect(this.spk); } catch {} }
+    this._clipMic(on, mute, tc, rise);      // replay: the recording's own copy of the camera microphone (never rebuilt, so the recording cannot lose its feed)
   }
-  _clipMic(on, mute) { this._tapOn = !!on; this._tapMute = !!mute; const T = this._tap; if (!T || !this.ctx) return; try { const t = this.ctx.currentTime; T.dry.gain.setTargetAtTime(on ? 0 : 1, t, 0.03); T.wet.gain.setTargetAtTime(on ? (mute ? 0 : 0.6) : 0, t, 0.03); } catch {} }      // clip
+  _clipMic(on, mute, tc = 0.03, rise = 0) { this._tapOn = !!on; this._tapMute = !!mute; const T = this._clipTap(); if (!T) return; try { const t = this.ctx.currentTime; glide(T.dry.gain, on ? 0 : 1, t, tc, 0); glide(T.wet.gain, on ? (mute ? 0 : 0.6) : 0, t, tc, rise); } catch {} }      // clip
   /** clip: one long-lived tap per context. It listens BEFORE the player's volume and mute (this.lim, ahead of this.master) so a muted or quiet player still gets
    *  a clip, and before the tab-hide fade of the master. Camera microphone copy (band-pass, x0.6) while the replay is on, then make-up gain, a gentle compressor
    *  and a -1 dB limiter so the track sits at a steady level. Null without Web Audio or before the graph exists. */
@@ -451,7 +454,7 @@ export class Audio {
   _rebuild() {
     const old = this.ctx; this.dbg.rebuilds++;
     try { if (this._streamEl) { const el = this._streamEl; this._streamEl = null; el.pause(); el.srcObject = null; el.remove(); } } catch {}
-    this.msd = null; this._streamPlaying = false; this._direct = true; this.out = null; this._tap = null;      // clip: the tap belonged to the closed context
+    this.msd = null; this._streamPlaying = false; this._direct = true; this.out = null; this.spk = null; this._tap = null;      // clip: the tap belonged to the closed context
     try { old.onstatechange = null; const p = old.close(); if (p && p.catch) p.catch(() => {}); } catch {}
     this.ctx = null; this.layers = {}; this.breathL = null; this.hissL = null; this.voices = 0; this.st = null;
     this.queue = this.queue.filter((j) => !j.ir);
@@ -530,10 +533,11 @@ export class Audio {
         hp.connect(lp); lp.connect(ws); ws.connect(bp); bp.connect(g); g.connect(glue);
       }
       glue.connect(lim); this.master = c.createGain(); lim.connect(this.master); this.glue = glue; this.lim = lim;
-      // out: the last node, which the chimes in ui.js also use. It feeds the speakers directly, and on iOS also a media-stream element
-      // (see _startStream); once that element is confirmed playing, the direct feed is cut so nothing is doubled.
-      this.out = c.createGain(); this.master.connect(this.out); this.out.connect(c.destination); this._direct = true;
-      if (!this.offline && this._wantStream() && c.createMediaStreamDestination) { try { this.msd = c.createMediaStreamDestination(); this.out.connect(this.msd); } catch (e) { this.msd = null; this.dbg.stream = 'no stream node: ' + this._etext(e); } }
+      // out: the end of the mix, which the chimes in ui.js also use; it reaches spk through the camera microphone while a replay is on (mic).
+      // spk feeds the speakers directly, and on iOS also a media-stream element (see _startStream); once that element is confirmed playing,
+      // the direct feed is cut so nothing is doubled.
+      this.out = c.createGain(); this.spk = c.createGain(); this.master.connect(this.out); this.out.connect(this.spk); this.spk.connect(c.destination); this._direct = true;
+      if (!this.offline && this._wantStream() && c.createMediaStreamDestination) { try { this.msd = c.createMediaStreamDestination(); this.spk.connect(this.msd); } catch (e) { this.msd = null; this.dbg.stream = 'no stream node: ' + this._etext(e); } }
       const bus = () => { const g = c.createGain(); g.connect(this.mix); return g; };
       this.busAmb = bus(); this.busCre = bus(); this.busFx = bus();
       // reverb: per-bus sends (so the sliders scale the wet too) into an outdoor and an indoor convolver, crossfaded by where you are

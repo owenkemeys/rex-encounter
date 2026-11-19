@@ -123,7 +123,7 @@ export function createClip({ getCanvas, audio, tape, extra, onCard }) {      // 
       closing = true; ct = 0; cardInfo = C.live ? chooseLine(true) : C.lineFor(); C.cardInfo = cardInfo;
       tp = null; if (C.active && g) { try { tp = makeTape(W, H, cardInfo.text, cardInfo.no, undefined, C.live, cardInfo.story); } catch (e) { C.error = String(e && e.message || e); } }
       try { ov = document.createElement('canvas'); ov.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;background:#000;z-index:11;pointer-events:auto'; document.body.appendChild(ov); overlayG = ov.getContext('2d'); ovKey = ''; } catch { ov = null; }      // the player's own view of the card, laid out for the window (not the recording's size)
-      try { const m = audio && audio._mic, c = audio && audio.ctx; if (m && c) m.g.gain.setTargetAtTime(0, c.currentTime, 0.3); } catch {}      // the taped ambience fades; the rest is silence
+      try { audio && audio.mic && audio.mic(true, true, 0.08); } catch {}      // the world goes quiet, on the speakers and in the recording: the card is silent but for the PA chime
       try { onCard && onCard(C.live); } catch {}
     }
     ct += Math.min(dt, 0.1);
