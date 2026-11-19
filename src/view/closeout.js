@@ -265,8 +265,8 @@ export function drawCard(g, W, H, line, no, link = CLIP_LINK, live = false, stor
   else { const mp = shrinkTo(g, posted, 500, MONO, mono, cw, 8); y += mp * 1.9; g.font = `500 ${mp}px ${MONO}`; g.fillText(posted, ix0, y); }
   y += 22 * s; const rule = Math.max(3, (tall ? 8 : 9) * s); g.fillRect(ix0, y, cw, rule); y += rule;
   if (story) { const sp = shrinkTo(g, story, 700, MONO, (tall ? 19 : 21) * s, cw, 8); y += sp * 1.25 + 12 * s; g.font = `700 ${sp}px ${MONO}`; g.fillText(story, ix0, y); y += 4 * s; }      // the cause of death
-  const spx = shrinkTo(g, 'The management kindly reminds all guests:', 500, SANS_PLAIN, (tall ? 29 : 31) * s, cw, 11);
-  y += spx * 1.15 + 14 * s; g.font = `500 ${spx}px ${SANS_PLAIN}`; g.fillText('The management kindly reminds all guests:', ix0, y);
+  const lead = 'The management kindly reminds all guests:', lpx = shrinkTo(g, lead, 500, SANS_PLAIN, (tall ? 29 : 31) * s, cw, 11) * (tall ? 2 : 1);      // the owner: twice the size on a phone, where it went unread
+  g.font = `500 ${lpx}px ${SANS_PLAIN}`; balance(g, lead, cw, wrap(g, lead, cw).length).forEach((t, i) => { y += i ? lpx * 1.18 : lpx * 1.15 + 14 * s; g.fillText(t, ix0, y); });
   const headTop = y + 16 * s;
   // ---- bottom block (measured from the bottom up)
   const sign = 'Thank you for visiting. We hope to see most of you again.';
