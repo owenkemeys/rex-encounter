@@ -193,7 +193,7 @@ async function boot() {
   /** `auto`: the death cam's own first play. A replay records itself (untagged: nothing on screen) unless a finished clip of this death exists; `tagged`: SAVE CLIP after a skip, with the small tag. */
   function startReplay(auto, tagged) {
     if (!S.dead || (S.replay && !S.replayHold) || !rec.play(camera.aspect)) return false;
-    const was = S.replayHold; S.replayHold = false; document.body.classList.remove('hold');
+    const was = S.replayHold; S.replayHold = false; document.body.classList.remove('hold'); audio.chimeStop();
     S.replay = true; document.body.classList.add('replay'); tagEl.hidden = false;
     if (post && post.setCCTV) post.setCCTV(true);
     if (!was) torchLive = props.torchOn; audio.sim = rpx; if (audio.mic) audio.mic(true, false); micHeld = false;
@@ -251,7 +251,7 @@ async function boot() {
     clipStop(natural); clip.dim(true);
     S.replayHold = true; document.body.classList.remove('replay'); document.body.classList.add('hold'); tagEl.hidden = true;
     if (audio.mic) audio.mic(true, true); audio.hiss(0); post.cctvU.burst.value = 0;
-    try { ui.deathMenu(); audio.chime(); } catch {}
+    try { ui.deathMenu(); const V = arena.victims && arena.victims.get('you'), life = V ? V.lives : 1; if (S.chimed !== life) { S.chimed = life; audio.chime(); } } catch {}      // once per death, not again after watching it back
   }
   function endReplay(natural) {
     if (!S.replay) return;

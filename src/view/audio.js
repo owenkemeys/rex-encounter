@@ -129,11 +129,12 @@ export class Audio {
   /** "Start over" (main.js startOver): the timers of the ambience and the animal's sounds as when the sound first started (wind, far thunder, its breath and sniffs). */
   restart() { if (this.st) this.st = ST0(); this.chimeStop(); }
   /** The death card's public-address chime: three bell tones through a horn's narrow band; on the third the tape is chewed (sagging, wobbling pitch
-   *  and dropouts). It goes to the master, after the clip tap: silent when the game is muted, and never in a saved clip. One at a time. */
+   *  and dropouts). Straight to the speakers, past the camera microphone (held silent on the card) and the clip tap: never in a saved clip.
+   *  Sound off or the page going to the back cuts it. One at a time. */
   chime() {
-    this.chimeStop(); if (!this._ok() || !this.master) return;
+    this.chimeStop(); if (!this._ok() || !this.master || this._away) return;
     const c = this.ctx, t0 = c.currentTime + 0.05, out = c.createGain(), hp = c.createBiquadFilter(), lp = c.createBiquadFilter(), src = [];
-    out.gain.value = 0.2; hp.type = 'highpass'; hp.frequency.value = 380; lp.type = 'lowpass'; lp.frequency.value = 3000; out.connect(hp); hp.connect(lp); lp.connect(this.master);
+    out.gain.value = 0.2 * this.vol.master; hp.type = 'highpass'; hp.frequency.value = 380; lp.type = 'lowpass'; lp.frequency.value = 3000; out.connect(hp); hp.connect(lp); lp.connect(c.destination);
     const bong = (f, at, tau, dest) => {
       for (const [m, a, k] of [[1, 1, 1], [2, 0.35, 0.6], [3.01, 0.18, 0.35]]) {
         const o = c.createOscillator(), g = c.createGain(); o.frequency.value = f * m;
@@ -154,7 +155,7 @@ export class Audio {
   chimeStop() { const p = this._pa; if (!p) return; this._pa = null; for (const o of p.src) { try { o.stop(); } catch {} } try { p.lp.disconnect(); } catch {} }
   /** clip: how a saved clip starts: a cassette clunk, then tape hiss that settles (about 0.65 s). Into the clip tap only, never the speakers. */
   tapeLoad() {
-    const T = this._clipTap(); if (!T || this.ctx.state !== 'running') return; const at = this.ctx.currentTime + 0.02;
+    const T = this._clipTap(); if (!T || !(this.offline || this.ctx.state === 'running')) return; const at = this.ctx.currentTime + 0.02;
     this._tone(T.mk, at, 150, 60, 0.05, 0.5); this._burst(T.mk, at, 0.07, 'bandpass', 1800, 1.2, 0.45, 0.002); this._burst(T.mk, at + 0.1, 0.05, 'bandpass', 900, 2, 0.3, 0.002);
     this._burst(T.mk, at + 0.14, 0.5, 'highpass', 2500, 0.5, 0.2, 0.03);
   }
@@ -277,6 +278,7 @@ export class Audio {
   _applyVol() {
     if (!this.ctx) return; const t = this.ctx.currentTime, P = (a, v) => a.setTargetAtTime(v, t, 0.05);
     P(this.master.gain, this.on && !this._away ? this.vol.master : 0);      // _away: the page is not in front (away())
+    if (!this.on) this.chimeStop();
     P(this.busAmb.gain, this.vol.amb); P(this.busCre.gain, this.vol.cre); P(this.busFx.gain, this.vol.fx);
     P(this.sendAmb.gain, this.vol.amb); P(this.sendCre.gain, this.vol.cre); P(this.sendFx.gain, this.vol.fx);
   }
@@ -285,7 +287,7 @@ export class Audio {
    *  momentary prompt; back() inside it cancels). The game's own mute and volumes are untouched: _applyVol keeps the master at 0 while away. */
   away(grace = 120, tc = 0.03) {
     const c = this.ctx; if (!c || this.offline) return;
-    this._away = true; clearTimeout(this._susT);
+    this._away = true; clearTimeout(this._susT); this.chimeStop();
     try { const g = this.master.gain, t = c.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.setTargetAtTime(0, t, tc); } catch {}
     this._susT = setTimeout(() => { this._susT = 0; if (!this._away) return; try { if (this._silentEl && !this._silentEl.paused) this._silentEl.pause(); if (this._streamEl && !this._streamEl.paused) this._streamEl.pause(); } catch {} try { if (c.state === 'running') c.suspend(); } catch {} }, grace);
   }
