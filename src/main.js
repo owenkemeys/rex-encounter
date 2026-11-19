@@ -89,16 +89,17 @@ async function boot() {
       if (mine && mine.use === 'trial-webgl') { const use = m.score > mine.webgpu + 0.1 ? 'webgl' : 'webgpu'; bkSet({ gpu, use, webgpu: mine.webgpu, webgl: +m.score.toFixed(2) }); Q.log.push({ t: Math.round(qc.t), from: 'trial', to: use, why: `WebGPU ${mine.webgpu} vs WebGL2 ${m.score.toFixed(2)}` }); }
       return true;
     } });
-  // where the game opens (not the #test hashes, whose scripts expect the animal at the origin): on the Lawn, you and the animal in
-  // the open about 30 m apart (paddock.js LAYOUT.spawn), the Feeding Tower off to one side
+  // where the game opens (not the #test hashes, whose scripts expect the animal at the origin): in the open about equally far from
+  // the Barn, the Containers and the gatehouse, the animal about 24 m off and coming (paddock.js LAYOUT.spawns.first)
   const SPOTS = terrain.paddock && terrain.paddock.LAYOUT && terrain.paddock.LAYOUT.spawns, FIRST = SPOTS && SPOTS.first;      // first spawn of a session: paddock.js LAYOUT.spawns
   const SP = FIRST ? { you: FIRST.you, rex: { x: FIRST.rex.x, z: FIRST.rex.z, yaw: Math.atan2(FIRST.you.x - FIRST.rex.x, FIRST.you.z - FIRST.rex.z) } } : terrain.paddock && terrain.paddock.LAYOUT && terrain.paddock.LAYOUT.spawn;
   const OPEN = TEST ? null : SP ? { x: SP.you.x, z: SP.you.z, rx: SP.rex.x, rz: SP.rex.z, yaw: SP.rex.yaw } : { x: -18, z: -4, rx: 12, rz: -4, yaw: 0.4 };
-  // The gatehouse start (paddock.js LAYOUT.spawns.gate; '#nogate' or a crash test gives the old opening): the splash is the gatehouse's
+  // The gatehouse start, only with '#gate' in the hash since 2026-11-18 (owner: "lets revert the scenario then to just starting about
+  // eqidistant between a few structures"; not with a crash test): paddock.js LAYOUT.spawns.gate. The splash is the gatehouse's
   // security camera, live: the animal comes in from the paddock east of the hut and sniffs round it. "click to begin" only takes the card
   // away (the feed carries on, with sound); the first move or look (takeOver) cuts to you, the guard, looking down at that monitor, and you
   // look up from it, out of the east window it is coming to. Respawns use the usual spots, never the hut.
-  const GATE = OPEN && SPOTS && SPOTS.gate && !/crash|nogate/.test(location.hash) ? SPOTS.gate : null;
+  const GATE = OPEN && SPOTS && SPOTS.gate && /(^|[#&-])gate($|[&-])/.test(location.hash) && !/crash/.test(location.hash) ? SPOTS.gate : null;
   const body = new RexBody(Q); scene.add(body.group);
   const fx = new Effects(scene, terrain), audio = new Audio(), ov = new Overlays(scene, terrain);
   const props = new Props(scene, terrain, Q); await bootAt(0.78);
@@ -136,7 +137,6 @@ async function boot() {
       c.fov = clamp(2 * Math.atan(6.5 / Math.hypot(dx, dz, hy - c.y)) * 57.3, 18, 70); c.cut = false;
     }
     const A = new Arena(terrain, sim, mind, SEED); arena = arena ? renew(arena, A) : A; things = arena.things; herd = arena.herd;
-    if (OPEN && !GATE) arena.opening({ x: OPEN.x, z: OPEN.z });
     fidget = GATE ? gateFidget(GATE, terrain, SEED) : null; wr = makeRng(SEED + 5);
     rpx = Object.create(sim); rpx.head = Object.create(sim.head); rpx.head.pos = new THREE.Vector3(); rpx.act = null; rpx.headTouch = null;      // what the audio sees of the animal while it plays: the recorded head
   }
@@ -311,6 +311,9 @@ async function boot() {
       }
       if (S.footSince == null) { S.footSince = performance.now(); countRun(); }
       if (S.awareAt === undefined) S.awareAt = S.clock + 1;
+      // the open start: the meeting begins as you step in (your first footfalls are heard), not while the start card is up; hungrier
+      // than the gatehouse's, so the nosing turns to wanting you within the first minute (FIRST.hunger; test/openstart.mjs)
+      if (OPEN && !GATE && !S.met) { S.met = true; arena.opening({ x: Y.x, z: Y.z }, 45, (FIRST && FIRST.hunger) || undefined); }
     } else if (m === 'fly') {
       const f = S.fly; f.x = camera.position.x; f.y = Math.max(camera.position.y + 3, terrain.height(camera.position.x, camera.position.z) + 4); f.z = camera.position.z;
       f.yaw = Math.atan2(-(sim.x - f.x), -(sim.z - f.z)); f.pitch = Math.atan2(sim.py.x - f.y, Math.hypot(sim.x - f.x, sim.z - f.z));

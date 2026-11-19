@@ -26,7 +26,7 @@ check('feet never count above 0.45 m for collision', J.CLEAR_MAX < 0.5 && J.apex
 // spawn table
 const T = makeTerrain(7), SP = LAYOUT.spawns, F = SP.first, eyeY = (x, z) => T.height(x, z) + 1.7;
 const d = Math.hypot(F.you.x - F.rex.x, F.you.z - F.rex.z), hy = T.height(F.rex.x, F.rex.z) + 2.4;
-check('first spawn: animal 35 to 45 m off', d >= 35 && d <= 45, d.toFixed(1) + ' m');
+check('first spawn: animal 20 to 30 m off (2026-11-18: it starts close enough to read and come; arena.opening keeps it within 24 m)', d >= 20 && d <= 30, d.toFixed(1) + ' m');
 check('first spawn: animal in view', T.segClear(F.you.x, eyeY(F.you.x, F.you.z), F.you.z, F.rex.x, hy, F.rex.z, 0.1));
 const coverD = (x, z) => Math.min(...T.structures.map((s) => Math.hypot(Math.max(Math.abs(x - s.cx) - s.hw, 0), Math.max(Math.abs(z - s.cz) - s.hd, 0))));
 for (const [n, p] of [['first', F.you], ...SP.respawn.map((r) => [r.name, r])]) {

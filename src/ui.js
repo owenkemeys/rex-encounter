@@ -439,7 +439,7 @@ export function createUI(o) {
     if (inv.stage === 0) { inv.stage = 1; inv.t = 0; }
     if (inv.stage === 1) {
       if (S.mode !== 'observe') { inv.stage = 2; inv.t = 0; IV.classList.remove('on'); return; }
-      const at = S.gateStart ? '' : ': you step in where the camera stands';      // the gatehouse start: you are the guard watching this feed (not said: that is the gag)
+      const at = '';      // (the old open start added ': you step in where the camera stands'; dropped 2026-11-18 so the open start reads as the live page did)
       if (inv.t > 1.5) showInvite(d === 'touch' ? `use the <b>left stick</b> to walk, the <b>right</b> to look${at}.<small>or just watch.</small>`
         : d === 'pad' ? `<b>left stick</b> to walk, <b>right stick</b> to look${at}.<small>or just watch.</small>`
         : `${kb('move')} to walk, or move the <b>mouse</b> to look${at}.<small>or just watch.</small>`);

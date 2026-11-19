@@ -84,11 +84,13 @@ export const LAYOUT = {
   spawn: { you: { x: -13, z: 2 }, rex: { x: 15, z: 14, yaw: -2.0 } },     // ~30 m apart on the Lawn, in the open
   // Where a session starts and where a new life appears. Owner (2026-11-17): "the arena and/or spawn position i find to be overly big and
   // boring, i end up dashing over to the ruins or the barn from the start point most times because that gives opportunities for
-  // fooling around with the rex." So: the first spawn is in the open between the Barn and the Containers, 12 to 18 m from cover (the Barn, or the berm in front), the
-  // animal about 38 m off on the Lawn in plain view. A respawn takes whichever of `respawn` is farthest from the animal (at least
+  // fooling around with the rex." So: the first spawn is in the open with cover 18 to 20 m off in several directions. A respawn takes whichever of `respawn` is farthest from the animal (at least
   // 40 m, out of its sight line if one is) so a new life is never a second death; `spawn` above is the fallback.
   spawns: {
-    first: { you: { x: -4, z: 58 }, rex: { x: -4, z: 20 } },
+    // since 2026-11-18 (owner: "lets revert the scenario then to just starting about eqidistant between a few structures, and the rex is
+    // curious at first but quickly progresses to deciding to eat you"): 19 m from the Barn, the Containers and the gatehouse alike, the
+    // animal 24 m off to the SSE on the Lawn in plain view; `hunger` is what arena.opening sets it to as you step in (main.js)
+    first: { you: { x: -7, z: 73 }, rex: { x: 4, z: 52 }, hunger: [0.65, 0.75] },
     // the gatehouse start (main.js GATE): the opening is the gatehouse's security camera on the animal sniffing round outside; on
     // the first move or look you are the guard at the monitor (at `guard`, facing the wide east window) and look up from it. It starts out in the
     // paddock 38 m east of the hut, in sight of that window, and walks in (owner: "approaching from a distance, so we can see it move before it

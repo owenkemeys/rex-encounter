@@ -228,3 +228,7 @@ i am not qualified to comment on when the tips should show, and i need to be abl
 On the proposal to make it about him (track him inside, thoughts about him, the strike real): "until you learn from experience that it doesn't / otherwise yes i agree. also thoughts that imply its planning how it could get you. this would then tie into our existing planned work to make no hiding place fully safe, via geometry."
 "it doesnt know what windows and doors are, its mind is archaic and simple. there's established tone of voice for it"
 He approved the draft hut lines (thumbs-up, 2026-11-18); they are in `src/sim/thoughts.js` word for word.
+
+## Owner, 2026-11-18, on the opener ("this opener is really not landing")
+"lets revert the scenario then to just starting about eqidistant between a few structures, and the rex is curious at first but quickly progresses to deciding to eat you (normally). the nose nudges and tosses are also good. i'll playtest and see if the death cam alone there is enough incentive to make you want to mess around with it after you've seen from the outside how silly you looked."
+Done 2026-11-18 (Grok Bot): the open field is the default start (`LAYOUT.spawns.first`), the gatehouse start is kept behind `#gate`; curiosity runs down faster (`core.drainT` 90 -> 45 s, `core.curPeril` 1.2 -> 0.8) and the opening sets hunger 0.65-0.75 as you step in. Awaiting his playtest.
