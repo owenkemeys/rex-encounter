@@ -42,6 +42,7 @@ inside its download). Nothing here is non-commercial or share-alike.
 | `squish_1..6` | https://opengameart.org/content/squish-sounds-effects (`squish_01..06`) | EZduzziteh | CC0 |
 | `mud_2,5,8,11,14,17` | https://opengameart.org/content/25-cc0-mud-sfx | rubberduck | CC0 |
 | `bone_1,2,3,4,6,8` | https://opengameart.org/content/deep-bone-crackbreak-sfx (`Deep Break 1,2,3,4,6,8`) | Zane Little Music | CC0 |
+| `tape_load` | https://freesound.org/people/PanZen/sounds/216766/ (`59_VHS_casette_in.wav`, the public preview, 2.62-3.80 s, peak-normalised, 48 kHz mono MP3) | PanZen (Freesound) | CC0 1.0 (as marked on the Freesound page). The one recording played as it is: at the start of every saved clip, not through the hybrid voices, and not in `manifest.json`. |
 
 ## Looked at and not used
 

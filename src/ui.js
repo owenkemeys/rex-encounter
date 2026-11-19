@@ -609,7 +609,7 @@ export function createUI(o) {
   /** Go again: a new life after a death (the pause card's "start over" is a new scenario instead: main.js startOver). */
   function retry(watch, force) {
     if (!S.dead && !force) return;
-    act.respawn();
+    act.respawn(); audio.chimeStop();
     const V = arena.victims && arena.victims.get('you');
     if (V) { if (V.dead) V.dead = false; if (typeof V.health === 'number' && V.health <= 0) V.health = V.health > 1 ? 100 : 1; }
     D.evt = null; D.shown = false; D.auto = false; S.dead = false; achv.reset(false); if (S.clip && S.clip.resetLine) S.clip.resetLine(); document.body.classList.remove('dead');
