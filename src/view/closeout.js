@@ -223,7 +223,7 @@ advice.lastIndex = -1;
 // ------------------------------------------------------------------ the card
 const CREAM = '#f3e9c9', INK = '#1d2a22', AMBER = '#f2a21b', BOX = '#18231c';
 const SANS = '"Arial Black", "Helvetica Neue", "IBM Plex Sans", Arial, sans-serif', MONO = '"IBM Plex Mono", "Lucida Console", "Courier New", monospace';
-export const CLIP_LINK = '';      // drawn small under the name when set
+export const CLIP_LINK = 'owenkemeys.github.io/rex-encounter';      // drawn small under the name
 function wrap(g, text, maxW) {
   const words = text.split(/\s+/), lines = []; let cur = '';
   for (const w of words) { const t = cur ? cur + ' ' + w : w; if (cur && g.measureText(t).width > maxW) { lines.push(cur); cur = w; } else cur = t; }
@@ -275,7 +275,7 @@ export function drawCard(g, W, H, line, no, link = CLIP_LINK, live = false, stor
     const bh = 168 * s, npx = shrinkTo(g, 'REX ENCOUNTER', 900, SANS, 58 * s, cw, 14), spx2 = Math.max(10, 25 * s), lh = spx2 * 1.24;
     g.font = `500 ${spx2}px ${SANS_PLAIN}`; const so = wrap(g, sign, cw);
     let yy = bot;
-    if (link) { const lp = Math.max(9, 17 * s); g.font = `500 ${lp}px ${MONO}`; g.fillText(link, ix0, yy); yy -= lp * 1.5; }
+    if (link) { const lp = shrinkTo(g, link, 700, MONO, 27 * s, cw, 10); g.font = `700 ${lp}px ${MONO}`; g.fillText(link, ix0, yy); yy -= lp * 1.4; }
     g.font = `900 ${npx}px ${SANS}`; g.fillText('REX ENCOUNTER', ix0, yy); yy -= npx * 1.0 + 8 * s;
     g.font = `500 ${spx2}px ${SANS_PLAIN}`; for (let i = so.length - 1; i >= 0; i--) { g.fillText(so[i], ix0, yy); yy -= lh; }
     yy += lh - spx2; const bt = yy - 22 * s - bh; by0 = bt; g.fillStyle = BOX; g.fillRect(ix0, bt, cw, bh);
@@ -290,8 +290,8 @@ export function drawCard(g, W, H, line, no, link = CLIP_LINK, live = false, stor
     const rx = ix0 + bw + 48 * s, rw = ix1 - rx; g.fillStyle = INK;
     const spx2 = Math.max(10, 22 * s); g.font = `500 ${spx2}px ${SANS_PLAIN}`; const so = wrap(g, sign, rw);
     so.forEach((t, i) => g.fillText(t, rx, bt + spx2 * 1.1 + i * spx2 * 1.28));
-    const npx = shrinkTo(g, 'REX ENCOUNTER', 900, SANS, 58 * s, rw, 14); g.font = `900 ${npx}px ${SANS}`; g.fillText('REX ENCOUNTER', rx, bt + bh - (link ? 26 * s : 4 * s));
-    if (link) { const lp2 = Math.max(9, 17 * s); g.font = `500 ${lp2}px ${MONO}`; g.fillText(link, rx, bt + bh); }
+    const npx = shrinkTo(g, 'REX ENCOUNTER', 900, SANS, 58 * s, rw, 14); g.font = `900 ${npx}px ${SANS}`; g.fillText('REX ENCOUNTER', rx, bt + bh - (link ? 36 * s : 4 * s));
+    if (link) { const lp2 = shrinkTo(g, link, 700, MONO, 26 * s, rw, 10); g.font = `700 ${lp2}px ${MONO}`; g.fillText(link, rx, bt + bh); }
   }
   // ---- the headline: the middle, as big as it will go
   g.fillStyle = INK; const hb = by0 - 24 * s, avail = hb - headTop, maxLines = tall ? 5 : 3;
