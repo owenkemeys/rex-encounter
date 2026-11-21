@@ -29,7 +29,7 @@ export class Replay {
     // playback
     this.F = null; this.nF = 0; this.copied = 0; this.shots = []; this.shot = 0; this.ptz = new Ptz(); this.pf = 0; this.hold = 0; this.cutT = -9; this.aspect = 16 / 9;
     this.things = { list: [] }; this.eye = { position: new THREE.Vector3(), quaternion: new THREE.Quaternion() }; this.torchOn = false;
-    this.head = new THREE.Vector3(); this.fired = []; this.ei = 0; this.label = ''; this.camNo = 1; this.burst = 0; this.stampMs = 0; this.baseMs = 0; this.cuts = 0;
+    this.head = new THREE.Vector3(); this.torso = new THREE.Vector3(); this.fired = []; this.ei = 0; this.label = ''; this.camNo = 1; this.burst = 0; this.stampMs = 0; this.baseMs = 0; this.cuts = 0;
     this._q = new THREE.Quaternion(); this._e = new THREE.Euler(0, 0, 0, 'YXZ');
   }
   get count() { return Math.min(this.n, N); }
@@ -128,6 +128,21 @@ export class Replay {
     return { replay: true, replayCam: this.label, replayT: r((f - this.death) / HZ), rpx: r(m[o]), rpz: r(m[o + 2]), rhx: r(m[o + 6]), rhz: r(m[o + 8]) };
   }
   stop() { this.on = false; this.fig.visible = false; }
+  /** The recorded frames in order, oldest first, as plain data for a share tape (src/tape.js). Null if there is too little. */
+  toTape(meta) {
+    const a0 = this.n - this.count, frames = this.count; if (frames < 10) return null;
+    const v = new Float32Array(frames * this.nv), s = new Float32Array(frames * this.ns), m = new Float32Array(frames * M), th = [];
+    for (let f = 0; f < frames; f++) { const k = (a0 + f) % N; v.set(this.v.subarray(k * this.nv, (k + 1) * this.nv), f * this.nv); s.set(this.s.subarray(k * this.ns, (k + 1) * this.ns), f * this.ns); m.set(this.m.subarray(k * M, (k + 1) * M), f * M); th.push(this.th[k]); }
+    const ev = this.ev.filter((x) => x.f >= a0).map((x) => ({ f: x.f - a0, e: x.e }));
+    return { nv: this.nv, ns: this.ns, nm: M, frames, v, s, m, th, ev, meta: { ...meta, death: this.death >= 0 ? this.death - a0 : -1, live: this.live } };
+  }
+  /** Load a share tape into the ring as if it had just been recorded and finished: play() then shows it. False if it does not fit this build. */
+  fromTape(t) {
+    if (t.nv !== this.nv || t.ns !== this.ns || t.nm !== M || t.frames > N) return false;
+    this.reset();
+    for (let f = 0; f < t.frames; f++) { this.v.set(t.v.subarray(f * t.nv, (f + 1) * t.nv), f * this.nv); this.s.set(t.s.subarray(f * t.ns, (f + 1) * t.ns), f * this.ns); this.m.set(t.m.subarray(f * M, (f + 1) * M), f * M); this.th[f] = t.th[f]; }
+    this.n = t.frames; this.death = t.meta.death; this.after = AFTER + 1; this.ev = t.ev.slice(); return true;
+  }
   /** The pose of the shown moment (animal pose, figure, recorded things, the head for the audio) at tape time t seconds, `step` seconds since the last shown frame. */
   _pose(t, step) {
     const f = this.s0 + t * HZ, last = this.n - 1, ff = Math.min(f, last - 1e-3), i = Math.floor(ff), u = ff - i, a = i % N, b = (i + 1) % N;
@@ -141,6 +156,7 @@ export class Replay {
     S.hvx = (m[B + 6] - m[A + 6]) * hz; S.hvz = (m[B + 8] - m[A + 8]) * hz; S.fx = L(12); S.fz = L(14);
     if (step > 0) this.fig.update(step, S);
     this.head.set(L(6), L(7), L(8));
+    this.torso.set(L(17), L(18), L(19));
     // the torch where the player held it (the eye, looking along the recorded view)
     this.torchOn = m[A + 16] > 0.5;
     this._e.set(L(15), S.yaw, 0); this.eye.quaternion.setFromEuler(this._e); this.eye.position.set(S.x, S.y + S.eye, S.z);
