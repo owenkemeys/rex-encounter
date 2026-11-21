@@ -1330,7 +1330,7 @@ async function boot() {
     ov.update(sim, blend, S.mindOn ? (mind.intent.goal && mind.intent.goal.kind === 'reach' ? mind.intent.goal : null) : S.goal, null, 9);
     ov.updateSenses(sim, mind);
     audio.breath(shown.s[1], camera.position.distanceTo(S.replay ? rpx.head.pos : sim.head.pos));
-    if (!S.noRender && !swapping) { if (desk && S.gate) monitorTick(dtReal); try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (S.replay && !S.watching && !S.clipLive && !S.replayHold && rec.on) S.still.consider(rec, renderer.domElement, ST.AIR); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.gate && post && !post.cctv && ++gateWarm === 3 && post.setCCTV) post.setCCTV(true); }      // the monitor before the frame that shows it; clip: copy the picture right after the render
+    if (!S.noRender && !swapping) { if (desk && S.gate) monitorTick(dtReal); try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (S.replay && !S.watching && !S.clipLive && !S.replayHold && rec.on) S.still.consider(rec, renderer.domElement, camera, ST); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.gate && post && !post.cctv && ++gateWarm === 3 && post.setCCTV) post.setCCTV(true); }      // the monitor before the frame that shows it; clip: copy the picture right after the render
 
     S.fps += (1 / Math.max(dtReal, 1e-3) - S.fps) * 0.05;
     // hold the frame rate: resolution (fast) and the quality level (slow), from measured frame times (src/view/quality.js)

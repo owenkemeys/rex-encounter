@@ -16,19 +16,31 @@ export async function uploadRun(tape, still, seed) {
   const { id } = await r.json(); return `${SHARE_API}/r/${id}`;
 }
 
-/** The preview still: while the death replay plays, each new shown frame is scored and the best one is kept, cropped to 1200x630.
- *  Best: just before the death (about a third of a second), more if the visitor is in the air, more if the animal's head is close to them. */
+/** The preview still: while the death replay plays, each shown frame is scored and the best one is kept, cropped to the 1200x630 preview.
+ *  Only frames with the animal's head and body well inside that crop count; then bigger in frame is better, the visitor in shot adds, and
+ *  funny moments add most (in the air, in the jaws). Frames in a burst of static never count. */
+const AIM = 1200 / 630, EDGE = 0.85;
 export class StillPicker {
-  constructor() { this.c = null; this.best = -Infinity; }
+  constructor() { this.c = null; this.best = -Infinity; this.p = null; }
   reset() { this.best = -Infinity; }
-  consider(rec, canvas, airCode) {
-    const f = rec.s0 + rec.t * 30, S = rec.S, h = rec.head, d = Math.hypot(h.x - S.x, h.z - S.z);
-    const score = -Math.abs(f - (rec.death - 10)) + (S.st === airCode ? 40 : 0) + (d < 3 ? 20 : 0);
-    if (score <= this.best) return;
+  consider(rec, canvas, camera, ST) {
+    const W = canvas.width, H = canvas.height, score = this.score(rec, W, H, camera, ST);
+    if (score === null || score <= this.best) return;
     this.best = score;
     if (!this.c) { this.c = document.createElement('canvas'); this.c.width = 1200; this.c.height = 630; }
-    const W = canvas.width, H = canvas.height, k = Math.max(1200 / W, 630 / H), w = 1200 / k, hh = 630 / k;
+    const a = W / H, w = W * (a > AIM ? AIM / a : 1), hh = H * (a > AIM ? 1 : a / AIM);
     try { this.c.getContext('2d').drawImage(canvas, (W - w) / 2, (H - hh) / 2, w, hh, 0, 0, 1200, 630); } catch {}
+  }
+  /** The frame's worth as a preview, or null when the animal is not well inside the crop (or the picture is static). */
+  score(rec, W, H, camera, ST) {
+    if (rec.burst > 0.2) return null;
+    const a = W / H, wf = a > AIM ? AIM / a : 1, hf = a > AIM ? 1 : a / AIM;
+    const p = this.p || (this.p = rec.head.clone()), crop = (v) => { p.copy(v).project(camera); return p.z < 1 ? [p.x / wf, p.y / hf] : null; };
+    const inside = (q) => q && Math.abs(q[0]) < EDGE && Math.abs(q[1]) < EDGE;
+    const h = crop(rec.head), t = crop(rec.torso); if (!inside(h) || !inside(t)) return null;
+    const S = rec.S, size = Math.hypot(h[0] - t[0], h[1] - t[1]), f = rec.s0 + rec.t * 30;
+    const fig = inside(crop(p.set(S.x, S.y + 0.9, S.z)));
+    return 30 * Math.min(1, size / 0.6) + (fig ? 20 : 0) + (S.st === ST.AIR ? 40 : S.st === ST.HELD ? 35 : 0) - 0.3 * Math.abs(f - (rec.death - 10));
   }
   blob() { return this.c ? new Promise((ok) => this.c.toBlob(ok, 'image/jpeg', 0.85)) : Promise.resolve(null); }
 }

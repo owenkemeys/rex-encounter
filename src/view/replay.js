@@ -29,7 +29,7 @@ export class Replay {
     // playback
     this.F = null; this.nF = 0; this.copied = 0; this.shots = []; this.shot = 0; this.ptz = new Ptz(); this.pf = 0; this.hold = 0; this.cutT = -9; this.aspect = 16 / 9;
     this.things = { list: [] }; this.eye = { position: new THREE.Vector3(), quaternion: new THREE.Quaternion() }; this.torchOn = false;
-    this.head = new THREE.Vector3(); this.fired = []; this.ei = 0; this.label = ''; this.camNo = 1; this.burst = 0; this.stampMs = 0; this.baseMs = 0; this.cuts = 0;
+    this.head = new THREE.Vector3(); this.torso = new THREE.Vector3(); this.fired = []; this.ei = 0; this.label = ''; this.camNo = 1; this.burst = 0; this.stampMs = 0; this.baseMs = 0; this.cuts = 0;
     this._q = new THREE.Quaternion(); this._e = new THREE.Euler(0, 0, 0, 'YXZ');
   }
   get count() { return Math.min(this.n, N); }
@@ -156,6 +156,7 @@ export class Replay {
     S.hvx = (m[B + 6] - m[A + 6]) * hz; S.hvz = (m[B + 8] - m[A + 8]) * hz; S.fx = L(12); S.fz = L(14);
     if (step > 0) this.fig.update(step, S);
     this.head.set(L(6), L(7), L(8));
+    this.torso.set(L(17), L(18), L(19));
     // the torch where the player held it (the eye, looking along the recorded view)
     this.torchOn = m[A + 16] > 0.5;
     this._e.set(L(15), S.yaw, 0); this.eye.quaternion.setFromEuler(this._e); this.eye.position.set(S.x, S.y + S.eye, S.z);
