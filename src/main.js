@@ -20,7 +20,7 @@ import { createUI, KIT as KIT_START } from './ui.js';
 import { tune, tuneGroup } from './view/tune.js';      // tune
 import { touchLayout } from './touchlayout.js';
 import { clearOf } from './thoughtplace.js';
-import { SHARE_API, shareOn, sharedId, fetchTape, uploadRun, StillPicker } from './share.js';
+import { SHARE_API, sharedId, fetchTape, uploadRun, StillPicker } from './share.js';
 import { encodeTape, decodeTape } from './tape.js';
 import { ST } from './view/figure.js';
 import { GAIT_DEMOS, GAIT_CAM, GaitMeter } from './gaitdemo.js';      // gait demos
@@ -216,7 +216,7 @@ async function boot() {
     } catch { b.textContent = 'could not share'; }
     b.disabled = false;
   });
-  const shareReset = () => { shareLink = null; const b = $('xShare'); b.textContent = 'share your run'; b.disabled = false; b.hidden = !shareOn(); };
+  const shareReset = () => { shareLink = null; const b = $('xShare'); b.textContent = 'share your run'; b.disabled = false; b.hidden = !SHARE_API; };
   function endLiveClip(relock = true) {
     if (!S.clipLive) return; S.clipLive = false; document.body.classList.remove('clipping');
     if (S.watching) { const L = liveSaved; liveSaved = null; if (L) { camera.position.copy(L.p); camera.quaternion.copy(L.q); if (camera.fov !== L.fov) { camera.fov = L.fov; camera.updateProjectionMatrix(); } } sharedEnd(); return; }
@@ -1330,7 +1330,7 @@ async function boot() {
     ov.update(sim, blend, S.mindOn ? (mind.intent.goal && mind.intent.goal.kind === 'reach' ? mind.intent.goal : null) : S.goal, null, 9);
     ov.updateSenses(sim, mind);
     audio.breath(shown.s[1], camera.position.distanceTo(S.replay ? rpx.head.pos : sim.head.pos));
-    if (!S.noRender && !swapping) { if (desk && S.gate) monitorTick(dtReal); try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (S.replay && !S.watching && !S.clipLive && !S.replayHold && rec.on && shareOn()) S.still.consider(rec, renderer.domElement, camera, ST); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.gate && post && !post.cctv && ++gateWarm === 3 && post.setCCTV) post.setCCTV(true); }      // the monitor before the frame that shows it; clip: copy the picture right after the render
+    if (!S.noRender && !swapping) { if (desk && S.gate) monitorTick(dtReal); try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (S.replay && !S.watching && !S.clipLive && !S.replayHold && rec.on && SHARE_API) S.still.consider(rec, renderer.domElement, camera, ST); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.gate && post && !post.cctv && ++gateWarm === 3 && post.setCCTV) post.setCCTV(true); }      // the monitor before the frame that shows it; clip: copy the picture right after the render
 
     S.fps += (1 / Math.max(dtReal, 1e-3) - S.fps) * 0.05;
     // hold the frame rate: resolution (fast) and the quality level (slow), from measured frame times (src/view/quality.js)
