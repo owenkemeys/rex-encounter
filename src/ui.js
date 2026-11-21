@@ -40,8 +40,6 @@ const KEYS = {
 const itemNames = () => [KIT.flares > 0 && 'flare', KIT.stones > 0 && 'stone', KIT.meat > 0 && 'meat'].filter(Boolean);
 const useName = () => (itemNames().length > 1 ? 'throw what is in hand' : 'throw a ' + itemNames()[0]);
 const CTL = () => [['move', 'walk'], ['run', 'run'], ['crouch', 'crouch'], ['jump', 'jump'], ['look', 'look'], ['zoom', 'zoom'], itemNames().length && ['use', useName()], itemNames().length > 1 && ['items', 'change item'], ['call', 'call <i>(hold: shout)</i>'], ['act', 'climb, doors <i>(when shown)</i>'], KIT.torch && ['torch', 'torch'], ['note', 'note'], ['clip', 'save a clip of the last 15 s'], ['pause', 'pause']].filter(Boolean);
-// the start card: only what a first-time player needs
-const CTL_START = () => [['move', 'walk'], ['look', 'look'], itemNames().length && ['use', useName()], ['call', 'call <i>(hold: shout)</i>'], KIT.torch && ['torch', 'torch'], ['pause', 'pause']].filter(Boolean);
 // first-time prompts, in the order they tend to matter; each is shown once (remembered), then never again
 // A tip comes back (at most SHOW times) until the player has done the thing DONE times; then never again.
 const TEACH = {
@@ -521,7 +519,6 @@ export function createUI(o) {
   /** The device changed: redraw every place that names a key or a button. */
   function devChanged() {
     const d = dev(), K = KEYS[d];
-    $('sKeys').innerHTML = ctlHTML(CTL_START());
     if (S.paused) $('pKeys').innerHTML = ctlHTML();
     if (peeking) $('peekKeys').innerHTML = ctlHTML();
     $('helpKey').textContent = d === 'touch' ? '' : K.peek; $('pauseKey').textContent = d === 'touch' ? '' : K.pause; try { $('xKeys').textContent = D.shown ? keysLine() : ''; } catch {}
