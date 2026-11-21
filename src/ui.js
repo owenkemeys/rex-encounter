@@ -68,7 +68,7 @@ export function createUI(o) {
     if (same.length) rows.splice(rows.length - 1, 0, `<b>${same.map(([k]) => esc(K[k])).join(' ')}</b><span>as named</span>`);
     return rows.join('') + (K.peek ? `<b>${d === 'touch' ? '' : 'hold '}${esc(K.peek)}</b><span>controls</span>` : '');
   };
-  // debug: the sandbox drawer, its keys and the mind readout. Off for players; on for the session after the first backtick, or with #debug
+  // debug: the sandbox drawer, its keys and the mind readout. Off for players; on only with #debug in the address
   let debugOn = /debug/.test(location.hash);
   const setDebug = (on) => { debugOn = on; document.body.classList.toggle('debug', on); apply(); };
   // mind probe: pin what it makes of you (appraise.js); "Reset all" puts it back to its own judgement
@@ -113,8 +113,6 @@ export function createUI(o) {
   $('bTune').addEventListener('click', () => { audio.resume(); set('panel', false); tuneOpen(true); });      // tune
   $('pTune').addEventListener('click', () => { audio.resume(); if (session) session.setPaused(false); tuneOpen(true); });      // tune
   { const showT = () => { $('pTune').hidden = !(debugOn || tuneAvailable()); }; showT(); setInterval(showT, 1500); if (tuneAvailable()) tuneShowStrip(); }      // tune
-  // hidden debug entry for touch: five quick taps on the pause card's title
-  { let taps = 0, tapT = 0; $('pTitle').addEventListener('click', () => { const now = performance.now(); taps = now - tapT < 1200 ? taps + 1 : 1; tapT = now; if (taps >= 5) { taps = 0; setDebug(true); } }); }
   // the corner: "?" shows the controls over the game (toggles on touch and with the free pointer); pause is main.js's
   $('helpBtn').addEventListener('click', () => { audio.resume(); peek(!peeking); });
   let sureT = 0;
@@ -130,7 +128,7 @@ export function createUI(o) {
     const k = e.key.toLowerCase();
     if (S.dead) { if (D.shown && (k === 'enter' || k === ' ') && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('#dead button:not(#xAgain)'))) { e.preventDefault(); retry(); } return; }      // (closeout: Enter on a focused WATCH AGAIN or SAVE CLIP presses that button)
     if (!S.started || S.paused) return;
-    if (k === 'tab') { e.preventDefault(); if (!e.repeat) { tabHeld = true; peek(true); } } else if (k === '`') { if (!debugOn) setDebug(true); set('panel'); } else if (k === 'escape' && flags.panel) set('panel', false);
+    if (k === 'tab') { e.preventDefault(); if (!e.repeat) { tabHeld = true; peek(true); } } else if (k === '`' && debugOn) set('panel'); else if (k === 'escape' && flags.panel) set('panel', false);
     else if (k === 'shift') taught('run');
     else if (!debugOn) return;
     else if (k === 'i') set('thoughts', flags.thoughts === 'never' ? lastShown : 'never'); else if (k === 'h') set('bare'); else if (k === 'k') photo();

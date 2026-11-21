@@ -721,7 +721,7 @@ async function boot() {
     else if (k === 'c' && S.mode === 'foot' && !e.repeat) { setCrouch(!S.crouchToggle); ui.taught('crouch'); }
     else if (k === 'r' && !e.repeat) startLiveClip();      // closeout: record the last 15 s
     else if (k === 'z') { S.zoom.hold = true; ui.taught('zoom'); }
-    // sandbox and diagnostic keys: only once debug is on (backtick, or #debug); listed in the sandbox drawer
+    // sandbox and diagnostic keys: only with #debug; listed in the sandbox drawer
     else if (!ui.debug) return;
     else if (k === 'o') setMode('observe');
     else if (k === 'm') setMind(!S.mindOn);

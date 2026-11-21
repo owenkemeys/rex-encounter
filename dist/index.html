@@ -285,7 +285,7 @@ body.paused #bubble, body.paused #invite, body.paused #touch, body.dead #bubble,
 #pause .vol { grid-template-columns: 120px 1fr; min-height: 36px; }
 #pause .chk { min-height: 36px; margin-top: 2px; }
 #pause .prow { margin: 4px 0; }
-#pause #pAgain { width: 100%; margin-top: 14px; padding: 10px; font-size: 15px; }
+#pause #pAgain { width: 100%; margin-top: 8px; padding: 10px; font-size: 15px; }
 #pause .hd { display: flex; align-items: baseline; justify-content: space-between; }
 #pause .hd small { color: var(--ink-faint); font-size: 12px; text-transform: lowercase; }
 .card .ctl { margin: 6px 0 2px; }
@@ -438,7 +438,16 @@ body.tuning #tuneStrip { display: none; }
   <div class="card">
     <h2 id="pTitle">Paused</h2>
     <button id="pResume" class="big">resume</button>
+    <button id="pAgain">start over</button>
+    <button id="pClip" hidden style="width:100%;margin-top:6px">save a clip of the last 15 seconds</button>
+    <details id="pLogBox"><summary>dares<span id="pCount" class="val"></span></summary><ul id="pLog" class="tries"></ul></details>
     <details id="gKeys" open><summary>controls</summary><div id="pKeys" class="ctl"></div></details>
+    <details id="gLook"><summary>look</summary>
+      <div class="prow"><label for="pSens">look speed</label><input id="pSens" type="range" min="-1.6" max="1.6" step="0.05" value="0"></div>
+      <label class="chk"><input type="checkbox" id="pInvert"> invert up and down</label>
+      <div class="prow touchonly"><label for="pTLook">touch look</label><select id="pTLook"><option value="stick">stick</option><option value="drag">drag</option></select></div>
+      <label class="chk touchonly"><input type="checkbox" id="pARun"> always run on touch</label>
+    </details>
     <details id="gSound"><summary>sound</summary>
       <label class="chk"><input type="checkbox" id="sound" checked> sound on</label>
       <div class="vol"><label for="volMaster">all sound</label><input id="volMaster" type="range" min="0" max="1" step="0.05"></div>
@@ -452,21 +461,12 @@ body.tuning #tuneStrip { display: none; }
       <div class="vol"><label for="shake">ground shake</label><input id="shake" type="range" min="0" max="2" step="0.1" value="1"></div>
       <button id="pFull" class="fs-only" style="width:100%;margin-top:4px">fullscreen</button>
     </details>
-    <details id="gLook"><summary>look</summary>
-      <div class="prow"><label for="pSens">look speed</label><input id="pSens" type="range" min="-1.6" max="1.6" step="0.05" value="0"></div>
-      <label class="chk"><input type="checkbox" id="pInvert"> invert up and down</label>
-      <div class="prow touchonly"><label for="pTLook">touch look</label><select id="pTLook"><option value="stick">stick</option><option value="drag">drag</option></select></div>
-      <label class="chk touchonly"><input type="checkbox" id="pARun"> always run on touch</label>
-    </details>
     <input id="pNote" type="text" maxlength="1000" placeholder="note for the developer" enterkeyhint="done" autocomplete="off" aria-label="Note for the developer">
     <p id="pNotes"></p>
     <button id="pCopy" hidden>copy session</button>
-    <button id="pDebug" style="width:100%;margin-top:6px">debug tools</button>
-    <button id="pClip" hidden style="width:100%;margin-top:6px">save a clip of the last 15 seconds</button>
-    <button id="pAgain">start over</button>
+    <button id="pDebug" class="dbg-only" style="width:100%;margin-top:6px">debug tools</button>
     <button id="pSandbox" class="dbg-only" style="width:100%;margin-top:6px">sandbox tools</button>
     <button id="pTune" hidden style="width:100%;margin-top:6px">tuning</button>
-    <details id="pLogBox"><summary>dares<span id="pCount" class="val"></span></summary><ul id="pLog" class="tries"></ul></details>
   </div>
 </section>
 <div id="replayTag" hidden>any key for menu</div>
@@ -620,7 +620,7 @@ body.tuning #tuneStrip { display: none; }
   </details>
 
   <details><summary>Keys</summary>
-    <p class="keys">Play keys: hold <b>Tab</b> (pad: hold <b>View</b>) or the pause card. Sound and view settings are on the pause card.<br>Debug (on after the first <b>`</b>, or with the <b>#debug</b> hash on any device): <b>`</b> this panel <b>I</b> thoughts on/off <b>H</b> hide all <b>K</b> photo <b>M</b> mind <b>O</b> observe <b>V</b> shove <b>B</b> roar <b>X</b> clear goal<br>Pad d-pad (debug): up photo, left thoughts, right panel</p>
+    <p class="keys">Play keys: hold <b>Tab</b> (pad: hold <b>View</b>) or the pause card. Sound and view settings are on the pause card.<br>Debug (only with the <b>#debug</b> hash): <b>`</b> this panel <b>I</b> thoughts on/off <b>H</b> hide all <b>K</b> photo <b>M</b> mind <b>O</b> observe <b>V</b> shove <b>B</b> roar <b>X</b> clear goal<br>Pad d-pad (debug): up photo, left thoughts, right panel</p>
   </details>
 </section>
 
