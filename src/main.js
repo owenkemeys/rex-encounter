@@ -633,6 +633,9 @@ async function boot() {
     audio.resume();
     if (e.pointerType === 'mouse' && e.button === 2) { S.zoom.hold = true; ui.taught('zoom'); return; }      // right button: hold to zoom
     if (e.pointerType === 'touch' && stickDown(e)) return;
+    if (e.pointerType === 'touch' && S.touchLook === 'drag' && !S.dl && e.clientX >= innerWidth / 2 && S.mode !== 'observe' && !S.paused) {      // the right half, off the buttons, is the look pad: one finger, tracked on its own
+      S.dl = { id: e.pointerId, x: e.clientX, y: e.clientY }; try { stage.setPointerCapture(e.pointerId); } catch {} return;
+    }
     if (e.pointerType === 'touch') {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.size === 2) { const [p, q] = [...touches.values()]; pinch = { d: Math.hypot(p.x - q.x, p.y - q.y) || 1 }; drag = null; return; }
@@ -644,6 +647,7 @@ async function boot() {
   });
   stage.addEventListener('pointermove', (e) => {
     if (e.pointerId === S.stick.id) { stickAt(e); return; } if (S.lk && e.pointerId === S.lk.id) { lookAt(e); return; }
+    if (S.dl && e.pointerId === S.dl.id) { const dx = e.clientX - S.dl.x, dy = e.clientY - S.dl.y; S.dl.x = e.clientX; S.dl.y = e.clientY; if (!S.paused && !S.clipLive) look(dx, dy); return; }
     S.mx = e.clientX; S.my = e.clientY; S.over = true;      // (a mouse moving hands the device back to keyboard/mouse: setDev, above)
     if (pinch && touches.has(e.pointerId)) {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -660,7 +664,7 @@ async function boot() {
     if (!drag || locked() || S.paused) return;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
     if (S.mode === 'observe') { if (drag.moved > 14) { takeOver(); drag.moved = 6; } return; }
-    if (e.pointerType === 'touch' && S.touchLook === 'stick') return;      // the right stick looks; a drag elsewhere does not
+    if (e.pointerType === 'touch') return;      // touch looks only with the right stick or the look pad
     look(dx, dy);
   });
   stage.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') S.over = false; });
@@ -748,12 +752,12 @@ async function boot() {
   document.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && S.dev !== 'kb' && Math.abs(e.movementX) + Math.abs(e.movementY) > 2) setDev('kb'); }, true);
   S.stick = { x: 0, y: 0, id: null, run: false };      // run: the stick pushed to its rim (starts above 0.88, stops below 0.75)
   try { S.runLock = localStorage.getItem('dh.arun') === '1'; } catch { S.runLock = false; }      // "always run on touch" (pause card): any stick movement runs
-  S.touchLook = (() => { try { return localStorage.getItem('dh.tlook') === 'drag' ? 'drag' : 'stick'; } catch { return 'stick'; } })();
+  S.touchLook = (() => { try { return localStorage.getItem('dh.tlook') === 'stick' ? 'stick' : 'drag'; } catch { return 'drag'; } })();      // swipe to look by default, as phone shooters do
   const stick = $('stick'), nub = $('nub'), lstick = $('lstick'), lnub = $('lnub');
   // the look stick's feel: deflection sets turn rate. sens: rad/s at the rim (before the look-speed setting); vert: vertical share; curve: exponent
   const TL = { sens: 3.4, vert: 0.6, curve: 3, dead: 0.08, smooth: 0.06 };      // tune: the touch look stick (turn rate at the rim, vertical share, response curve exponent, dead zone, smoothing time)
   { const G = 'Player'; tune(G, 'Touch look stick: turn rate at the rim (rad/s)', TL, 'sens', 0.5, 8, 0.1, null, 'touchLook.sens'); tune(G, 'Touch look stick: vertical share', TL, 'vert', 0.2, 1.2, 0.05, null, 'touchLook.vert'); tune(G, 'Touch look stick: response curve exponent', TL, 'curve', 1, 5, 0.1, null, 'touchLook.curve'); tune(G, 'Touch look stick: dead zone', TL, 'dead', 0, 0.3, 0.01, null, 'touchLook.dead'); tune(G, 'Touch look stick: smoothing (s)', TL, 'smooth', 0, 0.3, 0.01, null, 'touchLook.smooth'); }      // tune
-  S.lk = null; document.body.dataset.tlook = S.touchLook;
+  S.lk = null; S.dl = null; document.body.dataset.tlook = S.touchLook;
   // the whole layout comes from touchLayout(): fixed sticks in the bottom corners, buttons on an arc round each. Re-applied on resize and rotation.
   let LAY = null;
   const probe = document.createElement('div'); probe.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)'; document.body.appendChild(probe);
@@ -769,7 +773,7 @@ async function boot() {
     const H = L.hint, hs = $('hint').style; if (!document.body.classList.contains('touch')) hs.cssText = ''; else { hs.left = H.x + 'px'; hs.width = H.w + 'px'; hs.top = 'auto'; hs.bottom = (innerHeight - (H.y + H.h)) + 'px'; hs.maxWidth = 'none'; hs.transform = 'none'; hs.textAlign = 'center'; hs.fontSize = '12px'; hs.letterSpacing = '0.08em'; }
     { const M = L.mute, ms = $('muteIcon').style; if (!document.body.classList.contains('touch')) ms.cssText = ''; else { ms.left = (M.x + M.w / 2) + 'px'; ms.top = M.y + 'px'; ms.bottom = 'auto'; } }      // touch: centred above the hint line
     root.setProperty('--tbar', (L.topbar.y + L.topbar.h) + 'px');
-    const h1 = $('tHint').querySelector('.h1'), h2 = $('tHint').querySelector('.h2'), h3 = $('tHint').querySelector('.h3'); place(h1, L.left.cx, L.left.cy); place(h2, L.right.cx, L.right.cy); place(h3, P.x, P.y - 4, P.w, null);
+    const h1 = $('tHint').querySelector('.h1'), h2 = $('tHint').querySelector('.h2'), h3 = $('tHint').querySelector('.h3'); place(h1, L.left.cx, L.left.cy); h2.textContent = S.touchLook === 'drag' ? 'swipe to look' : 'look'; if (S.touchLook === 'drag') place(h2, innerWidth * 0.75, innerHeight * 0.4); else place(h2, L.right.cx, L.right.cy); place(h3, P.x, P.y - 4, P.w, null);
     if (S.lk) lookEnd(); if (S.stick.id != null) stickEnd();
   };
   window.addEventListener('resize', () => applyLayout()); window.addEventListener('orientationchange', () => setTimeout(applyLayout, 120)); if (window.visualViewport) window.visualViewport.addEventListener('resize', () => applyLayout());
@@ -777,7 +781,7 @@ async function boot() {
   const stickAt = (e) => { const r = stick.getBoundingClientRect(), R = r.width / 2; let x = (e.clientX - r.left - R) / R, y = (e.clientY - r.top - R) / R; const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } S.stick.x = x; S.stick.y = y; if (!S.stick.run && l > 0.88) { S.stick.run = true; ui.taught('run'); } else if (S.stick.run && l < 0.75) S.stick.run = false; stick.classList.toggle('run', S.stick.run || (S.runLock && l > 0.15)); const t = R - LAY.knob / 2; nub.style.transform = `translate(calc(-50% + ${x * t}px), calc(-50% + ${y * t}px))`; };
   const stickEnd = (e) => { if (e && e.pointerId !== S.stick.id) return false; S.stick.id = null; S.stick.x = S.stick.y = 0; S.stick.run = false; stick.classList.remove('run', 'on'); nub.style.transform = ''; return true; };
   const lookAt = (e) => { const L = S.lk; if (!L) return; const r = lstick.getBoundingClientRect(); let x = (e.clientX - r.left - L.R) / L.R, y = (e.clientY - r.top - L.R) / L.R; const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } L.x = x; L.y = y; const t = L.R - LAY.knob / 2; lnub.style.transform = `translate(calc(-50% + ${x * t}px), calc(-50% + ${y * t}px))`; };
-  const lookEnd = (e) => { if (!S.lk || (e && e.pointerId !== S.lk.id)) return false; S.lk = null; lstick.classList.remove('on'); lnub.style.transform = ''; return true; };
+  const lookEnd = (e) => { if (S.dl && (!e || e.pointerId === S.dl.id)) { S.dl = null; return true; } if (!S.lk || (e && e.pointerId !== S.lk.id)) return false; S.lk = null; lstick.classList.remove('on'); lnub.style.transform = ''; return true; };
   const releaseTouch = () => { stickEnd(); lookEnd(); };
   /** A finger went down on the view. Inside the move stick's base (plus a 20 px halo): it drives the move stick; inside the look stick's: the look stick
    *  (unless "touch look" is drag). The bases never move. Buttons never get here: they sit above the stage. Returns true when the touch is taken. */
