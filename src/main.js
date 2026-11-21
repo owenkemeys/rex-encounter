@@ -201,7 +201,7 @@ async function boot() {
     torchLive = props.torchOn; audio.sim = rpx; if (audio.mic) audio.mic(true, false, 0.03, 1.5); micHeld = false;
     return true;
   }
-  function sharedEnd() { S.watching = false; rec.reset(); clip.resetLine(); $('sharedEnd').hidden = false; }
+  function sharedEnd() { S.watching = false; rec.reset(); clip.resetLine(); releasePointer(); $('sharedEnd').hidden = false; }      // the mouse comes back for the card
   function leaveShared(same) { $('sharedEnd').hidden = true; history.replaceState(null, '', same ? '#seed' + sharedSeed : location.pathname + location.search); startOver(); }
   $('seTry').addEventListener('click', () => leaveShared(true)); $('seNew').addEventListener('click', () => leaveShared(false));
   let shareLink = null;
@@ -1298,7 +1298,7 @@ async function boot() {
     { const ja = sim.act; body.voiceJaw = audio.mouthOpen;      /* (in the replay too: the taped sounds are re-emitted through the mouth bus) */ body.voiceFast = audio.mouthFast; body.jawHold = !!(sim.mouthHold > 0 || (ja && ja.forced && /^(strike|seize|snap|butt)$/.test(ja.kind))); }      // jaw-from-voice
     body.glareEye = mind.dazzle || null; body.update(shown); fx.breath(body.nostril, body.snout, shown.s[1], dtv); if (audio.breathCue) { fx.snort(body.nostril, body.snout, audio.breathCue); audio.breathCue = 0; }
 
-    if (S.mode === 'observe') {
+    if (S.mode === 'observe' && !S.replay) {      // (a shared tape can play before the visitor steps in: the tape's camera wins)
       director.update(dtReal * run, sim, mind, camera); solidify(director.cam, 0.5); S.lens = director.cam.fov;
       if (GATE && post && post.cctv) {      // the live gatehouse feed's lettering, and a burst of static when it switches camera
         const I = post.cctvInfo, m = director.cam.mount; if (m && m.cam !== I.cam) post.cctvU.burst.value = 1;
