@@ -597,6 +597,7 @@ export function createUI(o) {
     { const n = achv.next(); $('xDare').textContent = n ? `NEXT DARE: ${n.dare}` : ''; $('xDare').hidden = !n; }
     const tape = !!(session && session.canReplay && session.canReplay());
     $('xReplay').hidden = !tape; { const b = $('xClip'); b.hidden = !(tape && session && session.clipOK && session.clipOK()); if (S.clip) S.clip.onState = syncClip; clipBusy = false; syncClip(); }      // (the clip of this death is kept: it was recorded as the replay played)
+    if (session && session.shareReset) session.shareReset();
     $('xKeys').textContent = keysLine();
     document.body.classList.add('dead');
     try { $('xAgain').focus({ preventScroll: true }); } catch {}      // Enter, Space or A goes again
@@ -607,7 +608,7 @@ export function createUI(o) {
     act.respawn(); audio.chimeStop();
     const V = arena.victims && arena.victims.get('you');
     if (V) { if (V.dead) V.dead = false; if (typeof V.health === 'number' && V.health <= 0) V.health = V.health > 1 ? 100 : 1; }
-    D.evt = null; D.shown = false; D.auto = false; S.dead = false; achv.reset(false); if (S.clip && S.clip.resetLine) S.clip.resetLine(); document.body.classList.remove('dead');
+    D.evt = null; D.shown = false; D.auto = false; S.dead = false; if (S.still) S.still.reset(); achv.reset(false); if (S.clip && S.clip.resetLine) S.clip.resetLine(); document.body.classList.remove('dead');
     if (S.zoom) { S.zoom.toggle = false; S.zoom.hold = false; const z = $('tZoom'); if (z) z.setAttribute('aria-pressed', 'false'); }      // a new life starts unzoomed
     if (watch && session) session.setMode('observe');
     if (session) session.lockPointer();

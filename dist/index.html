@@ -263,6 +263,7 @@ body.started #start { display: none; }
 /* the gatehouse start: the card sits bottom right, off the live feed's middle where the animal is framed */
 #start { place-items: end end; background: linear-gradient(to left, rgba(10,11,9,0.55), rgba(10,11,9,0) 55%); }      /* the card at the bottom right, off the live view, in both starts */
 #start .card { width: min(360px, 100%); }
+#sharedEnd { display: grid; z-index: 13; background: rgba(8,9,8,0.45); }
 #startGo span { display: none; } body:not([data-dev]) #startGo .kd, body[data-dev="kb"] #startGo .kd, body[data-dev="touch"] #startGo .tp, body[data-dev="pad"] #startGo .pd { display: inline; }
 #start .opts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 22px; margin-top: 12px; }
 #start .opts .prow { margin: 0; flex: 1 1 180px; }
@@ -427,6 +428,14 @@ body.tuning #tuneStrip { display: none; }
     <div class="opts"><label class="chk"><input type="checkbox" id="sSound" checked> sound</label><label class="chk"><input type="checkbox" id="sVHS" checked> VHS mode</label></div>
   </div>
 </div>
+<div id="sharedEnd" class="cardwrap" role="dialog" aria-label="Shared run" hidden>
+  <div class="card">
+    <h2>That was <span style="color:var(--accent)">someone's run</span></h2>
+    <p class="lede">same rex, same start. can you do better?</p>
+    <button id="seTry" class="big">try this rex</button>
+    <button id="seNew" style="width:100%;margin-top:8px">new rex</button>
+  </div>
+</div>
 <div id="invite" role="status"></div>
 <div id="prompt" role="status"></div>
 <div id="kitHud" aria-hidden="true"><span id="hTorch"><i class="lamp"></i>torch <b class="kc"></b></span><span id="hFlare">flares <i class="pips"></i> <b class="kc"></b></span></div>
@@ -475,7 +484,7 @@ body.tuning #tuneStrip { display: none; }
     <p id="xFacts"></p>
     <p id="xAdvice"></p>
     <p id="xDare" hidden></p>
-    <div class="dm-btns"><button id="xAgain">go again</button><button id="xReplay">watch again</button><button id="xClip" hidden>save clip</button></div>
+    <div class="dm-btns"><button id="xAgain">go again</button><button id="xReplay">watch again</button><button id="xClip" hidden>save clip</button><button id="xShare" hidden>share your run</button></div>
     <p id="xClipSub" hidden>plays the replay once more while recording a video for you</p>
     <p id="xKeys"></p>
   </div></div>

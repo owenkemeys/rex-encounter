@@ -20,6 +20,9 @@ import { createUI, KIT as KIT_START } from './ui.js';
 import { tune, tuneGroup } from './view/tune.js';      // tune
 import { touchLayout } from './touchlayout.js';
 import { clearOf } from './thoughtplace.js';
+import { SHARE_API, sharedId, fetchTape, uploadRun, StillPicker } from './share.js';
+import { encodeTape, decodeTape } from './tape.js';
+import { ST } from './view/figure.js';
 import { GAIT_DEMOS, GAIT_CAM, GaitMeter } from './gaitdemo.js';      // gait demos
 import { detectQuality, backendPreference, QualityController, qualityMenu } from './view/quality.js';
 import { createTelemetry, NO_TELEMETRY } from './telemetry.js';
@@ -157,6 +160,7 @@ async function boot() {
   const blend = { v: new Float32Array(sim.pose.v.length), s: new Float32Array(sim.pose.s.length) };
   prev.v.set(sim.pose.v); prev.s.set(sim.pose.s);
   // death cam (src/view/replay.js): the tape runs while you are on foot; "watch it back" on the death card plays it from outside
+  S.still = new StillPicker();
   const rec = new Replay(scene, terrain, sim.pose.v.length, sim.pose.s.length), tagEl = document.getElementById('replayTag');
   // The replay is shot by a security camera (src/view/ptz.js picks the mount and moves the camera; post.setCCTV is the look, on whatever the VHS setting).
   // While it runs the things in the world are the recorded ones (rec.things), live sim events are not played, and the recorded sound events are
@@ -185,8 +189,37 @@ async function boot() {
     if (!clip.start(true, true)) { endReplay(); return false; }
     document.body.classList.add('clipping'); return true;
   }
+  // share your run: a shared tape (#tape=<id>) plays first through the same frozen-game path as a clip in play, then the card offers this rex or a new one
+  let sharedTape = sharedId() && SHARE_API ? fetchTape(sharedId()).then(decodeTape).catch(() => null) : null, sharedSeed = 0;
+  function watchShared(t) {
+    if (!t || S.replay || S.dead || !rec.fromTape(t) || !rec.play(camera.aspect)) { rec.reset(); return false; }
+    sharedSeed = t.meta.seed | 0; S.watching = true;
+    liveSaved = { p: camera.position.clone(), q: camera.quaternion.clone(), fov: camera.fov, torch: props.torchOn, locked: false };
+    S.clipLive = true; S.keys.clear(); drag = null; S.call = null; S.zoom.hold = false; releaseTouch(); releasePointer();
+    S.replay = true; document.body.classList.add('replay'); tagEl.hidden = true;
+    if (post && post.setCCTV) post.setCCTV(true);
+    torchLive = props.torchOn; audio.sim = rpx; if (audio.mic) audio.mic(true, false, 0.03, 1.5); micHeld = false;
+    return true;
+  }
+  function sharedEnd() { S.watching = false; rec.reset(); clip.resetLine(); $('sharedEnd').hidden = false; }
+  function leaveShared(same) { $('sharedEnd').hidden = true; history.replaceState(null, '', same ? '#seed' + sharedSeed : location.pathname + location.search); startOver(); }
+  $('seTry').addEventListener('click', () => leaveShared(true)); $('seNew').addEventListener('click', () => leaveShared(false));
+  let shareLink = null;
+  $('xShare').addEventListener('click', async () => {
+    const b = $('xShare');
+    if (shareLink) { try { if (navigator.share) await navigator.share({ title: 'Rex Encounter', url: shareLink }); else { await navigator.clipboard.writeText(shareLink); b.textContent = 'link copied'; } } catch {} return; }
+    if (b.disabled) return; b.disabled = true; b.textContent = 'uploading\u2026';
+    try {
+      const t = rec.toTape({ seed: SEED, mood: world.moodKey }); if (!t) throw new Error('no tape');
+      shareLink = await uploadRun(await encodeTape(t), await S.still.blob(), SEED);
+      b.textContent = navigator.share ? 'share link' : 'copy link';
+    } catch { b.textContent = 'could not share'; }
+    b.disabled = false;
+  });
+  const shareReset = () => { shareLink = null; const b = $('xShare'); b.textContent = 'share your run'; b.disabled = false; b.hidden = !SHARE_API; };
   function endLiveClip(relock = true) {
     if (!S.clipLive) return; S.clipLive = false; document.body.classList.remove('clipping');
+    if (S.watching) { const L = liveSaved; liveSaved = null; if (L) { camera.position.copy(L.p); camera.quaternion.copy(L.q); if (camera.fov !== L.fov) { camera.fov = L.fov; camera.updateProjectionMatrix(); } } sharedEnd(); return; }
     const L = liveSaved; liveSaved = null;
     if (L) { camera.position.copy(L.p); camera.quaternion.copy(L.q); if (camera.fov !== L.fov) { camera.fov = L.fov; camera.updateProjectionMatrix(); } props.torchOn = L.torch; }
     S.keys.clear(); audio.resume();
@@ -540,6 +573,7 @@ async function boot() {
     if (S.dev === 'touch') { try { if (localStorage.getItem('dh.thint') !== '1') { localStorage.setItem('dh.thint', '1'); applyLayout(); const h = $('tHint'); h.hidden = false; setTimeout(() => { h.hidden = true; }, 3000); } } catch {} }      // once: the two sticks and the cluster, named for three seconds
     // fullscreen is its own explicit action (pause card), never part of this gesture
     lockPointer(); S.invite = true; S.startedAt = performance.now(); S.clock0 = S.clock;
+    if (sharedTape) { const p = sharedTape; sharedTape = null; p.then((t) => { if (t) watchShared(t); }); }
     try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch {}
     window.focus();
   }
@@ -1244,7 +1278,8 @@ async function boot() {
     // the tape: the pose as drawn, with the player's body and the head (while the death cam plays, the tape is shown instead)
     if (S.replay && !S.dead && !S.clipLive) endReplay();
     {      // (keeps appending the tail after the death while the replay already plays)
-      if (S.mode === 'foot' && S.started) {
+      if (S.watching) {}      // a shared tape is in the recorder: nothing of this game is taped over it
+      else if (S.mode === 'foot' && S.started) {
         rec.tick(dts, S.dead, blend, rec.body(S.you, arena.victim('you'), sim, terrain, S.replay ? torchLive : props.torchOn), things.list);
       } else if (!S.dead) rec.reset();
     }
@@ -1295,7 +1330,7 @@ async function boot() {
     ov.update(sim, blend, S.mindOn ? (mind.intent.goal && mind.intent.goal.kind === 'reach' ? mind.intent.goal : null) : S.goal, null, 9);
     ov.updateSenses(sim, mind);
     audio.breath(shown.s[1], camera.position.distanceTo(S.replay ? rpx.head.pos : sim.head.pos));
-    if (!S.noRender && !swapping) { if (desk && S.gate) monitorTick(dtReal); try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.gate && post && !post.cctv && ++gateWarm === 3 && post.setCCTV) post.setCCTV(true); }      // the monitor before the frame that shows it; clip: copy the picture right after the render
+    if (!S.noRender && !swapping) { if (desk && S.gate) monitorTick(dtReal); try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (S.replay && !S.watching && !S.clipLive && !S.replayHold && rec.on) S.still.consider(rec, renderer.domElement, ST.AIR); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.gate && post && !post.cctv && ++gateWarm === 3 && post.setCCTV) post.setCCTV(true); }      // the monitor before the frame that shows it; clip: copy the picture right after the render
 
     S.fps += (1 / Math.max(dtReal, 1e-3) - S.fps) * 0.05;
     // hold the frame rate: resolution (fast) and the quality level (slow), from measured frame times (src/view/quality.js)
@@ -1305,7 +1340,7 @@ async function boot() {
   }
 
   const ui = createUI({ S, sim, mind, camera, canvas, arena, terrain, act, Q, audio, SEED, test: TEST, backend: () => backend, pad, post, props,
-    session: { replay: startReplay, clip: startClip, liveClip: startLiveClip, clipOK: () => clip.supported, canReplay: () => rec.length > 1 && rec.death >= 0, start, setPaused, releasePointer, lockPointer, setMode, takeOver, fullscreen, fsOk, locked } });
+    session: { replay: startReplay, clip: startClip, liveClip: startLiveClip, clipOK: () => clip.supported, canReplay: () => rec.length > 1 && rec.death >= 0, shareReset, start, setPaused, releasePointer, lockPointer, setMode, takeOver, fullscreen, fsOk, locked } });
   uiRef = ui;
   // the note box (src/telemetry.js): freeze time where it stands, without the pause card, and come back from it. Freezing lets the
   // pointer go (so the box can be clicked) without pausing; unfreezing asks for it again from the same key press or click that
