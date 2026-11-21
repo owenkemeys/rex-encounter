@@ -19,6 +19,7 @@ import * as JMP from './jump.js';      // the on-foot jump (pure numbers; test/j
 import { createUI, KIT as KIT_START } from './ui.js';
 import { tune, tuneGroup } from './view/tune.js';      // tune
 import { touchLayout } from './touchlayout.js';
+import { clearOf } from './thoughtplace.js';
 import { GAIT_DEMOS, GAIT_CAM, GaitMeter } from './gaitdemo.js';      // gait demos
 import { detectQuality, backendPreference, QualityController, qualityMenu } from './view/quality.js';
 import { createTelemetry, NO_TELEMETRY } from './telemetry.js';
@@ -866,10 +867,12 @@ async function boot() {
     // the muted-speaker icon: shown whenever the game is on screen but silent (setting off, context waiting for a gesture, master still faded); a tap fixes it
     const mi = $('muteIcon'); let miOn = false;
     const silent = () => !audio.on || audio._away || (!S.paused && !(audio.ctx && audio.ctx.state === 'running'));
-    // it stays clear of the start card (a portrait phone's card fills the bottom) and the death card: lifted to just above whichever is up
+    // it stays clear of the start card and the death card: moved the shortest way to free space, on screen even when the card is tall
     const card = document.querySelector('#start .card'), deadCard = document.querySelector('#dead > *'), dodge = () => { if (!miOn) return; mi.style.translate = ''; const b = document.body.classList;
       const o = !b.contains('started') ? card : b.contains('dead') ? deadCard : null; if (!o) return;
-      const c = o.getBoundingClientRect(), m = mi.getBoundingClientRect(); if (c.width && m.right > c.left - 8 && m.left < c.right + 8 && m.bottom > c.top - 8 && m.top < c.bottom + 8) mi.style.translate = '0 ' + Math.round(c.top - 8 - m.bottom) + 'px'; };
+      const c = o.getBoundingClientRect(), m = mi.getBoundingClientRect(); if (!c.width) return;
+      const p = clearOf(m.left, m.top, m.width, m.height, { x: 8, y: 8, w: innerWidth - 16, h: innerHeight - 16 }, [{ x: c.left, y: c.top, w: c.width, h: c.height }]);
+      mi.style.translate = Math.round(p.x - m.left) + 'px ' + Math.round(p.y - m.top) + 'px'; };
     const miTick = () => { const v = !document.hidden && !audio.offline && !$('boot') && silent(); if (v !== miOn) { miOn = v; mi.hidden = !v; } dodge(); };
     mi.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); if (!audio.on) setSound(true); else { audioResume(); audio._applyVol(); } audio.back(true); miTick(); });
     mi.addEventListener('pointerdown', (e) => e.stopPropagation());
