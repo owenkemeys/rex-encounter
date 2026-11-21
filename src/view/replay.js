@@ -128,6 +128,21 @@ export class Replay {
     return { replay: true, replayCam: this.label, replayT: r((f - this.death) / HZ), rpx: r(m[o]), rpz: r(m[o + 2]), rhx: r(m[o + 6]), rhz: r(m[o + 8]) };
   }
   stop() { this.on = false; this.fig.visible = false; }
+  /** The recorded frames in order, oldest first, as plain data for a share tape (src/tape.js). Null if there is too little. */
+  toTape(meta) {
+    const a0 = this.n - this.count, frames = this.count; if (frames < 10) return null;
+    const v = new Float32Array(frames * this.nv), s = new Float32Array(frames * this.ns), m = new Float32Array(frames * M), th = [];
+    for (let f = 0; f < frames; f++) { const k = (a0 + f) % N; v.set(this.v.subarray(k * this.nv, (k + 1) * this.nv), f * this.nv); s.set(this.s.subarray(k * this.ns, (k + 1) * this.ns), f * this.ns); m.set(this.m.subarray(k * M, (k + 1) * M), f * M); th.push(this.th[k]); }
+    const ev = this.ev.filter((x) => x.f >= a0).map((x) => ({ f: x.f - a0, e: x.e }));
+    return { nv: this.nv, ns: this.ns, nm: M, frames, v, s, m, th, ev, meta: { ...meta, death: this.death >= 0 ? this.death - a0 : -1, live: this.live } };
+  }
+  /** Load a share tape into the ring as if it had just been recorded and finished: play() then shows it. False if it does not fit this build. */
+  fromTape(t) {
+    if (t.nv !== this.nv || t.ns !== this.ns || t.nm !== M || t.frames > N) return false;
+    this.reset();
+    for (let f = 0; f < t.frames; f++) { this.v.set(t.v.subarray(f * t.nv, (f + 1) * t.nv), f * this.nv); this.s.set(t.s.subarray(f * t.ns, (f + 1) * t.ns), f * this.ns); this.m.set(t.m.subarray(f * M, (f + 1) * M), f * M); this.th[f] = t.th[f]; }
+    this.n = t.frames; this.death = t.meta.death; this.after = AFTER + 1; this.ev = t.ev.slice(); return true;
+  }
   /** The pose of the shown moment (animal pose, figure, recorded things, the head for the audio) at tape time t seconds, `step` seconds since the last shown frame. */
   _pose(t, step) {
     const f = this.s0 + t * HZ, last = this.n - 1, ff = Math.min(f, last - 1e-3), i = Math.floor(ff), u = ff - i, a = i % N, b = (i + 1) % N;
