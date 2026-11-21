@@ -1,7 +1,9 @@
 // "Share your run": the death tape and one still go to the share server, which hands back a short link whose page shows the still as its
-// preview and sends people on to this game with #tape=<id>,seed<n>. SHARE_API empty: sharing is off and the button stays hidden.
-export const SHARE_API = '';
+// preview and sends people on to this game with #tape=<id>,seed<n>. Server: Mike's Cloudflare Worker (source in the OpenBot shared folder,
+// rex-encounter-share). Until the owner has played it, the button shows only on a device that has opened the game once with #share.
+export const SHARE_API = 'https://rex-encounter-share.rex-encounter-share.workers.dev';
 
+export const shareOn = (() => { let on = false; try { if (/share/.test(location.hash)) localStorage.setItem('rex.share', '1'); on = localStorage.getItem('rex.share') === '1'; } catch {} return () => on && !!SHARE_API; })();
 export const sharedId = () => { const m = location.hash.match(/tape=([\w-]+)/); return m ? m[1] : null; };
 
 export async function fetchTape(id) {
@@ -42,5 +44,10 @@ export class StillPicker {
     const fig = inside(crop(p.set(S.x, S.y + 0.9, S.z)));
     return 30 * Math.min(1, size / 0.6) + (fig ? 20 : 0) + (S.st === ST.AIR ? 40 : S.st === ST.HELD ? 35 : 0) - 0.3 * Math.abs(f - (rec.death - 10));
   }
-  blob() { return this.c ? new Promise((ok) => this.c.toBlob(ok, 'image/jpeg', 0.85)) : Promise.resolve(null); }
+  /** JPEG under the server's 256 KiB cap: lower quality until it fits. */
+  async blob() {
+    if (!this.c) return null;
+    for (const q of [0.85, 0.7, 0.5]) { const b = await new Promise((ok) => this.c.toBlob(ok, 'image/jpeg', q)); if (b && b.size < 250000) return b; }
+    return null;
+  }
 }
