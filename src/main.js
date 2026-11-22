@@ -166,7 +166,7 @@ async function boot() {
   // While it runs the things in the world are the recorded ones (rec.things), live sim events are not played, and the recorded sound events are
   // re-emitted through the usual audio calls with the listener at the camera, through a thin small-microphone filter (audio.mic). Dust, rain, the herd stay as now.
   let torchLive = false, micHeld = false;
-  const clip = createClip({ getCanvas: () => canvas, audio, tape: rec, extra: () => { const V = arena.victims && arena.victims.get('you'); return { cause: V && V.cause, eaten: !!(V && V.gone), motive: V && V.lastHurt && V.lastHurt.motive, deaths: V ? V.lives : 1, crouch: !!S.you.crouch, label: rec.label, lasted: S.footSince && V ? (performance.now() - S.footSince) / 1000 - (V.dead ? Math.max(0, (V.clock || 0) - (V.deadT || 0)) : 0) : 0 }; }, onCard: (live) => { if (!live && S.dead) paChime(true); } }); S.clip = clip;      // closeout: the card's facts      // clip: "save clip" on the death card records the replay to a file
+  const clip = createClip({ getCanvas: () => canvas, audio, tape: rec, extra: () => { const V = arena.victims && arena.victims.get('you'); return { cause: V && V.cause, eaten: !!(V && V.gone), motive: V && V.lastHurt && V.lastHurt.motive, deaths: V ? V.lives : 1, crouch: !!S.you.crouch, label: rec.label, lasted: S.footSince && V ? (performance.now() - S.footSince) / 1000 - (V.dead ? Math.max(0, (V.clock || 0) - (V.deadT || 0)) : 0) : 0 }; }, onCard: (live) => { if (!live && S.dead) paChime(true); else if (S.watching) audio.chime(true, false, 0.5); } });      // a shared tape's notice chimes too S.clip = clip;      // closeout: the card's facts      // clip: "save clip" on the death card records the replay to a file
   // The death card's PA chime, 0.5 s after the card is up: out loud once per death, and into every recording of the card (watch again and SAVE CLIP re-record it)
   function paChime(intoClip) { const V = arena.victims && arena.victims.get('you'), life = V ? V.lives : 1, spk = S.chimed !== life; S.chimed = life; audio.chime(spk, intoClip && clip.active, 0.5); }
   function startClip() {      // closeout: "save clip" on the death menu when there is no finished clip (the replay was skipped): the replay and card play once more, recorded, with the small tag
@@ -287,7 +287,7 @@ async function boot() {
     clipStop(natural); clip.dim(true);
     S.replayHold = true; document.body.classList.remove('replay'); document.body.classList.add('hold'); tagEl.hidden = true;
     if (audio.mic) audio.mic(true, true); audio.hiss(0); post.cctvU.burst.value = 0;
-    try { ui.deathMenu(); paChime(false); } catch {}      // the replay was skipped before the card: the chime comes with the menu
+    try { ui.deathMenu(); } catch {}      // the chime belongs to the safety notice: skipping the replay before the card skips it too
   }
   function endReplay(natural) {
     if (!S.replay) return;
