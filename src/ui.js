@@ -686,7 +686,7 @@ export function createUI(o) {
   }
 
   // ------------------------------------------------------------ per frame
-  let acc = 0, pausedOnce = false;
+  let acc = 0;
   apply(); devChanged();
   return {
     clipReady, clipResult, deathMenu: showDeath, deathFocus, flags, set, achv, photo, whistle, toggleAll: () => set('bare'), taught, peek, held, note, devChanged,
@@ -698,7 +698,7 @@ export function createUI(o) {
       renew(inv, inv0()); IV.classList.remove('on'); Object.assign(teach, lesson0()); renew(D, D0()); CUT.style.display = 'none'; document.body.classList.remove('dead');
       peek(false); set('panel', false); lastThink = ''; prWhat = ''; hudKey = ''; lastH = 1; flashT = 0;
     },
-    paused(p) { if (p) { drawPause(); if (!pausedOnce) { pausedOnce = true; $('gKeys').open = dev() !== 'touch'; } } },      // phones: the start card and "?" carry the controls; the settings come first
+    paused(p) { if (p) drawPause(); },
     get lastShot() { return o.lastShot; },
     /** dt stops while paused; dtReal keeps running (fades, the end card's timing). */
     frame(dt, dtReal = dt) {

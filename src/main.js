@@ -581,7 +581,8 @@ async function boot() {
     lockPointer(); S.invite = true; S.startedAt = performance.now(); S.clock0 = S.clock;
     // the open start: watching is being there. You stand where the camera stands from the moment you begin, still, and the animal can find you;
     // the first move or look only hands you the body (no new noise, no cut)
-    if (OPEN && !GATE && S.mode === 'observe' && !S.met) { standAtCamera(); S.awareAt = S.clock; S.met = true; director.pinned = true; arena.opening({ x: S.you.x, z: S.you.z }, 45, (FIRST && FIRST.hunger) || undefined); }
+    if (OPEN && !GATE && S.mode === 'observe' && !S.met) { standAtCamera(); { const b = bearing(S.you.x - sim.x, S.you.z - sim.z); if (Math.cos(b - sim.psi) < 0.5) sim.reset(sim.x, sim.z, b); }      // (owner: it should start where it can see you, not walk off)
+      S.awareAt = S.clock; S.met = true; director.pinned = true; arena.opening({ x: S.you.x, z: S.you.z }, 45, (FIRST && FIRST.hunger) || undefined); }
     if (sharedTape) { const p = sharedTape; sharedTape = null; p.then((t) => { if (t) watchShared(t); }); }
     try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch {}
     window.focus();
@@ -608,11 +609,12 @@ async function boot() {
     if (k >= 1) { g.done = true; arena.opening({ x: S.you.x, z: S.you.z }); }      // the chair scrapes and a step: it is curious, and comes to see
     return g.down * (1 - e);
   }
+  // the pause card: one rollout open at a time (the dares included), so the card never needs to scroll
+  for (const d of document.querySelectorAll('#pause details')) d.addEventListener('toggle', () => { if (d.open) for (const o of document.querySelectorAll('#pause details[open]')) if (o !== d) o.open = false; });
   function setPaused(p) {
     if (!S.started || p === S.paused || (p && (S.dead || !$('sharedEnd').hidden))) return;      // (the end-of-tape card is its own menu)
     S.paused = p; document.body.classList.toggle('paused', p); S.keys.clear(); drag = null; if (p) releaseTouch();
-    if (p) { const wide = matchMedia('(min-width: 700px) and (min-height: 500px)').matches, L = $('pLogBox'); L.name = wide ? '' : 'pause'; L.open = wide;      // one rollout open at a time (details name); on a wide screen the dares are their own read-out beside them
-      releasePointer(); try { if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend(); } catch {} }
+    if (p) {  releasePointer(); try { if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend(); } catch {} }
     else { audio.resume(); lockPointer(); }
     ui.paused(p);
     // the card takes the keyboard and the gamepad: Resume has the focus (Enter, Space or A resumes)
@@ -1327,7 +1329,7 @@ async function boot() {
     }
     else if (!S.paused && !S.frozen && !S.replay) moveCamera(dtReal);
     if (!S.replay) lens(dtReal); if (!S.paused && !S.frozen) kitTick(dts);
-    fx.update(dtv, camera);
+    fx.update(dtv, S.paused || S.frozen ? null : camera);      // paused, nothing puts the camera back each frame: the shake would add up and sink it
     world.followLight(sim.x, sim.groundY, sim.z);
     if (world.update(dtv, camera, renderer)) {
       const delay = 0.6 + Math.random() * 2.2, a = Math.random() * 6.283; audio.thunder(delay);
