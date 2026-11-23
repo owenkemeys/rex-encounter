@@ -298,7 +298,7 @@ body.paused #pause { display: grid; }
   #pause .card { width: min(700px, 100%); display: grid; grid-template-columns: 1fr 240px; column-gap: 36px; align-content: start; }
   #pause .card > * { grid-column: 1; }
   #pause #pLogBox { grid-column: 2; grid-row: 2 / span 30; align-self: start; padding: 10px 14px; font-size: 20px; border-left: 3px solid #fffc; background: rgba(0,0,0,0.4); }
-  #pLogBox > summary { border-bottom: 2px dashed #fff8; padding-bottom: 4px; pointer-events: none; } #pLogBox > summary::after { content: none; }
+  #pLogBox > summary { border-bottom: 2px dashed #fff8; padding-bottom: 4px; } #pLogBox:not([open]) > summary { border-bottom: 0; padding-bottom: 0; }
 }
 #pause details > summary { min-height: 30px; align-items: center; }
 #pause details[open] { padding-bottom: 6px; }
@@ -462,22 +462,22 @@ body.tuning #tuneStrip { display: none; }
     <button id="pResume" class="big">play</button>
     <button id="pAgain">new tape</button>
     <button id="pClip" hidden>rec last 15 s</button>
-    <details id="pLogBox" name="pause"><summary>dares<span id="pCount" class="val"></span></summary><ul id="pLog" class="tries"></ul></details>
-    <details id="gKeys" open name="pause"><summary>controls</summary><div id="pKeys" class="ctl"></div></details>
-    <details id="gLook" name="pause"><summary>look</summary>
+    <details id="pLogBox"><summary>dares<span id="pCount" class="val"></span></summary><ul id="pLog" class="tries"></ul></details>
+    <details id="gKeys"><summary>controls</summary><div id="pKeys" class="ctl"></div></details>
+    <details id="gLook"><summary>look</summary>
       <div class="prow"><label for="pSens">look speed</label><input id="pSens" type="range" min="-1.6" max="1.6" step="0.05" value="0"></div>
       <label class="chk"><input type="checkbox" id="pInvert"> invert up and down</label>
       <div class="prow touchonly"><label for="pTLook">touch look</label><select id="pTLook"><option value="stick">stick</option><option value="drag">drag</option></select></div>
       <label class="chk touchonly"><input type="checkbox" id="pARun"> always run on touch</label>
     </details>
-    <details id="gSound" name="pause"><summary>sound</summary>
+    <details id="gSound"><summary>sound</summary>
       <label class="chk"><input type="checkbox" id="sound" checked> sound on</label>
       <div class="vol"><label for="volMaster">all sound</label><input id="volMaster" type="range" min="0" max="1" step="0.05"></div>
       <div class="vol"><label for="volAmb">weather</label><input id="volAmb" type="range" min="0" max="1" step="0.05"></div>
       <div class="vol"><label for="volCre">the animal</label><input id="volCre" type="range" min="0" max="1.5" step="0.05"></div>
       <div class="vol"><label for="volFx">effects</label><input id="volFx" type="range" min="0" max="1" step="0.05"></div>
     </details>
-    <details id="gView" name="pause"><summary>view</summary>
+    <details id="gView"><summary>view</summary>
       <div class="prow"><label for="pThoughts">its thoughts</label><select id="pThoughts" data-thoughts></select></div>
       <label class="chk"><input type="checkbox" id="pVHS" checked> VHS mode</label>
       <div class="vol"><label for="shake">ground shake</label><input id="shake" type="range" min="0" max="2" step="0.1" value="1"></div>

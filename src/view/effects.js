@@ -152,6 +152,7 @@ export class Effects {
       d.s.material.opacity = 0.1 * Math.sin(Math.PI * Math.min(1, u * 1.4 + 0.05)) * (1 - u);
       if (d.life <= 0) d.s.visible = false;
     }
+    if (!camera) return;
     // shake: decays fast, low-frequency so it reads as ground movement, not camera noise
     this.trauma = Math.max(0, this.trauma - dt * 1.9);
     this.jolt += (0 - this.jolt) * Math.min(1, dt * 9);
