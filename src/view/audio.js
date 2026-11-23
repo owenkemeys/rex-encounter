@@ -960,6 +960,8 @@ export class Audio {
   ignite() { if (!this._ok()) return; this._play('ignite', this.self, this.ctx.currentTime, 0.6, this._jit(0.05)); }
   /** You shouting. (Was a beep.) */
   ping() { if (!this._ok()) return; this._play('shout', this.self, this.ctx.currentTime, 0.4 * this._db(1), this._jit(0.04), 2); }
+  /** The same shout as a camera hears it, `dist` m off (the security-camera replay). */
+  shoutAt(dist) { if (!this._ok()) return; this._play('shout', this.self, this.ctx.currentTime, 0.4 * this._db(1) * Math.min(1, 14 / (dist + 4)), this._jit(0.04), 2); }
 
   // ---------------------------------------------------------------- per frame
   _listener(t) {
