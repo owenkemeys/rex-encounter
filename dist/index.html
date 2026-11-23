@@ -33,9 +33,16 @@ html, body { height: 100%; margin: 0; background: #b9b7a6; color: var(--ink); fo
 #stage { position: fixed; inset: 0; touch-action: none; cursor: crosshair; }
 #view { width: 100%; height: 100%; display: block; }
 body[data-mode="observe"] #stage { cursor: default; }
-#boot { position: fixed; inset: 0; display: grid; place-items: center; background: #23251f; font: 500 20px var(--display); letter-spacing: 0.06em; text-transform: uppercase; padding: 24px; text-align: center; z-index: 20; }
-#bootBar { width: min(260px, 60vw); height: 3px; margin: 16px auto 0; background: rgba(239, 230, 207, 0.14); }
-#bootBar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.25s; }
+/* the loading screen: a tape going in. Black with drifting static, PLAY in the corner, the counter running so it never looks stuck, a tracking bar */
+#boot { position: fixed; inset: 0; z-index: 20; background: #050605; color: #fff; font: 400 26px/1.1 var(--vhs); letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 2px 2px 0 #000, 0 0 6px #000; }
+#boot::before { content: ""; position: absolute; inset: -160px; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.55 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>"); opacity: 0.22; animation: bootstatic 0.5s steps(5) infinite; }
+@keyframes bootstatic { 0% { transform: translate(0, 0); } 20% { transform: translate(-61px, 37px); } 40% { transform: translate(43px, -89px); } 60% { transform: translate(-97px, -23px); } 80% { transform: translate(71px, 59px); } }
+#boot > * { position: absolute; }
+#bootPlay { top: calc(var(--st) + 14px); left: calc(var(--sl) + 18px); }
+#bootCount { top: calc(var(--st) + 14px); right: calc(var(--sr) + 18px); }
+#bootMid { left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; }
+#bootBar { width: min(300px, 64vw); height: 12px; margin: 14px auto 0; border: 2px solid #fff; box-shadow: 2px 2px 0 #000; }
+#bootBar i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(90deg, #fff 0 8px, transparent 8px 11px); transition: width 0.25s; }
 #vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 46%, transparent 52%, rgba(6,8,10,0.5) 100%); }
 
 /* ---- the mind readout: no box, just type over a soft scrim */
@@ -432,7 +439,7 @@ body.tuning #tuneStrip { display: none; }
   <div id="tHint" hidden><b class="h1">move</b><b class="h2">look</b><b class="h3">jump · crouch · flare<br>torch · call</b></div>
 </div>
 <button id="muteIcon" hidden aria-label="sound is off: tap to turn on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg><span>sound off</span></button>
-<div id="boot"><div>Waking the animal<div id="bootBar"><i></i></div></div></div>
+<div id="boot"><span id="bootPlay">&#9654; Play</span><span id="bootCount">0:00:00</span><div id="bootMid">Tracking<div id="bootBar"><i></i></div></div></div>
 <div id="hurt"></div>
 <div id="start" class="cardwrap" role="dialog" aria-label="Start">
   <div class="card">
@@ -650,6 +657,7 @@ body.tuning #tuneStrip { display: none; }
 // The loading bar: the game's code arriving fills it to DL (its size from app.size, written by the build), then main.js (bootAt)
 // carries it on through building the world and the first picture. It never gives up on a timer: without a size it just waits.
 const bar = document.querySelector('#bootBar i'), DL = 0.5, at = (f) => { if (bar) bar.style.width = (f * 100).toFixed(1) + '%'; };
+{ const c = document.getElementById('bootCount'), t0 = performance.now(), p2 = (n) => String(n).padStart(2, '0'), tick = () => { if (!c.isConnected) return; const s = Math.floor((performance.now() - t0) / 1000); c.textContent = `${Math.floor(s / 3600)}:${p2(Math.floor(s / 60) % 60)}:${p2(s % 60)}`; setTimeout(tick, 250); }; tick(); }      // the tape counter runs from the first moment
 let src = './app.js';
 try {
   const [r, size] = await Promise.all([fetch(src), fetch('./app.size').then((s) => (s.ok ? s.text() : '')).catch(() => '')]);
