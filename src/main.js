@@ -26,7 +26,7 @@ import { ST } from './view/figure.js';
 import { GAIT_DEMOS, GAIT_CAM, GaitMeter } from './gaitdemo.js';      // gait demos
 import { detectQuality, backendPreference, QualityController, qualityMenu } from './view/quality.js';
 import { createTelemetry, NO_TELEMETRY } from './telemetry.js';
-import { countRun } from './runs.js';
+import { countRun, incidentNo } from './runs.js';
 import { makeGatehouseDesk } from './view/gatehouse.js';      // the gatehouse start: the guard's counter and monitor
 import { gateFidget } from './gatesplash.js';      // the gatehouse start: the guard's small sounds that keep the animal round the hut
 
@@ -190,10 +190,10 @@ async function boot() {
     document.body.classList.add('clipping'); return true;
   }
   // share your run: a shared tape (#tape=<id>) plays first through the same frozen-game path as a clip in play, then the card offers this rex or a new one
-  let sharedTape = sharedId() && SHARE_API ? fetchTape(sharedId()).then(decodeTape).catch(() => null) : null, sharedSeed = 0;
+  let sharedTape = sharedId() && SHARE_API ? fetchTape(sharedId()).then(decodeTape).catch(() => null) : null, sharedSeed = 0, sharedNo = '', sharedAt = 0;
   function watchShared(t) {
     if (!t || S.replay || S.dead || !rec.fromTape(t) || !rec.play(camera.aspect)) { rec.reset(); return false; }
-    sharedSeed = t.meta.seed | 0; S.watching = true;
+    sharedSeed = t.meta.seed | 0; sharedNo = t.meta.no; sharedAt = t.meta.at; S.watching = true;
     liveSaved = { p: camera.position.clone(), q: camera.quaternion.clone(), fov: camera.fov, torch: props.torchOn, locked: false };
     S.clipLive = true; S.keys.clear(); drag = null; S.call = null; S.zoom.hold = false; releaseTouch(); releasePointer();
     S.replay = true; document.body.classList.add('replay'); tagEl.hidden = true;
@@ -201,7 +201,7 @@ async function boot() {
     torchLive = props.torchOn; audio.sim = rpx; if (audio.mic) audio.mic(true, false, 0.03, 1.5); micHeld = false;
     return true;
   }
-  function sharedEnd() { S.watching = false; rec.reset(); clip.resetLine(); releasePointer(); $('sharedEnd').hidden = false; }      // the mouse comes back for the card
+  function sharedEnd() { const d = new Date(sharedAt || Date.now()); $('seTape').textContent = `Incident ${sharedNo || '----'} - ${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}, 1996`; S.watching = false; rec.reset(); clip.resetLine(); releasePointer(); $('sharedEnd').hidden = false; }      // the mouse comes back for the card
   function leaveShared(same) { $('sharedEnd').hidden = true; history.replaceState(null, '', same ? '#seed' + sharedSeed : location.pathname + location.search); startOver(); }
   $('seTry').addEventListener('click', () => leaveShared(true)); $('seNew').addEventListener('click', () => leaveShared(false));
   let shareLink = null;
@@ -210,13 +210,13 @@ async function boot() {
     if (shareLink) { try { if (navigator.share) await navigator.share({ title: 'Rex Encounter', url: shareLink }); else { await navigator.clipboard.writeText(shareLink); b.textContent = 'link copied'; } } catch {} return; }
     if (b.disabled) return; b.disabled = true; b.textContent = 'uploading\u2026';
     try {
-      const t = rec.toTape({ seed: SEED, mood: world.moodKey }); if (!t) throw new Error('no tape');
+      const t = rec.toTape({ seed: SEED, mood: world.moodKey, no: incidentNo(), at: Date.now() }); if (!t) throw new Error('no tape');
       shareLink = await uploadRun(await encodeTape(t), await S.still.blob(), SEED);
       b.textContent = navigator.share ? 'share link' : 'copy link';
     } catch { b.textContent = 'could not share'; }
     b.disabled = false;
   });
-  const shareReset = () => { shareLink = null; const b = $('xShare'); b.textContent = 'share your run'; b.disabled = false; b.hidden = !SHARE_API; };
+  const shareReset = () => { shareLink = null; const b = $('xShare'); b.textContent = 'share link'; b.disabled = false; b.hidden = !SHARE_API; };
   function endLiveClip(relock = true) {
     if (!S.clipLive) return; S.clipLive = false; document.body.classList.remove('clipping');
     if (S.watching) { const L = liveSaved; liveSaved = null; if (L) { camera.position.copy(L.p); camera.quaternion.copy(L.q); if (camera.fov !== L.fov) { camera.fov = L.fov; camera.updateProjectionMatrix(); } } sharedEnd(); return; }
@@ -602,7 +602,7 @@ async function boot() {
   function setPaused(p) {
     if (!S.started || p === S.paused || (p && S.dead)) return;
     S.paused = p; document.body.classList.toggle('paused', p); S.keys.clear(); drag = null; if (p) releaseTouch();
-    if (p) { releasePointer(); try { if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend(); } catch {} }
+    if (p) { $('pLogBox').open = matchMedia('(min-width: 700px) and (min-height: 500px)').matches; releasePointer(); try { if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend(); } catch {} }
     else { audio.resume(); lockPointer(); }
     ui.paused(p);
     // the card takes the keyboard and the gamepad: Resume has the focus (Enter, Space or A resumes)

@@ -585,7 +585,7 @@ export function createUI(o) {
   // advice (the very sentence the closing card of a saved clip shows: clip.js caches it for this death), and three ranked actions.
   const WORDS = { bite: 'BITTEN', bitten: 'BITTEN', jaws: 'BITTEN', seize: 'BITTEN', shake: 'SHAKEN', shaken: 'SHAKEN', crush: 'CRUSHED', crushed: 'CRUSHED', stamp: 'STAMPED ON', stamped: 'STAMPED ON', pin: 'PINNED', pinned: 'PINNED', toss: 'THROWN', tossed: 'THROWN', thrown: 'THROWN', fall: 'A FALL', landed: 'A FALL', butt: 'HEADBUTTED', swipe: 'TAIL STRIKE', tail: 'TAIL STRIKE', eaten: 'EATEN', eat: 'EATEN', fed: 'EATEN' };
   function keysLine() {
-    const d = dev(), a = [['go again', d === 'pad' ? 'A' : 'Enter']]; if (!$('xReplay').hidden) a.push(['watch again', d === 'pad' ? 'X' : 'R']); if (!$('xClip').hidden) a.push(['save clip', d === 'pad' ? 'Y' : 'C']);
+    const d = dev(), a = [['next visitor', d === 'pad' ? 'A' : 'Enter']]; if (!$('xReplay').hidden) a.push(['replay tape', d === 'pad' ? 'X' : 'R']); if (!$('xClip').hidden) a.push(['save video', d === 'pad' ? 'Y' : 'C']);
     return d === 'touch' ? '' : a.map(([n, k]) => `${k} ${n}`).join(' \u00b7 ');
   }
   function showDeath() {
@@ -620,7 +620,7 @@ export function createUI(o) {
   let clipBusy = false;
   function syncClip() {
     const b = $('xClip'), sub = $('xClipSub'), c = S.clip; if (!b || !c) return;
-    if (!clipBusy) { const fin = c.state === 'finishing'; b.disabled = fin; b.textContent = fin ? 'preparing\u2026' : 'save clip'; }
+    if (!clipBusy) { const fin = c.state === 'finishing'; b.disabled = fin; b.textContent = fin ? 'preparing\u2026' : 'save video'; }
     if (!sub.classList.contains('show')) { sub.textContent = 'plays the replay once more while recording a video for you'; sub.hidden = b.hidden || !!c.blob || c.state === 'finishing'; }
   }
   /** What came of a hand-over (from the button, or at the end of a re-recording). */

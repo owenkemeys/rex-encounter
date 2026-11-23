@@ -15,13 +15,13 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=VT323&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
   /* instruments laid over an overcast paddock: bone ink, ember accent, nothing else */
   --ink: #f1eee4; --ink-dim: rgba(241,238,228,0.72); --ink-faint: rgba(241,238,228,0.5); --panel: rgba(18,20,17,0.78); --line: rgba(241,238,228,0.16);
   --accent: #f05a3c; --good: #4fd18b; --warn: #f2a33a; --bone: #efe6cf; --soot: #17120e;
-  --display: "Barlow Condensed", "Arial Narrow", sans-serif; --body: "IBM Plex Sans", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif; --vhs: "VT323", "Lucida Console", monospace; --body: "IBM Plex Sans", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, monospace;
   color-scheme: dark;
   /* the parts of the frame that may be hidden: browser bars, notches, the host's toolbar (portrait phones: see below) */
   --st: max(10px, env(safe-area-inset-top)); --sb: max(12px, env(safe-area-inset-bottom)); --sl: max(12px, env(safe-area-inset-left)); --sr: max(12px, env(safe-area-inset-right));
@@ -245,33 +245,47 @@ body.locked #stage, body.hover:not(.paused):not(.menu)[data-mode="foot"] #stage,
 body.locked[data-mode="foot"] #crosshair, body.hover[data-mode="foot"] #crosshair { display: block; }
 .prow input[type=range] { width: 100%; }
 
-/* ---- cards: start, pause, the end */
-.cardwrap { position: fixed; inset: 0; z-index: 12; display: none; place-items: center; padding: var(--st) var(--sr) var(--sb) var(--sl); }
-.card { width: min(440px, 100%); max-height: calc(100vh - var(--st) - var(--sb)); max-height: calc(100dvh - var(--st) - var(--sb)); overflow-y: auto; background: rgba(14,15,13,0.86); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px 20px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
-.card { touch-action: manipulation; }
-.card h1, .card h2 { margin: 0 0 6px; font: 600 26px/1.05 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
-.card h3 { margin: 14px 0 6px; font: 600 13px var(--display); letter-spacing: 0.12em; text-transform: uppercase; display: flex; justify-content: space-between; }
-.card p { margin: 0 0 10px; color: var(--ink-dim); text-transform: lowercase; }
-.card .lede { font-size: 15px; color: var(--ink); text-wrap: balance; }
-.card .keys { text-transform: none; }
-.card .small { font-size: 12px; color: var(--ink-faint); margin: 10px 0 0; }
-.card button.big { width: 100%; font-size: 18px; padding: 12px; background: var(--accent); border-color: var(--accent); color: #1b1410; }
-.card button.big:hover { filter: brightness(1.08); }
+/* ---- cards: start, pause, the end, as the camcorder's own on-screen lettering: no panel, corner brackets, a faint dark backing; the selected item inverted */
+.cardwrap { position: fixed; inset: 0; z-index: 12; display: none; place-items: center; padding: var(--st) var(--sr) var(--sb) var(--sl); background: radial-gradient(ellipse 70% 80% at 50% 50%, rgba(0,0,0,0.62), rgba(0,0,0,0.28) 70%, rgba(0,0,0,0.12)); }
+.card { position: relative; width: min(440px, 100%); max-height: calc(100vh - var(--st) - var(--sb)); max-height: calc(100dvh - var(--st) - var(--sb)); overflow-y: auto; padding: 22px 26px 20px; font: 400 22px/1.2 var(--vhs); color: #fff; text-transform: uppercase; letter-spacing: 0.06em; text-shadow: 2px 2px 0 #000, 0 0 6px #000; touch-action: manipulation; }
+.card::before, .card::after { content: ""; position: absolute; width: 22px; height: 22px; border: 3px solid #fff; filter: drop-shadow(2px 2px 0 #000); pointer-events: none; }
+.card::before { top: 0; left: 0; border-right: 0; border-bottom: 0; } .card::after { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+.card h1, .card h2 { margin: 0 0 10px; font: 400 34px/1.05 var(--vhs); letter-spacing: 0.06em; }
+.card h1 span { color: inherit !important; }
+.card h1::after, .card h2::after { float: right; margin-left: 16px; color: #ff3b30; } #start h1::after { content: "\25CF REC"; } #pause h2::after { content: "\25CF II"; } #sharedEnd h2::after { content: "\25A0"; }
+.card h3 { margin: 14px 0 6px; font: inherit; display: flex; justify-content: space-between; }
+.card p { margin: 0 0 10px; }
+.card .lede { color: #fff; text-wrap: balance; }
+.card .small { font-size: 18px; opacity: 0.6; margin: 10px 0 0; }
+.card button, .dm-btns button { display: block; width: fit-content; max-width: 100%; margin: 2px 0; padding: 1px 8px; font: inherit; letter-spacing: inherit; text-transform: uppercase; text-align: left; text-shadow: inherit; color: #fff; background: none; border: 0; border-radius: 0; }
+.card button:hover, .card button:focus-visible, .card button.big, .dm-btns button:hover, .dm-btns button:focus, #xAgain { background: #fff; color: #000; text-shadow: none; box-shadow: 2px 2px 0 #000; outline: none; }
+.card:has(button:hover, button:focus-visible) button.big:not(:hover):not(:focus-visible), .dm-btns:has(button:hover, button:focus) #xAgain:not(:hover):not(:focus) { background: none; color: #fff; text-shadow: inherit; box-shadow: none; }
+#startGo::before, #pResume::before, #xAgain::before, #seTry::before { content: "\25B6\00a0 "; } #pAgain::before, #seNew::before { content: "\23CF\00a0 "; } #pClip::before { content: "\25CF\00a0 "; }
+#xReplay::before { content: "\21BA\00a0 "; } #xClip::before { content: "\2913\00a0 "; } #xShare::before { content: "\2197\00a0 "; }
+.card details { border-top: 0; padding-top: 0; gap: 4px; }
+.card details > summary { font: inherit; letter-spacing: inherit; display: flex; justify-content: space-between; }
+.card details > summary::before { content: none; } .card details > summary::after { content: "+"; } .card details[open] > summary::after { content: "\2212"; }
+.card label, .card .chk, .card .prow label { font: 400 20px var(--vhs); letter-spacing: 0.06em; text-transform: uppercase; color: #fffd; }
+.card select { font: 400 20px var(--vhs); text-transform: uppercase; color: #fff; background: #000; border: 2px solid #fff; border-radius: 0; }
+.card input[type="checkbox"], .card input[type="range"] { accent-color: #fff; }
+.card .tries { gap: 4px; } .card .tries li { padding-left: 0; } .card .tries li::before { content: none; }
+.card .tries b { font: inherit; color: rgba(255,255,255,0.55); } .card .tries li.done b { color: #fff; } .card .tries li.done b::after { content: " \2713"; }
+.card .tries small { font: 400 17px/1.15 var(--vhs); text-transform: none; color: rgba(255,255,255,0.7); }
 .chk { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--ink-dim); text-transform: lowercase; cursor: pointer; }
-#start { display: grid; background: radial-gradient(ellipse at 50% 55%, rgba(10,11,9,0.25), rgba(10,11,9,0.7)); cursor: pointer; }
+#start { display: grid; cursor: pointer; }
 body.started #start { display: none; }
 /* the gatehouse start: the card sits bottom right, off the live feed's middle where the animal is framed */
-#start { place-items: end end; background: linear-gradient(to left, rgba(10,11,9,0.55), rgba(10,11,9,0) 55%); }      /* the card at the bottom right, off the live view, in both starts */
-#start .card { width: min(360px, 100%); }
-#sharedEnd { display: grid; z-index: 13; background: rgba(8,9,8,0.45); }
+#start { place-items: end end; background: radial-gradient(ellipse 60% 70% at 78% 74%, rgba(0,0,0,0.62), rgba(0,0,0,0.12)); }      /* the card at the bottom right, off the live view, in both starts */
+#start .card { width: min(380px, 100%); }
+#sharedEnd { display: grid; z-index: 13; }
 #startGo span { display: none; } body:not([data-dev]) #startGo .kd, body[data-dev="kb"] #startGo .kd, body[data-dev="touch"] #startGo .tp, body[data-dev="pad"] #startGo .pd { display: inline; }
 #start .opts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 22px; margin-top: 12px; }
 #start .opts .prow { margin: 0; flex: 1 1 180px; }
 #start .opts .chk { margin: 0; }
 body:not(.started) #menuBtn, body:not(.started) #mindcard, body:not(.started) #touch, body:not(.started) #toast { display: none !important; }
-#pause { background: rgba(8,9,8,0.35); }
 body.paused #pause { display: grid; }
-body.paused #bubble, body.paused #invite, body.paused #touch, body.dead #bubble, body.dead #invite, body.dead #touch, body.dead #crosshair { visibility: hidden; }
+/* while any card is up, the picture is clear of every other line of in-game text */
+:is(body:not(.started), body.paused, body.dead, body:has(#sharedEnd:not([hidden]))) :is(#bubble, #invite, #prompt, #hint, #kitHud, #toast, #touch, #tHint, #corner, #crosshair, #mindcard) { visibility: hidden; }
 .prow { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; margin: 14px 0 8px; }
 .prow label { font: 500 13px var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); }
 .prow select { width: 100%; font: 13px var(--body); padding: 5px; }
@@ -279,47 +293,47 @@ body.paused #bubble, body.paused #invite, body.paused #touch, body.dead #bubble,
 .meter b { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
 #pLogBox summary .val { margin-left: 6px; }
 /* the pause card: settings in groups */
-#pause details { margin-top: 6px; padding-top: 4px; gap: 4px; }
-@media (min-width: 700px) and (min-height: 500px) { #pause .card { width: min(600px, 100%); } #pKeys { grid-template-columns: max-content 1fr max-content 1fr; } }
-#pause details > summary { min-height: 36px; display: flex; align-items: center; }
+#pause details { margin-top: 2px; }
+@media (min-width: 700px) and (min-height: 500px) {
+  #pause .card { width: min(700px, 100%); display: grid; grid-template-columns: 1fr 240px; column-gap: 36px; align-content: start; }
+  #pause .card > * { grid-column: 1; }
+  #pause #pLogBox { grid-column: 2; grid-row: 2 / span 30; align-self: start; padding: 10px 14px; font-size: 20px; border-left: 3px solid #fffc; background: rgba(0,0,0,0.4); }
+  #pLogBox > summary { border-bottom: 2px dashed #fff8; padding-bottom: 4px; pointer-events: none; } #pLogBox > summary::after { content: none; }
+}
+#pause details > summary { min-height: 30px; align-items: center; }
 #pause details[open] { padding-bottom: 6px; }
 #pause .vol { grid-template-columns: 120px 1fr; min-height: 36px; }
 #pause .chk { min-height: 36px; margin-top: 2px; }
 #pause .prow { margin: 4px 0; }
-#pause #pAgain { width: 100%; margin-top: 8px; padding: 10px; font-size: 15px; }
 #pause .hd { display: flex; align-items: baseline; justify-content: space-between; }
-#pause .hd small { color: var(--ink-faint); font-size: 12px; text-transform: lowercase; }
-.card .ctl { margin: 6px 0 2px; }
+#pause .hd small { opacity: 0.6; font-size: 18px; }
+.card .ctl { margin: 6px 0 2px; font-size: 19px; text-transform: uppercase; }
+.card .ctl b { font: 400 19px var(--vhs); background: none; border: 2px solid #fff; padding: 0 6px; } .card .ctl span { color: rgba(255,255,255,0.8); }
 /* keyboard and gamepad focus: always visible */
-body.pad .card :focus, body.pad .card :focus-visible { outline: 3px solid var(--warn); outline-offset: 2px; }
-.card button.big:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+body.pad .card :focus:not(button), body.pad .card :focus-visible:not(button) { outline: 3px solid #fff; outline-offset: 2px; }
 .chk:focus-within { color: var(--ink); }
 /* thumbs: every control at least 44 px on touch */
 body.touch .card button, body.touch .card select, body.touch #pause details > summary, body.touch .card .chk, body.touch #pause .vol, body.touch .card .prow { min-height: 44px; }
 body.touch .card input[type="checkbox"] { width: 22px; height: 22px; }
 body.touch .card input[type="range"] { height: 32px; }
-/* the death menu: a slim panel in the security system's own lettering over the dimmed last frame of the footage */
-#dead { position: fixed; inset: 0; z-index: 12; display: none; align-items: flex-end; background: linear-gradient(to top, rgba(4,6,5,0.5) 0%, rgba(4,6,5,0.28) 45%, rgba(4,6,5,0.18) 100%); --mono: "IBM Plex Mono", "Lucida Console", "Courier New", monospace; }
+/* the death menu: a strip of the camcorder's lettering under the safety notice, which stays whole above it (clip.js fits it), or over the last frame when the replay was skipped */
+#dead { position: fixed; inset: 0; z-index: 12; display: none; align-items: flex-end; }
 body.dead #dead { display: flex; animation: fadein .6s ease; }
-.dm { width: 100%; box-sizing: border-box; padding: 16px max(20px, var(--sl)) calc(16px + var(--sb)) max(20px, var(--sl)); background: rgba(8,12,9,0.8); border-top: 1px solid rgba(236,244,236,0.22); color: #ecf4ec; text-shadow: 0 1px 2px #000; font-family: var(--mono); }
-.dm-in { max-width: 940px; display: grid; gap: 8px; }
+.dm { width: 100%; box-sizing: border-box; padding: 26px max(28px, var(--sl)) calc(18px + var(--sb)) max(28px, var(--sl)); background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0.85) 22%); color: #fff; font: 400 22px/1.2 var(--vhs); letter-spacing: 0.06em; text-transform: uppercase; text-shadow: 2px 2px 0 #000, 0 0 6px #000; }
+.dm-in { max-width: 940px; display: grid; gap: 6px; }
 .dm p { margin: 0; }
-#xFacts { font: 700 clamp(12px, 1.5vw, 15px)/1.3 var(--mono); letter-spacing: 0.08em; }
-#xAdvice { font: 400 clamp(12px, 1.4vw, 15px)/1.4 var(--mono); opacity: 0.74; }
-#xDare { font: 700 clamp(11px, 1.3vw, 13px)/1.4 var(--mono); letter-spacing: 0.06em; color: var(--warn); }
+body.notice #xFacts, body.notice #xAdvice { display: none; }
+#xAdvice { opacity: 0.75; text-transform: none; }
+#xDare { font-size: 20px; color: #ffb627; }
 #xDare::before { content: "\25B8  "; }
-.dm-btns { display: flex; gap: 10px; margin-top: 6px; }
-.dm-btns button { min-height: 46px; padding: 0 18px; font: 700 14px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; border-radius: 2px; cursor: pointer; }
-#xAgain { flex: 1.7; background: var(--accent); color: #1b1410; border: 2px solid var(--accent); }
-#xReplay, #xClip { flex: 1; background: transparent; color: #ecf4ec; border: 1px solid rgba(236,244,236,0.5); }
+.dm-btns { display: flex; flex-wrap: wrap; gap: 4px 22px; margin-top: 2px; }
+.dm-btns button { min-height: 32px; cursor: pointer; }
 #xClip:disabled { opacity: 0.6; cursor: default; }
-#xReplay:hover, #xClip:hover { background: rgba(236,244,236,0.1); }
-#xClipSub { display: none; font: 400 12px var(--mono); opacity: 0.65; }
+#xClipSub { display: none; font-size: 18px; opacity: 0.65; }
 #xClipSub.show:not([hidden]),
 body.touch #xClipSub:not([hidden]), .dm:has(#xClip:hover) #xClipSub:not([hidden]), .dm:has(#xClip:focus-visible) #xClipSub:not([hidden]) { display: block; }
-#xKeys { font: 400 11px var(--mono); opacity: 0.5; letter-spacing: 0.06em; min-height: 1em; }
-#dead :focus-visible { outline: 3px solid var(--warn); outline-offset: 2px; }
-@media (max-width: 640px) { .dm-btns { flex-direction: column; } #xAgain { order: -1; min-height: 58px; } .dm-btns button { min-height: 50px; } }
+#xKeys { font-size: 16px; opacity: 0.5; min-height: 1em; }
+@media (max-width: 640px) { .dm-btns { flex-direction: column; } .dm-btns button { min-height: 40px; } }
 body.replay #dead { display: none; }
 .card .btns { display: flex; gap: 10px; }
 .card .btns button { flex: 1; }
@@ -428,12 +442,13 @@ body.tuning #tuneStrip { display: none; }
     <div class="opts"><label class="chk"><input type="checkbox" id="sSound" checked> sound</label><label class="chk"><input type="checkbox" id="sVHS" checked> VHS mode</label></div>
   </div>
 </div>
-<div id="sharedEnd" class="cardwrap" role="dialog" aria-label="Shared run" hidden>
+<div id="sharedEnd" class="cardwrap" role="dialog" aria-label="End of tape" hidden>
   <div class="card">
-    <h2>That was <span style="color:var(--accent)">someone's run</span></h2>
-    <p class="lede">same rex, same start.</p>
-    <button id="seTry" class="big">try and do better</button>
-    <button id="seNew" style="width:100%;margin-top:8px">new rex</button>
+    <h2>End of tape</h2>
+    <p id="seTape"></p>
+    <p>Visitor did not survive</p>
+    <button id="seTry" class="big">view bodycam (take control)</button>
+    <button id="seNew">next visitor (new game)</button>
   </div>
 </div>
 <div id="invite" role="status"></div>
@@ -444,9 +459,9 @@ body.tuning #tuneStrip { display: none; }
 <section id="pause" class="cardwrap" role="dialog" aria-label="Paused">
   <div class="card">
     <h2 id="pTitle">Paused</h2>
-    <button id="pResume" class="big">resume</button>
-    <button id="pAgain">start over</button>
-    <button id="pClip" hidden style="width:100%;margin-top:6px">save a clip of the last 15 seconds</button>
+    <button id="pResume" class="big">play</button>
+    <button id="pAgain">new tape</button>
+    <button id="pClip" hidden>rec last 15 s</button>
     <details id="pLogBox"><summary>dares<span id="pCount" class="val"></span></summary><ul id="pLog" class="tries"></ul></details>
     <details id="gKeys" open><summary>controls</summary><div id="pKeys" class="ctl"></div></details>
     <details id="gLook"><summary>look</summary>
@@ -484,7 +499,7 @@ body.tuning #tuneStrip { display: none; }
     <p id="xFacts"></p>
     <p id="xAdvice"></p>
     <p id="xDare" hidden></p>
-    <div class="dm-btns"><button id="xAgain">go again</button><button id="xReplay">watch again</button><button id="xClip" hidden>save clip</button><button id="xShare" hidden>share your run</button></div>
+    <div class="dm-btns"><button id="xAgain">next visitor</button><button id="xReplay">replay tape</button><button id="xClip" hidden>save video</button><button id="xShare" hidden>share link</button></div>
     <p id="xClipSub" hidden>plays the replay once more while recording a video for you</p>
     <p id="xKeys"></p>
   </div></div>
