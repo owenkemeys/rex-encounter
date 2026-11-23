@@ -190,10 +190,10 @@ async function boot() {
     document.body.classList.add('clipping'); return true;
   }
   // share your run: a shared tape (#tape=<id>) plays first through the same frozen-game path as a clip in play, then the card offers this rex or a new one
-  let sharedTape = sharedId() && SHARE_API ? fetchTape(sharedId()).then(decodeTape).catch(() => null) : null, sharedSeed = 0, sharedNo = '', sharedAt = 0;
+  let sharedTape = sharedId() && SHARE_API ? fetchTape(sharedId()).then(decodeTape).catch(() => null) : null, sharedT = null, sharedNo = '', sharedAt = 0;
   function watchShared(t) {
     if (!t || S.replay || S.dead || !rec.fromTape(t) || !rec.play(camera.aspect)) { rec.reset(); return false; }
-    sharedSeed = t.meta.seed | 0; sharedNo = t.meta.no; sharedAt = t.meta.at; S.watching = true;
+    sharedT = t; sharedNo = t.meta.no; sharedAt = t.meta.at; S.watching = true;
     liveSaved = { p: camera.position.clone(), q: camera.quaternion.clone(), fov: camera.fov, torch: props.torchOn, locked: false };
     S.clipLive = true; S.keys.clear(); drag = null; S.call = null; S.zoom.hold = false; releaseTouch(); releasePointer();
     S.replay = true; document.body.classList.add('replay'); tagEl.hidden = true;
@@ -202,8 +202,8 @@ async function boot() {
     return true;
   }
   function sharedEnd() { const d = new Date(sharedAt || Date.now()); $('seTape').textContent = `Incident ${sharedNo || '----'} - ${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}, 1996`; S.watching = false; rec.reset(); clip.resetLine(); releasePointer(); $('sharedEnd').hidden = false; }      // the mouse comes back for the card
-  function leaveShared(same) { $('sharedEnd').hidden = true; history.replaceState(null, '', same ? '#seed' + sharedSeed : location.pathname + location.search); startOver(); }
-  $('seTry').addEventListener('click', () => leaveShared(true)); $('seNew').addEventListener('click', () => leaveShared(false));
+  function leaveShared() { $('sharedEnd').hidden = true; history.replaceState(null, '', location.pathname + location.search); startOver(); }
+  $('seRewind').addEventListener('click', () => { $('sharedEnd').hidden = true; watchShared(sharedT); }); $('seNew').addEventListener('click', leaveShared);
   let shareLink = null;
   $('xShare').addEventListener('click', async () => {
     const b = $('xShare');
@@ -216,7 +216,7 @@ async function boot() {
     } catch { b.textContent = 'could not share'; }
     b.disabled = false;
   });
-  const shareReset = () => { shareLink = null; const b = $('xShare'); b.textContent = 'share link'; b.disabled = false; b.hidden = !SHARE_API; };
+  const shareReset = () => { shareLink = null; const b = $('xShare'); b.textContent = 'playable link'; b.disabled = false; b.hidden = !SHARE_API; };
   function endLiveClip(relock = true) {
     if (!S.clipLive) return; S.clipLive = false; document.body.classList.remove('clipping');
     if (S.watching) { const L = liveSaved; liveSaved = null; if (L) { camera.position.copy(L.p); camera.quaternion.copy(L.q); if (camera.fov !== L.fov) { camera.fov = L.fov; camera.updateProjectionMatrix(); } } sharedEnd(); return; }
