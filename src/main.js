@@ -201,9 +201,17 @@ async function boot() {
     torchLive = props.torchOn; audio.sim = rpx; if (audio.mic) audio.mic(true, false, 0.03, 1.5); micHeld = false;
     return true;
   }
-  function sharedEnd() { const d = new Date(sharedAt || Date.now()); $('seTape').textContent = `Incident ${sharedNo || '----'} - ${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}, 1996`; S.watching = false; rec.reset(); clip.resetLine(); releasePointer(); $('sharedEnd').hidden = false; }      // the mouse comes back for the card
+  const tapeLine = (no, at) => { const d = new Date(at || Date.now()); return `Incident ${no || '----'} - ${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}, 1996`; };
+  function sharedEnd() { $('seTape').textContent = tapeLine(sharedNo, sharedAt); $('seShareSub').hidden = true; $('seVideo').hidden = !clip.hasClip(); S.watching = false; rec.reset(); releasePointer(); $('sharedEnd').hidden = false; }      // the mouse comes back for the card
   function leaveShared() { $('sharedEnd').hidden = true; history.replaceState(null, '', location.pathname + location.search); startOver(); }
-  $('seRewind').addEventListener('click', () => { $('sharedEnd').hidden = true; watchShared(sharedT); }); $('seNew').addEventListener('click', leaveShared);
+  $('seRewind').addEventListener('click', () => { $('sharedEnd').hidden = true; if (watchShared(sharedT)) recordShared(); }); $('seNew').addEventListener('click', leaveShared);
+  // a shared link opens on the tape's first frame, held, under its own card; View security footage plays it (and records it, for Download video)
+  const recordShared = () => { clip.resetLine(); if (clip.canRecord()) clip.start(false, false); };
+  $('ssPlay').addEventListener('click', (e) => { e.stopPropagation(); $('sharedStart').hidden = true; start(false); S.tapeHold = false; recordShared(); });
+  $('ssNew').addEventListener('click', (e) => { e.stopPropagation(); $('sharedStart').hidden = true; S.tapeHold = false; S.watching = false; sharedT = null; endReplay(); rec.reset(); document.body.classList.remove('shared'); history.replaceState(null, '', location.pathname + location.search); });
+  $('seShareMenu').addEventListener('click', () => { const sub = $('seShareSub'); sub.hidden = !sub.hidden; });
+  $('seVideo').addEventListener('click', () => { const b = $('seVideo'); b.textContent = 'saving\u2026'; clip.deliver().then((r) => { b.textContent = r && r.ok ? 'saved' : 'could not save'; }, () => { b.textContent = 'could not save'; }); });
+  $('seLink').addEventListener('click', async () => { const b = $('seLink'), link = `${SHARE_API}/r/${sharedId()}`; try { if (navigator.share) await navigator.share({ title: 'Rex Encounter', url: link }); else { await navigator.clipboard.writeText(link); b.textContent = 'link copied'; } } catch {} });
   let shareLink = null;
   $('xShare').addEventListener('click', async () => {
     const b = $('xShare');
@@ -240,6 +248,7 @@ async function boot() {
   // one recorded sound event, as the camera's microphone catches it: placed by its own position, heard from the camera
   function hear(e) {
     audio.src = e; const cp = camera.position, hp = rpx.head.pos, dist = cp.distanceTo(hp), at = e.x !== undefined ? Math.hypot(e.x - cp.x, (e.y ?? cp.y) - cp.y, e.z - cp.z) : dist;
+    if (e.src === 'you') { if (e.type === 'shout') audio.shoutAt(at); else if (e.type === 'whistle') ui.whistle(); return; }
     if (e.src === 'things') {
       if (e.type === 'impact') { if (e.kind === 'stone') audio.stoneHit(at, e); else audio.thud(Math.min(0.5, 3 / (1 + at))); if (e.first && fx.puff) fx.puff(e.x, e.y, e.z); }
       else if (e.type === 'hit') { audio.smack(at); if (fx.puff) fx.puff(e.x, e.y, e.z); }
@@ -271,7 +280,7 @@ async function boot() {
     document.body.classList.remove('clipping');
     if (natural === true) {
       const live = S.clipLive, want = clip.wantSave; clip.wantSave = false;
-      clip.finish().then((ok) => { if (live) { if (ok) clipReadyPanel(); else endLiveClip(); } else if (ok && want) clip.deliver(true).then((r) => { try { ui.clipResult(r); } catch {} }); }, () => { if (live) endLiveClip(); });
+      clip.finish().then((ok) => { if (live) { if (ok && !S.watching) clipReadyPanel(); else endLiveClip(); } else if (ok && want) clip.deliver(true).then((r) => { try { ui.clipResult(r); } catch {} }); }, () => { if (live) endLiveClip(); });
       return true;
     }
     clip.wantSave = false; clip.cancel(); return false;      // skipped early: the recording is incomplete, thrown away
@@ -578,12 +587,11 @@ async function boot() {
     S.started = true; document.body.classList.add('started'); audio.resume();
     if (S.dev === 'touch') { try { if (localStorage.getItem('dh.thint') !== '1') { localStorage.setItem('dh.thint', '1'); applyLayout(); const h = $('tHint'); h.hidden = false; setTimeout(() => { h.hidden = true; }, 3000); } } catch {} }      // once: the two sticks and the cluster, named for three seconds
     // fullscreen is its own explicit action (pause card), never part of this gesture
-    lockPointer(); S.invite = true; S.startedAt = performance.now(); S.clock0 = S.clock;
+    if (!S.watching) lockPointer(); S.invite = true; S.startedAt = performance.now(); S.clock0 = S.clock;
     // the open start: watching is being there. You stand where the camera stands from the moment you begin, still, and the animal can find you;
     // the first move or look only hands you the body (no new noise, no cut)
-    if (OPEN && !GATE && S.mode === 'observe' && !S.met) { standAtCamera(); { const b = bearing(S.you.x - sim.x, S.you.z - sim.z); if (Math.cos(b - sim.psi) < 0.5) sim.reset(sim.x, sim.z, b); }      // (owner: it should start where it can see you, not walk off)
+    if (OPEN && !GATE && S.mode === 'observe' && !S.met && !S.watching) { standAtCamera(); { const b = bearing(S.you.x - sim.x, S.you.z - sim.z); if (Math.cos(b - sim.psi) < 0.5) sim.reset(sim.x, sim.z, b); }      // (owner: it should start where it can see you, not walk off)
       S.awareAt = S.clock; S.met = true; director.pinned = true; arena.opening({ x: S.you.x, z: S.you.z }, 45, (FIRST && FIRST.hunger) || undefined); }
-    if (sharedTape) { const p = sharedTape; sharedTape = null; p.then((t) => { if (t) watchShared(t); }); }
     try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch {}
     window.focus();
   }
@@ -623,7 +631,7 @@ async function boot() {
   document.addEventListener('pointerlockchange', () => {
     const on = locked(); document.body.classList.toggle('locked', on);
     if (on) { S.lock.fail = false; S.lock.ok++; document.body.classList.remove('hover'); }
-    if (!on && S.clipLive && S.replay && !S.unlockOk) { S.noRelock = true; endReplay(); S.noRelock = false; setPaused(true); }      // closeout: Esc during a clip in play: the clip is dropped and the pause card comes up
+    if (!on && S.clipLive && S.replay && !S.unlockOk && !S.watching) { S.noRelock = true; endReplay(); S.noRelock = false; setPaused(true); }      // closeout: Esc during a clip in play: the clip is dropped and the pause card comes up
     else if (!on && S.started && !S.paused && !S.unlockOk && !S.dead && !S.frozen && !S.clipLive) setPaused(true);      // Esc (or anything else) took the pointer away: pause
     S.unlockOk = false;
   });
@@ -1236,6 +1244,7 @@ async function boot() {
       if (S.mode === 'observe') { S.noises.push(...director.noises); director.noises.length = 0; }
       if (!aware() && S.noises.length) S.noises = S.noises.filter((q) => !q.you);
       for (const q of S.noises) if (q.you && clip) clip.note(q.kind);      // closeout: whistles and shouts, for the closing card
+      for (const q of S.noises) if (q.you && (q.kind === 'shout' || q.kind === 'whistle')) rec.event({ src: 'you', type: q.kind, x: q.x, y: q.y, z: q.z });      // and on the tape, so the camera hears them too
       for (const q of S.noises) if (q.you && ui.achv) ui.achv.noise(q, { x: q.x, y: q.y, z: q.z });      // dares: a shout right in its face
       arena.step(DT, { agents: ag, noises: S.noises, light: world.light, flash: world.flash, wind }, S.mindOn ? null : directedIntent());
       if (gaitRun) gmeter.tick(sim, sim.t - gaitRun.t0);
@@ -1299,11 +1308,11 @@ async function boot() {
     if (!S.replay) clip.tick(dtReal); else if (clip.active) clip.pause(!!S.frozen);
     if (S.replay) {
       if (S.replayHold) { shown = rec.pose; rpx.head.pos.copy(rec.head); props.torchOn = rec.torchOn; const I = post.cctvInfo; I.cam = rec.camNo; I.label = rec.label; I.stamp = rec.stampMs; I.clock = performance.now() / 1000; I.paused = true; post.cctvU.burst.value = 0; }      // closeout: the death menu over the last frame of the footage
-      else if (!clip.closing() && rec.update(S.frozen ? 0 : dtReal, camera)) {      // closeout: once the tape has ended a recording goes on into the closing card
+      else if (!clip.closing() && rec.update(S.frozen || S.tapeHold ? 0 : dtReal, camera)) {      // closeout: once the tape has ended a recording goes on into the closing card
         shown = rec.pose; rpx.head.pos.copy(rec.head); props.torchOn = rec.torchOn;
         for (const e of rec.fired) hear(e);
         if (!!S.frozen !== micHeld) { micHeld = !!S.frozen; if (audio.mic) audio.mic(true, micHeld); }      // paused: the sound is held (muted); T resumes it
-        const I = post.cctvInfo; I.cam = rec.camNo; I.label = rec.label; I.stamp = rec.stampMs; I.clock = performance.now() / 1000; I.paused = !!S.frozen; post.cctvU.burst.value = S.frozen ? 0 : rec.burst;
+        const I = post.cctvInfo; I.cam = rec.camNo; I.label = rec.label; I.stamp = rec.stampMs; I.clock = performance.now() / 1000; I.paused = !!(S.frozen || S.tapeHold); post.cctvU.burst.value = S.frozen || S.tapeHold ? 0 : rec.burst;
       } else if (clip.card(S.frozen ? 0 : dtReal)) { shown = rec.pose; }      // closeout: the closing card, at the end of every replay
       else stopReplay(true);
     }
@@ -1413,6 +1422,7 @@ async function boot() {
     // look point and lens blew up before the start card was dismissed, and the takeover inherited a ground-facing, whited-out view)
     const loop = (now) => { const dt = clamp((now - last) / 1000, 0, 0.1); last = Math.max(last, now); frame(dt); unboot(); requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
+    if (sharedTape) sharedTape.then((t) => { if (!t || !watchShared(t)) return; S.tapeHold = true; $('ssNo').textContent = t.meta.no || ''; $('ssDate').textContent = tapeLine(t.meta.no, t.meta.at); document.body.classList.add('shared'); $('sharedStart').hidden = false; });
   }
 }
 

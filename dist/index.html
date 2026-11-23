@@ -283,7 +283,8 @@ body.started #start { display: none; }
 /* the gatehouse start: the card sits bottom right, off the live feed's middle where the animal is framed */
 #start { place-items: end end; background: radial-gradient(ellipse 60% 70% at 78% 74%, rgba(0,0,0,0.62), rgba(0,0,0,0.12)); }      /* the card at the bottom right, off the live view, in both starts */
 #start .card { width: min(380px, 100%); }
-#sharedEnd { display: grid; z-index: 13; }
+#sharedEnd, #sharedStart { display: grid; z-index: 13; } body.shared #start { display: none; }
+#sharedStart h2::after { content: "\25AE\25AE"; } #ssPlay::before { content: "\25B6\00a0 "; } #ssNew::before { content: "\23CF\00a0 "; } #seShareMenu::before { content: "\2197\00a0 "; } #seShareSub { margin-left: 30px; }
 #startGo span { display: none; } body:not([data-dev]) #startGo .kd, body[data-dev="kb"] #startGo .kd, body[data-dev="touch"] #startGo .tp, body[data-dev="pad"] #startGo .pd { display: inline; }
 #start .opts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 22px; margin-top: 12px; }
 #start .opts .prow { margin: 0; flex: 1 1 180px; }
@@ -435,7 +436,7 @@ body.tuning #tuneStrip { display: none; }
   <div id="tHint" hidden><b class="h1">move</b><b class="h2">look</b><b class="h3">jump · crouch · flare<br>torch · call</b></div>
 </div>
 <button id="muteIcon" hidden aria-label="sound is off: tap to turn on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg><span>sound off</span></button>
-<div id="boot"><span id="bootPlay">&#9654; Play</span><span id="bootCount">0:00:00</span><div id="bootMid">Tracking<div id="bootBar"><i></i></div></div></div>
+<div id="boot"><span id="bootPlay">&#9654; Play</span><span id="bootCount">0:00:00</span><div id="bootMid">Loading tape<div id="bootBar"><i></i></div></div></div>
 <div id="hurt"></div>
 <div id="start" class="cardwrap" role="dialog" aria-label="Start">
   <div class="card">
@@ -445,6 +446,15 @@ body.tuning #tuneStrip { display: none; }
     <div class="opts"><label class="chk"><input type="checkbox" id="sSound" checked> sound</label><label class="chk"><input type="checkbox" id="sVHS" checked> VHS mode</label></div>
   </div>
 </div>
+<div id="sharedStart" class="cardwrap" role="dialog" aria-label="Tape" hidden>
+  <div class="card">
+    <h2>Tape <span id="ssNo"></span></h2>
+    <p id="ssDate"></p>
+    <p>Visitor did not survive</p>
+    <button id="ssPlay" class="big">view security footage</button>
+    <button id="ssNew">next visitor</button>
+  </div>
+</div>
 <div id="sharedEnd" class="cardwrap" role="dialog" aria-label="End of tape" hidden>
   <div class="card">
     <h2>End of tape</h2>
@@ -452,6 +462,8 @@ body.tuning #tuneStrip { display: none; }
     <p>Visitor did not survive</p>
     <button id="seRewind" class="big">rewind tape</button>
     <button id="seNew">next visitor</button>
+    <button id="seShareMenu">share this tape</button>
+    <div id="seShareSub" hidden><button id="seVideo" hidden>download video</button><button id="seLink">playable link</button></div>
   </div>
 </div>
 <div id="invite" role="status"></div>
