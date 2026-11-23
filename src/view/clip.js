@@ -142,14 +142,8 @@ export function createClip({ getCanvas, audio, tape, extra, onCard }) {      // 
       C.frames++;
     } catch (e) { C.error = String(e && e.message || e); }
   }
-  /** Under the death menu the card stays whole: scaled down from the top so it ends just above the menu strip (it is the last thing the player saw). */
-  C.dim = (on) => {
-    document.body.classList.toggle('notice', !!(on && ov));
-    if (!ov) return;
-    if (!on) { ov.style.transform = ov.style.boxShadow = ''; return; }
-    requestAnimationFrame(() => { if (!ov) return; const m = document.querySelector('#dead .dm'), top = m && m.offsetHeight ? m.getBoundingClientRect().top : innerHeight; const k = Math.max(0.4, Math.min(1, (top - 16) / innerHeight));
-      ov.style.transformOrigin = '50% 0'; ov.style.transform = `translateY(8px) scale(${k})`; ov.style.boxShadow = '0 0 0 100vmax #0b0d0b'; });
-  };
+  /** Under the death menu the card stays up as the tape's last frame, paused and dimmed so the menu over it reads. */
+  C.dim = (on) => { document.body.classList.toggle('notice', !!(on && ov)); if (ov) ov.style.filter = on ? 'brightness(0.3)' : ''; };
   /** Take the card off the screen (a new replay, a new life, back to the game). */
   C.dropCard = () => { document.body.classList.remove('notice'); closing = false; ct = 0; tp = null; ovTp = null; cardInfo = null; C.live = false; if (ov) { try { ov.remove(); } catch {} } ov = null; overlayG = null; ovKey = ''; };
   /** For checking the look without a death: the card as it is at tape time t, drawn on a fresh canvas of the given size. */

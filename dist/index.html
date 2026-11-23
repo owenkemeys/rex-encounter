@@ -267,8 +267,7 @@ body.locked[data-mode="foot"] #crosshair, body.hover[data-mode="foot"] #crosshai
 .card button, .dm-btns button { display: block; width: fit-content; max-width: 100%; margin: 2px 0; padding: 1px 8px; font: inherit; letter-spacing: inherit; text-transform: uppercase; text-align: left; text-shadow: inherit; color: #fff; background: none; border: 0; border-radius: 0; }
 .card button:hover, .card button:focus-visible, .card button.big, .dm-btns button:hover, .dm-btns button:focus, #xAgain { background: #fff; color: #000; text-shadow: none; box-shadow: 2px 2px 0 #000; outline: none; }
 .card:has(button:hover, button:focus-visible) button.big:not(:hover):not(:focus-visible), .dm-btns:has(button:hover, button:focus) #xAgain:not(:hover):not(:focus) { background: none; color: #fff; text-shadow: inherit; box-shadow: none; }
-#startGo::before, #pResume::before, #xAgain::before, #seTry::before { content: "\25B6\00a0 "; } #pAgain::before, #seNew::before { content: "\23CF\00a0 "; } #pClip::before { content: "\25CF\00a0 "; }
-#xReplay::before { content: "\21BA\00a0 "; } #xClip::before { content: "\2913\00a0 "; } #xShare::before { content: "\2197\00a0 "; }
+#startGo::before, #pResume::before { content: "\25B6\00a0 "; } #pAgain::before { content: "\23CF\00a0 "; } #pClip::before { content: "\25CF\00a0 "; }
 .card details { border-top: 0; padding-top: 0; gap: 4px; }
 .card details > summary { font: inherit; letter-spacing: inherit; display: flex; justify-content: space-between; }
 .card details > summary::before { content: none; } .card details > summary::after { content: "+"; } .card details[open] > summary::after { content: "\2212"; }
@@ -323,24 +322,21 @@ body.pad .card :focus:not(button), body.pad .card :focus-visible:not(button) { o
 body.touch .card button, body.touch .card select, body.touch #pause details > summary, body.touch .card .chk, body.touch #pause .vol, body.touch .card .prow { min-height: 44px; }
 body.touch .card input[type="checkbox"] { width: 22px; height: 22px; }
 body.touch .card input[type="range"] { height: 32px; }
-/* the death menu: a strip of the camcorder's lettering under the safety notice, which stays whole above it (clip.js fits it), or over the last frame when the replay was skipped */
-#dead { position: fixed; inset: 0; z-index: 12; display: none; align-items: flex-end; }
-body.dead #dead { display: flex; animation: fadein .6s ease; }
-.dm { width: 100%; box-sizing: border-box; padding: 26px max(28px, var(--sl)) calc(18px + var(--sb)) max(28px, var(--sl)); background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0.85) 22%); color: #fff; font: 400 22px/1.2 var(--vhs); letter-spacing: 0.06em; text-transform: uppercase; text-shadow: 2px 2px 0 #000, 0 0 6px #000; }
-.dm-in { max-width: 940px; display: grid; gap: 6px; }
-.dm p { margin: 0; }
+/* the death menu: END OF TAPE, centred over the safety notice, which stays up as the tape's last frame, dimmed (clip.js) */
+#dead { position: fixed; inset: 0; z-index: 12; display: none; place-items: center; padding: var(--st) var(--sr) var(--sb) var(--sl); background: radial-gradient(ellipse 45% 55% at 50% 50%, rgba(0,0,0,0.7), rgba(0,0,0,0.3) 70%, rgba(0,0,0,0)); }
+body.dead #dead { display: grid; animation: fadein .6s ease; }
+.dm { width: min(460px, 100%); }
+#dead h2::after { content: "\25A0"; }
+.dm p { margin: 0 0 8px; }
 body.notice #xFacts, body.notice #xAdvice { display: none; }
 #xAdvice { opacity: 0.75; text-transform: none; }
-#xDare { font-size: 20px; color: #ffb627; }
-#xDare::before { content: "\25B8  "; }
-.dm-btns { display: flex; flex-wrap: wrap; gap: 4px 22px; margin-top: 2px; }
-.dm-btns button { min-height: 32px; cursor: pointer; }
+#xShareSub { margin-left: 30px; }
 #xClip:disabled { opacity: 0.6; cursor: default; }
 #xClipSub { display: none; font-size: 18px; opacity: 0.65; }
-#xClipSub.show:not([hidden]),
-body.touch #xClipSub:not([hidden]), .dm:has(#xClip:hover) #xClipSub:not([hidden]), .dm:has(#xClip:focus-visible) #xClipSub:not([hidden]) { display: block; }
-#xKeys { font-size: 16px; opacity: 0.5; min-height: 1em; }
-@media (max-width: 640px) { .dm-btns { flex-direction: column; } .dm-btns button { min-height: 40px; } }
+#xClipSub.show:not([hidden]), body.touch #xShareSub:not([hidden]) ~ #xClipSub:not([hidden]), .dm:has(#xClip:hover) #xClipSub:not([hidden]), .dm:has(#xClip:focus-visible) #xClipSub:not([hidden]) { display: block; }
+#xDare { margin: 12px 0 0; font-size: 21px; color: #ffb627; }
+#xKeys { font-size: 16px; opacity: 0.5; min-height: 1em; margin: 10px 0 0; }
+#xAgain::before, #seNew::before { content: "\23CF\00a0 "; } #xReplay::before, #seRewind::before { content: "\25C0\25C0\00a0 "; } #xShareMenu::before { content: "\2197\00a0 "; }
 body.replay #dead { display: none; }
 .card .btns { display: flex; gap: 10px; }
 .card .btns button { flex: 1; }
@@ -454,8 +450,8 @@ body.tuning #tuneStrip { display: none; }
     <h2>End of tape</h2>
     <p id="seTape"></p>
     <p>Visitor did not survive</p>
-    <button id="seTry" class="big">view bodycam (take control)</button>
-    <button id="seNew">next visitor (new game)</button>
+    <button id="seRewind" class="big">rewind tape</button>
+    <button id="seNew">next visitor</button>
   </div>
 </div>
 <div id="invite" role="status"></div>
@@ -501,15 +497,17 @@ body.tuning #tuneStrip { display: none; }
 <div id="replayTag" hidden>any key for menu</div>
 <div id="gaitCap" hidden></div>
 <div id="gaitHud" hidden><div class="gh"><span>hips</span><b id="ghHip">-</b></div><div class="gh"><span>stance</span><b id="ghSt">-</b></div><div class="gh"><span>episodes</span><b id="ghEp">0</b></div><i id="ghSplay">SPLAY</i></div>
-<section id="dead" role="dialog" aria-label="Incident report">
-  <div class="dm"><div class="dm-in">
+<section id="dead" role="dialog" aria-label="End of tape">
+  <div class="card dm">
+    <h2>End of tape</h2>
     <p id="xFacts"></p>
     <p id="xAdvice"></p>
+    <div class="dm-btns"><button id="xAgain">next visitor</button><button id="xReplay">rewind tape</button><button id="xShareMenu" hidden aria-expanded="false">share this tape</button>
+      <div id="xShareSub" hidden><button id="xClip" hidden>download video</button><button id="xShare" hidden>playable link</button></div></div>
+    <p id="xClipSub" hidden>plays the tape once more while recording a video for you</p>
     <p id="xDare" hidden></p>
-    <div class="dm-btns"><button id="xAgain">next visitor</button><button id="xReplay">replay tape</button><button id="xClip" hidden>save video</button><button id="xShare" hidden>share link</button></div>
-    <p id="xClipSub" hidden>plays the replay once more while recording a video for you</p>
     <p id="xKeys"></p>
-  </div></div>
+  </div>
 </section>
 
 <section id="mindcard" aria-live="off">
