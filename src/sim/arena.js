@@ -70,17 +70,15 @@ export class Arena {
    *  the Lawn meets a new small thing: fed enough not to want you, rested, curious. What it does about you is the mind's own
    *  (mind.opening only weighs novelty over the herd it knows and holds back posturing while nothing has provoked it). */
   opening(you, secs = 45, hunger = [0.35, 0.5]) {
-    const m = this.mind, T = this.T, sim = this.sim;
+    const m = this.mind, sim = this.sim;
     // it stands close enough that its thoughts can be read from the gate (the bubble is legible within ~30 m): moved in along
     // the line between you, so whatever framed it before still frames it
     { const dx = sim.x - you.x, dz = sim.z - you.z, d = Math.hypot(dx, dz), D = 24; if (d > D + 1 && sim.t < 0.5) { const k = D / d; sim.reset(you.x + dx * k, you.z + dz * k, sim.psi); } }
     m.hunger = Math.min(Math.max(m.hunger, hunger[0]), hunger[1]); m.mood.interest = Math.max(m.mood.interest, 0.5); m.mood.boredom = 0.1; m.mood.arousal = Math.max(m.mood.arousal, 0.3);
     m.opening = { t0: m.t, until: m.t + secs, x: you.x, z: you.z };
-    this._arrival = [{ at: this.t + 0.25, x: you.x, y: T.height(you.x, you.z) + 0.3, z: you.z, loud: 0.45, kind: 'clatter' }, { at: this.t + 0.9, x: you.x, y: T.height(you.x, you.z), z: you.z, loud: 0.2, kind: 'step' }];
   }
   step(dt, world, intentOverride = null) {
     const sim = this.sim, mind = this.mind, things = this.things, herd = this.herd;
-    if (this._arrival) { for (const n of this._arrival) if (!n.done && this.t >= n.at) { n.done = true; const { at, done, ...q } = n; this.noises.push(q); } if (this._arrival.every((n) => n.done)) this._arrival = null; }
     // the world first: objects fly and land, the herd moves
     things.step(dt, sim); this.t += dt;
     if (this.T.stepDoors) this.T.stepDoors(dt, sim, this.events);      // doors and shutters: burst open by its head or chest, swung by you
