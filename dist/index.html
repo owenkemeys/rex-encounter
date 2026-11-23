@@ -247,7 +247,7 @@ body.locked[data-mode="foot"] #crosshair, body.hover[data-mode="foot"] #crosshai
 
 /* ---- cards: start, pause, the end, as the camcorder's own on-screen lettering: no panel, corner brackets, a faint dark backing; the selected item inverted */
 .cardwrap { position: fixed; inset: 0; z-index: 12; display: none; place-items: center; padding: var(--st) var(--sr) var(--sb) var(--sl); background: radial-gradient(ellipse 70% 80% at 50% 50%, rgba(0,0,0,0.62), rgba(0,0,0,0.28) 70%, rgba(0,0,0,0.12)); }
-.card { position: relative; width: min(440px, 100%); max-height: calc(100vh - var(--st) - var(--sb)); max-height: calc(100dvh - var(--st) - var(--sb)); overflow-y: auto; padding: 22px 26px 20px; font: 400 22px/1.2 var(--vhs); color: #fff; text-transform: uppercase; letter-spacing: 0.06em; text-shadow: 2px 2px 0 #000, 0 0 6px #000; touch-action: manipulation; }
+.card { position: relative; width: min(440px, 100%); max-height: calc(100vh - var(--st) - var(--sb)); max-height: calc(100dvh - var(--st) - var(--sb)); overflow-y: auto; padding: 22px 26px 20px; font: 400 22px/1.2 var(--vhs); color: #fff; text-transform: uppercase; letter-spacing: 0.06em; text-shadow: 2px 2px 0 #000, 0 0 6px #000; touch-action: manipulation; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.4) transparent; }
 .card::before, .card::after { content: ""; position: absolute; width: 22px; height: 22px; border: 3px solid #fff; filter: drop-shadow(2px 2px 0 #000); pointer-events: none; }
 .card::before { top: 0; left: 0; border-right: 0; border-bottom: 0; } .card::after { bottom: 0; right: 0; border-left: 0; border-top: 0; }
 .card h1, .card h2 { margin: 0 0 10px; font: 400 34px/1.05 var(--vhs); letter-spacing: 0.06em; }
@@ -462,22 +462,22 @@ body.tuning #tuneStrip { display: none; }
     <button id="pResume" class="big">play</button>
     <button id="pAgain">new tape</button>
     <button id="pClip" hidden>rec last 15 s</button>
-    <details id="pLogBox"><summary>dares<span id="pCount" class="val"></span></summary><ul id="pLog" class="tries"></ul></details>
-    <details id="gKeys" open><summary>controls</summary><div id="pKeys" class="ctl"></div></details>
-    <details id="gLook"><summary>look</summary>
+    <details id="pLogBox" name="pause"><summary>dares<span id="pCount" class="val"></span></summary><ul id="pLog" class="tries"></ul></details>
+    <details id="gKeys" open name="pause"><summary>controls</summary><div id="pKeys" class="ctl"></div></details>
+    <details id="gLook" name="pause"><summary>look</summary>
       <div class="prow"><label for="pSens">look speed</label><input id="pSens" type="range" min="-1.6" max="1.6" step="0.05" value="0"></div>
       <label class="chk"><input type="checkbox" id="pInvert"> invert up and down</label>
       <div class="prow touchonly"><label for="pTLook">touch look</label><select id="pTLook"><option value="stick">stick</option><option value="drag">drag</option></select></div>
       <label class="chk touchonly"><input type="checkbox" id="pARun"> always run on touch</label>
     </details>
-    <details id="gSound"><summary>sound</summary>
+    <details id="gSound" name="pause"><summary>sound</summary>
       <label class="chk"><input type="checkbox" id="sound" checked> sound on</label>
       <div class="vol"><label for="volMaster">all sound</label><input id="volMaster" type="range" min="0" max="1" step="0.05"></div>
       <div class="vol"><label for="volAmb">weather</label><input id="volAmb" type="range" min="0" max="1" step="0.05"></div>
       <div class="vol"><label for="volCre">the animal</label><input id="volCre" type="range" min="0" max="1.5" step="0.05"></div>
       <div class="vol"><label for="volFx">effects</label><input id="volFx" type="range" min="0" max="1" step="0.05"></div>
     </details>
-    <details id="gView"><summary>view</summary>
+    <details id="gView" name="pause"><summary>view</summary>
       <div class="prow"><label for="pThoughts">its thoughts</label><select id="pThoughts" data-thoughts></select></div>
       <label class="chk"><input type="checkbox" id="pVHS" checked> VHS mode</label>
       <div class="vol"><label for="shake">ground shake</label><input id="shake" type="range" min="0" max="2" step="0.1" value="1"></div>

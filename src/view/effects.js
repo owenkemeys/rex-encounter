@@ -2,6 +2,7 @@
 import * as THREE from 'three/webgpu';
 import { makeRng } from '../math.js';
 import { SNIFF_RHYTHM } from './audiohybrid.js';
+import { tune } from './tune.js';      // tune
 
 function dustTexture() {
   const c = document.createElement('canvas'); c.width = c.height = 64;
@@ -17,6 +18,9 @@ function printTexture() {
   g.beginPath(); g.ellipse(0, 4, 15, 13, 0, 0, 7); g.fill();
   return new THREE.CanvasTexture(c);
 }
+
+const SHAKE = { reach: 18, strength: 1.3 };      // footfall shake: full within `reach` m, then falling off with distance squared (owner, 2026-11-22: barely felt in play)
+tune('Animal footsteps', 'Shake: reach (m)', SHAKE, 'reach', 4, 60, 1, null, 'shake.reach'); tune('Animal footsteps', 'Shake: strength', SHAKE, 'strength', 0, 4, 0.05, null, 'shake.strength');      // tune
 
 export class Effects {
   constructor(scene, terrain) {
@@ -115,7 +119,7 @@ export class Effects {
     this.prints.count = Math.min(this.pi, this.pn); this.prints.instanceMatrix.needsUpdate = true;
 
     const dist = Math.hypot(e.x - camPos.x, e.y - camPos.y, e.z - camPos.z);
-    this.pending.push({ at: this.t + dist / 900, k: e.intensity * Math.min(1, 64 / (dist * dist + 16)) * 1.5 });
+    this.pending.push({ at: this.t + dist / 900, k: e.intensity * Math.min(1, SHAKE.reach * SHAKE.reach / (dist * dist + 16)) * 1.5 * SHAKE.strength });
     if (audio) audio.thump(e.intensity, dist);
   }
 

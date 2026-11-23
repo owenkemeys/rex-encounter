@@ -11,6 +11,8 @@
 import { synthLib } from './audiosynth.js';
 import { hybridLib, HYB_NEEDS } from './audiohybrid.js';
 import { tune, tuneGroup } from './tune.js';      // tune
+const FEET = { gain: 1.6, fade: 90 };      // the animal's footfalls: overall level, and the distance (m) over which they fade to half (owner, 2026-11-22: too quiet in play)
+tune('Animal footsteps', 'Sound: loudness', FEET, 'gain', 0.2, 4, 0.05, null, 'feet.gain'); tune('Animal footsteps', 'Sound: fade distance (m)', FEET, 'fade', 30, 200, 1, null, 'feet.fade');      // tune
 
 const TENSE = new Set(['stalk', 'stare', 'watch', 'display', 'circle', 'besiege', 'inspect', 'bluff', 'ambush', 'hunt']);
 const SNIFFY = new Set(['sniff', 'trail', 'investigate', 'search', 'revisit', 'inspect']);
@@ -714,7 +716,7 @@ export class Audio {
     // 1. weight: a falling sine (felt) plus a low knock (audible on small speakers); a stalking step puts little weight down
     // (NOTES4: a run at you was heard only below 100 Hz, at the level of the rain/bird bed above 250 Hz: the weight now grows with
     //  pace and nearness, and carries an audible body thud and ground crack, not just a sub that small speakers drop)
-    const prox = 1 - sstep(5, 45, d), wk = soft ? 0.3 + intensity : 1, th = Math.min(0.75, (0.42 + 0.18 * run) * lvl * wk * this._db(2.5)) * (1 - 0.45 * sstep(12, 60, d)) * (0.36 + 0.64 * sstep(4, 20, d));      // (less close: a run at 6 m had sat on the master limiter, -2.2 dBFS)      // (was 0.78 flat, then min(0.55, 0.42 lvl): out/audio/ODDSOUNDS.md)
+    const prox = 1 - sstep(5, 45, d), wk = soft ? 0.3 + intensity : 1, th = Math.min(0.75, (0.42 + 0.18 * run) * lvl * wk * this._db(2.5)) * (1 - 0.45 * sstep(12, FEET.fade, d)) * (0.36 + 0.64 * sstep(4, 20, d)) * FEET.gain;      // (less close: a run at 6 m had sat on the master limiter, -2.2 dBFS)      // (was 0.78 flat, then min(0.55, 0.42 lvl): out/audio/ODDSOUNDS.md)
     const o = c.createOscillator(), og = c.createGain(), fA = (52 + R() * 14) * (1 + 0.15 * run) * side * this._jit(0.08), fB = (25 + R() * 6) * side;
     const tau = (soft ? 0.09 : 0.22 - 0.09 * run + 0.03 * wetK) * this._jit(0.12);
     o.frequency.setValueAtTime(fA, t0); o.frequency.exponentialRampToValueAtTime(fB, t0 + 0.08);

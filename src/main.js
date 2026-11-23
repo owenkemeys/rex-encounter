@@ -329,6 +329,12 @@ async function boot() {
   window.addEventListener('resize', resize); resize();
 
   // ------------------------------------------------------------ modes
+  /** You, standing still exactly where the camera stands and looking where it looks. */
+  function standAtCamera() {
+    const Y = S.you, c = camera.position;
+    Y.x = Y.px = c.x; Y.z = Y.pz = c.z; solidify(Y); Y.yaw = camera.rotation.y; Y.pitch = clamp(camera.rotation.x, -1.4, 1.4);
+    Y.eye = clamp(c.y - terrain.height(c.x, c.z), 0.6, 3); Y.vx = Y.vz = 0; Y.up = null; S.handled = null;
+  }
   function setMode(m) {
     if (m === S.mode) return;
     const Y = S.you;
@@ -337,8 +343,7 @@ async function boot() {
       if (S.mode === 'observe') {
         // take over from the observing camera exactly where it stands and looks: no cut, no lurch (the lens eases back to
         // normal and the eye settles to standing height over a moment; see moveCamera)
-        Y.x = Y.px = c.x; Y.z = Y.pz = c.z; solidify(Y); Y.yaw = camera.rotation.y; Y.pitch = clamp(camera.rotation.x, -1.4, 1.4);
-        Y.eye = clamp(c.y - terrain.height(c.x, c.z), 0.6, 3); Y.vx = Y.vz = 0; Y.up = null; S.handled = null;
+        standAtCamera();
       } else {
         // from the free camera: step out where it was, or 35 m in front of the animal if that is too close or in the air
         let x = c.x, z = c.z; const d = Math.hypot(x - sim.x, z - sim.z);
@@ -350,6 +355,7 @@ async function boot() {
       // the open start: the meeting begins as you step in (your first footfalls are heard), not while the start card is up; hungrier
       // than the gatehouse's, so the nosing turns to wanting you within the first minute (FIRST.hunger; test/openstart.mjs)
       if (OPEN && !GATE && !S.met) { S.met = true; arena.opening({ x: Y.x, z: Y.z }, 45, (FIRST && FIRST.hunger) || undefined); }
+      director.pinned = false;
     } else if (m === 'fly') {
       const f = S.fly; f.x = camera.position.x; f.y = Math.max(camera.position.y + 3, terrain.height(camera.position.x, camera.position.z) + 4); f.z = camera.position.z;
       f.yaw = Math.atan2(-(sim.x - f.x), -(sim.z - f.z)); f.pitch = Math.atan2(sim.py.x - f.y, Math.hypot(sim.x - f.x, sim.z - f.z));
@@ -573,6 +579,9 @@ async function boot() {
     if (S.dev === 'touch') { try { if (localStorage.getItem('dh.thint') !== '1') { localStorage.setItem('dh.thint', '1'); applyLayout(); const h = $('tHint'); h.hidden = false; setTimeout(() => { h.hidden = true; }, 3000); } } catch {} }      // once: the two sticks and the cluster, named for three seconds
     // fullscreen is its own explicit action (pause card), never part of this gesture
     lockPointer(); S.invite = true; S.startedAt = performance.now(); S.clock0 = S.clock;
+    // the open start: watching is being there. You stand where the camera stands from the moment you begin, still, and the animal can find you;
+    // the first move or look only hands you the body (no new noise, no cut)
+    if (OPEN && !GATE && S.mode === 'observe' && !S.met) { standAtCamera(); S.awareAt = S.clock; S.met = true; director.pinned = true; arena.opening({ x: S.you.x, z: S.you.z }, 45, (FIRST && FIRST.hunger) || undefined); }
     if (sharedTape) { const p = sharedTape; sharedTape = null; p.then((t) => { if (t) watchShared(t); }); }
     try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch {}
     window.focus();
@@ -600,9 +609,10 @@ async function boot() {
     return g.down * (1 - e);
   }
   function setPaused(p) {
-    if (!S.started || p === S.paused || (p && S.dead)) return;
+    if (!S.started || p === S.paused || (p && (S.dead || !$('sharedEnd').hidden))) return;      // (the end-of-tape card is its own menu)
     S.paused = p; document.body.classList.toggle('paused', p); S.keys.clear(); drag = null; if (p) releaseTouch();
-    if (p) { $('pLogBox').open = matchMedia('(min-width: 700px) and (min-height: 500px)').matches; releasePointer(); try { if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend(); } catch {} }
+    if (p) { const wide = matchMedia('(min-width: 700px) and (min-height: 500px)').matches, L = $('pLogBox'); L.name = wide ? '' : 'pause'; L.open = wide;      // one rollout open at a time (details name); on a wide screen the dares are their own read-out beside them
+      releasePointer(); try { if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend(); } catch {} }
     else { audio.resume(); lockPointer(); }
     ui.paused(p);
     // the card takes the keyboard and the gamepad: Resume has the focus (Enter, Space or A resumes)
@@ -1178,7 +1188,7 @@ async function boot() {
   const aware = () => S.awareAt !== undefined && S.clock >= S.awareAt;
   function agents() {
     if (!aware()) return [];
-    if (S.mode === 'observe') return [director.agent()];
+    if (S.mode === 'observe') { if (!director.pinned) return [director.agent()]; if (!arena.victim('you').free) takeOver(); }      // watching in the open start: the agent is you, standing still; handled, you get the body
     if (S.mode === 'fly') return [];
     const Y = S.you, sp = Math.hypot(Y.vx, Y.vz);
     const f = ray.set(0, 0, -1).applyQuaternion(camera.quaternion);

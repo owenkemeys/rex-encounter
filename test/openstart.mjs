@@ -20,10 +20,10 @@ for (let seed = s0; seed <= (s1 || s0); seed++) {
   const sim = new Creature(T, { x: F.rex.x, z: F.rex.z, yaw, seed }), mind = new Mind(sim, seed), A = new Arena(T, sim, mind, seed);
   const me = { id: 'you', x: F.you.x, z: F.you.z, y: T.height(F.you.x, F.you.z) + 1.7, vx: 0, vz: 0, speed: 0, crouch: false, fx: 0, fz: -1, torch: false, lx: 0, ly: 0, lz: -1 };
   const V = A.victim('you'), R = { seed, d0: null, seen: null, nudge: null, shove: null, toss: null, decide: null, how: null, kill: null, probes: [] };
-  const aware = CARD + 1;      // main.js setMode('foot'): S.awareAt = clock + 1
+  const aware = CARD;      // main.js start(): in the open start you are there, still, from the moment you begin
   for (let i = 0; i < (CARD + SECS) * 120; i++) {
     const t = i * dt, ts = t - CARD, in_ = t >= aware;
-    if (Math.abs(ts) < dt / 2) A.opening({ x: me.x, z: me.z }, OSECS, HUN);      // main.js: stepping in re-arms the meeting
+    if (Math.abs(ts) < dt / 2) A.opening({ x: me.x, z: me.z }, OSECS, HUN);      // main.js start(): beginning starts the meeting
     if (V.free) { const d = Math.hypot(sim.x - me.x, sim.z - me.z) || 1; me.fx = (sim.x - me.x) / d; me.fz = (sim.z - me.z) / d; } else { me.x = V.x; me.z = V.z; }
     me.y = T.height(me.x, me.z) + 1.7;
     if (Math.abs(ts) < dt / 2) R.d0 = +Math.hypot(sim.x - me.x, sim.z - me.z).toFixed(0);
