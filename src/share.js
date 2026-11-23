@@ -43,6 +43,20 @@ export class StillPicker {
     const fig = inside(crop(p.set(S.x, S.y + 0.9, S.z)));
     return 30 * Math.min(1, size / 0.6) + (fig ? 20 : 0) + (S.st === ST.AIR ? 40 : S.st === ST.HELD ? 35 : 0) - 0.3 * Math.abs(f - (rec.death - 10));
   }
+  /** The camcorder's lettering over the picture, as the menus have it: corner brackets, PLAY and the tape counter, the incident and the date, the name. */
+  stamp(no, at = Date.now()) {
+    if (!this.c) return;
+    const g = this.c.getContext('2d'), W = 1200, H = 630, m = 34, d = new Date(at), p2 = (n) => String(n).padStart(2, '0');
+    g.save();
+    for (const [y0, y1] of [[0, 130], [H, H - 150]]) { const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, 'rgba(0,0,0,0.92)'); gr.addColorStop(0.55, 'rgba(0,0,0,0.6)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, Math.min(y0, y1), W, Math.abs(y1 - y0)); }      // over the screen's own cropped lettering
+    g.fillStyle = '#fff'; g.strokeStyle = '#fff'; g.lineWidth = 5; g.shadowColor = '#000'; g.shadowOffsetX = 3; g.shadowOffsetY = 3; g.textBaseline = 'alphabetic';
+    for (const [x, y, sx, sy] of [[m, m, 1, 1], [W - m, H - m, -1, -1]]) { g.beginPath(); g.moveTo(x, y + 40 * sy); g.lineTo(x, y); g.lineTo(x + 40 * sx, y); g.stroke(); }
+    const font = (px) => { g.font = `${px}px VT323, "Lucida Console", monospace`; };
+    font(46); g.textAlign = 'left'; g.fillText('\u25B6 PLAY', m + 26, m + 58); g.textAlign = 'right'; g.fillStyle = '#ff3b30'; g.fillText('\u25CF', W - m - 150, m + 58); g.fillStyle = '#fff'; g.fillText(`0:00:${p2(d.getSeconds())}`, W - m - 8, m + 58);
+    font(40); g.textAlign = 'left'; g.fillText(`INCIDENT ${no || '----'}`, m + 26, H - m - 62); g.fillText(`${d.toLocaleString('en-US', { month: 'short' }).toUpperCase()} ${d.getDate()} 1996`, m + 26, H - m - 22);
+    font(54); g.textAlign = 'right'; g.fillText('REX ENCOUNTER', W - m - 26, H - m - 22);
+    g.restore();
+  }
   /** JPEG under the server's 256 KiB cap: lower quality until it fits. */
   async blob() {
     if (!this.c) return null;

@@ -219,7 +219,7 @@ async function boot() {
     if (b.disabled) return; b.disabled = true; b.textContent = 'uploading\u2026';
     try {
       const t = rec.toTape({ seed: SEED, mood: world.moodKey, no: incidentNo(), at: Date.now() }); if (!t) throw new Error('no tape');
-      shareLink = await uploadRun(await encodeTape(t), await S.still.blob(), SEED);
+      S.still.stamp(t.meta.no, t.meta.at); shareLink = await uploadRun(await encodeTape(t), await S.still.blob(), SEED);
       b.textContent = navigator.share ? 'share link' : 'copy link';
     } catch { b.textContent = 'could not share'; }
     b.disabled = false;
