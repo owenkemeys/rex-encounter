@@ -202,7 +202,7 @@ async function boot() {
     return true;
   }
   const tapeLine = (no, at) => { const d = new Date(at || Date.now()); return `Incident ${no || '----'} - ${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}, 1996`; };
-  function sharedEnd() { $('seTape').textContent = tapeLine(sharedNo, sharedAt); $('seShareSub').hidden = true; $('seVideo').hidden = !clip.hasClip(); S.watching = false; rec.reset(); releasePointer(); $('sharedEnd').hidden = false; }      // the mouse comes back for the card
+  function sharedEnd() { $('sharedStart').hidden = true; $('seTape').textContent = tapeLine(sharedNo, sharedAt); $('seShareSub').hidden = true; $('seVideo').hidden = !clip.hasClip(); S.watching = false; rec.reset(); releasePointer(); $('sharedEnd').hidden = false; }      // the mouse comes back for the card
   function leaveShared() { $('sharedEnd').hidden = true; history.replaceState(null, '', location.pathname + location.search); startOver(); }
   $('seRewind').addEventListener('click', () => { $('sharedEnd').hidden = true; if (watchShared(sharedT)) recordShared(); }); $('seNew').addEventListener('click', leaveShared);
   // a shared link opens on the tape's first frame, held, under its own card; View security footage plays it (and records it, for Download video)
@@ -308,7 +308,7 @@ async function boot() {
     if (S.clipLive && !fin) endLiveClip(!S.noRelock);      // closeout
   }
   window.addEventListener('keydown', (e) => {
-    if (S.frozen) return;      // the note box is open: typing there is its own
+    if (S.frozen || S.tapeHold) return;      // the note box is open: typing there is its own; a shared tape held on its first frame waits for its own card
     if (eatKey && e.key === eatKey) { e.stopImmediatePropagation(); e.preventDefault(); return; }
     if (S.replay && recLocked()) { if (e.key.toLowerCase() === 't' && !e.ctrlKey && !e.metaKey && !e.altKey) return; e.stopImmediatePropagation(); e.preventDefault(); if (e.key === 'Escape' && !e.repeat) { eatKey = e.key; stopReplay(); } return; }      // a recording the player asked for: only Escape ends it (T still opens the note box and holds the tape)
     if (S.dead && (S.replayHold || !S.replay) && document.body.classList.contains('dead') && !e.ctrlKey && !e.metaKey && !e.altKey) {      // closeout: the death menu's keys
@@ -325,6 +325,7 @@ async function boot() {
     if (S.dead && !S.replay) try { document.getElementById('xAgain').focus({ preventScroll: true }); } catch {}
   }, true);
   window.addEventListener('pointerdown', (e) => {
+    if (S.tapeHold) return;      // (the click on View security footage must not skip the tape it starts)
     if (S.replay && recLocked()) { if (e.target.closest && e.target.closest('#noteBox, #noteBtn, #noteShield')) return; e.stopImmediatePropagation(); e.preventDefault(); return; }      // clip
     if (!S.replay || S.replayHold || S.frozen || (e.target.closest && e.target.closest('#noteBox, #noteBtn, #noteShield'))) return;
     e.stopImmediatePropagation(); e.preventDefault(); eatClick = performance.now() + 500; stopReplay();
@@ -590,8 +591,7 @@ async function boot() {
     if (!S.watching) lockPointer(); S.invite = true; S.startedAt = performance.now(); S.clock0 = S.clock;
     // the open start: watching is being there. You stand where the camera stands from the moment you begin, still, and the animal can find you;
     // the first move or look only hands you the body (no new noise, no cut)
-    if (OPEN && !GATE && S.mode === 'observe' && !S.met && !S.watching) { standAtCamera(); { const b = bearing(S.you.x - sim.x, S.you.z - sim.z); if (Math.cos(b - sim.psi) < 0.5) sim.reset(sim.x, sim.z, b); }      // (owner: it should start where it can see you, not walk off)
-      S.awareAt = S.clock; S.met = true; director.pinned = true; arena.opening({ x: S.you.x, z: S.you.z }, 45, (FIRST && FIRST.hunger) || undefined); }
+    if (OPEN && !GATE && S.mode === 'observe' && !S.met && !S.watching) { standAtCamera(); S.awareAt = S.clock; S.met = true; director.pinned = true; arena.opening({ x: S.you.x, z: S.you.z }, 45, (FIRST && FIRST.hunger) || undefined); }
     try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch {}
     window.focus();
   }
@@ -1055,7 +1055,7 @@ async function boot() {
     if (any) { setDev('pad'); audio.resume(); }
     if (S.frozen) { pad.prev = bt; return; }      // the note box is open: the pad does nothing
     if (clip.panelOpen()) { clip.panelPad(down(0), down(1)); pad.prev = bt; return; }      // closeout: the clip-ready panel
-    if (S.replay && !S.replayHold) { if (!recLocked() && bt.some((b, i) => b && !pad.prev[i])) stopReplay(); pad.prev = bt; return; }      // death cam: any button skips
+    if (S.replay && !S.replayHold) { if (!recLocked() && !S.tapeHold && bt.some((b, i) => b && !pad.prev[i])) stopReplay(); pad.prev = bt; return; }      // death cam: any button skips
     if (!S.started) { if (down(9)) start(false); else padMenu($('start'), down); pad.prev = bt; return; }   // Start: begin; A: the focused control (start, unless moved)
     if (down(9) && !S.dead) setPaused(!S.paused);                                                      // Start/Menu: pause
     if (S.paused) { if (down(1)) setPaused(false); else padMenu($('pause'), down); pad.prev = bt; return; }   // B: resume; d-pad and A work the card
