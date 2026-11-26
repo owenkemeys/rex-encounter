@@ -1,4 +1,4 @@
-import { RexSim, IDX } from '../src/sim/rex.js';
+import { RexSim, IDX } from '../src/rex/body/rex.js';
 const flat = {height:()=>0, normal:(x,z,o)=>{o.x=0;o.y=1;o.z=0;return o;}, arena:500, size:1000};
 const sim=new RexSim(flat,{seed:3});
 for(let i=0;i<240;i++) sim.step(1/120,{goal:null,pace:2,attention:{x:0,y:4,z:60}});

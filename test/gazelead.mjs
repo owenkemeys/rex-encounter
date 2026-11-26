@@ -3,7 +3,7 @@
 // Prints every 0.2 s body heading, velocity heading, head forward yaw, bearing head->goal, head yaw offset off the body axis.
 // Summary: first time head within 0.35 rad of the goal bearing vs body heading; share of turning time the head offset leans into the turn.
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim } from '../src/sim/rex.js';
+import { RexSim } from '../src/rex/body/rex.js';
 const W = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 const SC = {
   corner: { rex: [-21.5, 48, 0], pace: 9.5, to: [-46, 77] },

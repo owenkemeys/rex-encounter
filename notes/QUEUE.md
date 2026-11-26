@@ -227,7 +227,7 @@ i am not qualified to comment on when the tips should show, and i need to be abl
 "on my first test the rex is neither intimidating nor intellignet seeming, not like when you started in the open and its nosing at you. the impression isn't landing for some reason. it's looking at the hut and the window and sticking its head in yeah but there's no tension to it, and its words are just curious sounding. you end up just standing still watching it, but it doesnt have very interesting thoughts and they can feel incoherent currently. our approach is wrong in some way."
 On the proposal to make it about him (track him inside, thoughts about him, the strike real): "until you learn from experience that it doesn't / otherwise yes i agree. also thoughts that imply its planning how it could get you. this would then tie into our existing planned work to make no hiding place fully safe, via geometry."
 "it doesnt know what windows and doors are, its mind is archaic and simple. there's established tone of voice for it"
-He approved the draft hut lines (thumbs-up, 2026-11-18); they are in `src/sim/thoughts.js` word for word.
+He approved the draft hut lines (thumbs-up, 2026-11-18); they are in `src/rex/brain/thoughts.js` word for word.
 
 ## Owner, 2026-11-18, on the opener ("this opener is really not landing")
 "lets revert the scenario then to just starting about eqidistant between a few structures, and the rex is curious at first but quickly progresses to deciding to eat you (normally). the nose nudges and tosses are also good. i'll playtest and see if the death cam alone there is enough incentive to make you want to mess around with it after you've seen from the outside how silly you looked."

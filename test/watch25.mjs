@@ -9,7 +9,7 @@ const pos = process.argv.slice(2).filter((x) => !x.startsWith('-'));
 const N = +(pos[0] || 6), SECS = +(pos[1] || 120), D = +(pos[2] || 25), CLOSE = 15, dt = 1 / 120, hyp = Math.hypot, V_ = process.argv.includes('-v');
 const ROOT = arg('root', fileURLToPath(new URL('..', import.meta.url))).replace(/\/$/, '');
 const imp = (p) => import(pathToFileURL(ROOT + '/' + p).href);
-const { makeTerrain } = await imp('src/terrain.js'), { Creature } = await imp('src/sim/rex.js'), { Mind } = await imp('src/sim/mind.js'), { Arena } = await imp('src/sim/arena.js'), { LAYOUT } = await imp('src/paddock.js');
+const { makeTerrain } = await imp('src/terrain.js'), { Creature } = await imp('src/rex/body/rex.js'), { Mind } = await imp('src/rex/brain/mind.js'), { Arena } = await imp('src/sim/arena.js'), { LAYOUT } = await imp('src/paddock.js');
 const SP = LAYOUT.spawn, rows = [], DART = process.argv.includes('--dart');
 for (let seed = 1; seed <= N; seed++) {
   const T = makeTerrain(7), sim = new Creature(T, { x: SP.rex.x, z: SP.rex.z, yaw: SP.rex.yaw, seed }), mind = new Mind(sim, seed), A = new Arena(T, sim, mind, seed);

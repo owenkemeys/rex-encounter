@@ -13,10 +13,10 @@
 // navbody defaults to the species' own value (TYRANNOSAURUS.navBody); Saltline's integration set 1.6.
 import fs from 'fs';
 import { makeSaltTerrain, saltlineDesc } from './worlds/saltworld.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
-import { TYRANNOSAURUS } from '../src/species/tyrannosaurus.js';
+import { TYRANNOSAURUS } from '../src/rex/species/tyrannosaurus.js';
 
 const args = process.argv.slice(2), opt = (k, d) => { const a = args.find((s) => s.startsWith(`--${k}=`)); return a ? a.split('=')[1] : d; };
 const which = args.find((a) => !a.startsWith('--')) || 'all', LOG = args.includes('--log'), TRACE = args.includes('--trace');

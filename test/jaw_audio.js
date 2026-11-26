@@ -1,7 +1,7 @@
 // Browser entry for test/jaw_audio.py: one mouth sound through the real Audio graph, offline, stepping the jaw follower every 10 ms
 // (suspend/resume, as crash_audio / bite_audio step their graph). Returns the follower's samples and the rendered output.
 import { Audio } from '../src/view/audio.js';
-import { jawFromVoice } from '../src/view/jawvoice.js';
+import { jawFromVoice } from '../src/rex/skin/jawvoice.js';
 import { makeTerrain } from '../src/terrain.js';
 window.renderJaw = async (o) => {
   const SR = 48000, D = o.dur || 3.5, T0 = 0.5, T = makeTerrain(7), ctx = new OfflineAudioContext(2, SR * D, SR), dist = o.dist || 6;

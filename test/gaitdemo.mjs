@@ -1,7 +1,7 @@
 // node test/gaitdemo.mjs   the five gait demos of the debug tools (src/gaitdemo.js), headless, in both gaits (3 seeds each): episodes,
 // worst hip drop under the straight-run height, worst stance. The old gait should be clearly worse in at least three of the five.
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
+import { Creature } from '../src/rex/body/rex.js';
 import { GAIT_DEMOS, GaitMeter } from '../src/gaitdemo.js';
 const dt = 1 / 120;
 export function runDemo(key, legacy, seed = 3, rows = []) {

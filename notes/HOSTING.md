@@ -1,5 +1,7 @@
 # Putting the animal into another game
 
+**Start with `src/rex/README.md`** (2026-11-26): the animal now lives in `src/rex/` (body, brain, species, skin), imports nothing from the game, and the terrain contract this note asks for below is `src/rex/terrain-contract.js` (`flatTerrain()`, `checkTerrain()`), with a flat-world smoke test in `src/rex/test/smoke.mjs`. The paths below are from before the move: `src/sim/rex.js` is now `src/rex/body/rex.js`, `src/sim/mind.js` is `src/rex/brain/mind.js`, `src/species/` is `src/rex/species/`, `src/view/body.js` and `rexgeo.js` are in `src/rex/skin/`. This note stays as the record of the Saltline port.
+
 For an AI agent that has never seen this repo. Written 2026-11-16 while porting `variants/saltline` onto the shared sim.
 Reference host: `variants/saltline/src/` (main.js, saltworld.js, audio.js, pills.js, view/rexbody_gl.js). Reference headless host: `test/saltline.mjs` + `test/worlds/saltworld.js`.
 

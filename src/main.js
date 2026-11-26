@@ -1,10 +1,11 @@
 import './newplayer.js';      // '#newplayer': wipe first-visit state before anything reads storage
+import './tunestore.js';      // tuned values saved in this browser: plugged in before any module registers a dial
 import * as THREE from 'three/webgpu';
 import { makeTerrain } from './terrain.js';
-import { RexSim, DIM } from './sim/rex.js';
-import { Mind } from './sim/mind.js';
-import { RexBody, watchBody } from './view/body.js';
-import { buildWorld } from './view/world.js';
+import { RexSim, DIM } from './rex/body/rex.js';
+import { Mind } from './rex/brain/mind.js';
+import { RexBody, watchBody } from './rex/skin/body.js';
+import { buildWorld, WEATHER } from './view/world.js';
 import { Effects, Audio } from './view/effects.js';
 import { Overlays } from './view/overlays.js';
 import { Replay } from './view/replay.js';
@@ -104,7 +105,7 @@ async function boot() {
   // away (the feed carries on, with sound); the first move or look (takeOver) cuts to you, the guard, looking down at that monitor, and you
   // look up from it, out of the east window it is coming to. Respawns use the usual spots, never the hut.
   const GATE = OPEN && SPOTS && SPOTS.gate && /(^|[#&-])gate($|[&-])/.test(location.hash) && !/crash/.test(location.hash) ? SPOTS.gate : null;
-  const body = new RexBody(Q); scene.add(body.group);
+  const body = new RexBody(Q, { fog: WEATHER.fog, flash: WEATHER.flash }); scene.add(body.group);
   const fx = new Effects(scene, terrain), audio = new Audio(), ov = new Overlays(scene, terrain);
   const props = new Props(scene, terrain, Q); await bootAt(0.78);
   // the gatehouse feed: the hut's own cameras (SE and SW corners) while one can see the animal, and still while it is round the hut out of

@@ -1,5 +1,5 @@
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim } from '../src/sim/rex.js';
+import { RexSim } from '../src/rex/body/rex.js';
 const T=makeTerrain(7); const sim=new RexSim(T,{seed:3}); const dt=1/120;
 // stimulus appears 150 deg to the left at t=2
 const P={x:Math.sin(2.6)*30,y:T.height(0,0)+1,z:Math.cos(2.6)*30};

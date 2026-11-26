@@ -4,12 +4,12 @@
 //   node test/platform.mjs [bounds|missile|gates|voice|leave|noise|tower|all]
 import { makeForeign, RECT, STRUCTS, inRect } from './foreign_world.mjs';
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
-import { placeWord, perceive, nameOf } from '../src/sim/thoughts.js';
-import { TYRANNOSAURUS } from '../src/species/tyrannosaurus.js';
-import { bodyRoom } from '../src/sim/nav.js';
+import { placeWord, perceive, nameOf } from '../src/rex/brain/thoughts.js';
+import { TYRANNOSAURUS } from '../src/rex/species/tyrannosaurus.js';
+import { bodyRoom } from '../src/rex/body/nav.js';
 
 const which = process.argv[2] || 'all', dt = 1 / 120;
 let fails = 0;

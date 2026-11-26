@@ -6,10 +6,10 @@
 //         time in rock, how much of the map it covered, and whether it ever left the paddock.
 // person: flood fill of where a person (0.4 m) can stand and walk from the meadow; reports enclosed pockets.
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
-import { Nav } from '../src/sim/nav.js';
+import { Nav } from '../src/rex/body/nav.js';
 import { makeRng } from '../src/math.js';
 
 const which = process.argv[2] || 'all', SECS = +(process.argv[3] || 240), TSEEDS = (process.argv[4] || '7,11').split(',').map(Number);

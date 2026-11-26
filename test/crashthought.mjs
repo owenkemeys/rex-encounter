@@ -3,8 +3,8 @@
 // runs with how long each stayed up) for 4 s from the knock, and the stream entries. BEFORE=1 turns the new crash handling (mind._onCrash) off.
 //   node test/crashthought.mjs [seed]
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const seed = +(process.argv[2] || 3), dt = 1 / 120;
 const SC = { headon: { rex: [-9, 70, -Math.PI / 2], goal: { kind: 'drive', throttle: 1, steer: 0 }, pace: 9 }, corner: { rex: [-21.5, 48, 0], goal: { kind: 'approach', id: 1, x: -46, z: 77, stop: 0.5, quick: true }, pace: 9.5 } };

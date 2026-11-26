@@ -1,4 +1,4 @@
-// The thought stream (src/sim/thoughts.js), read as the player would read the bubble.
+// The thought stream (src/rex/brain/thoughts.js), read as the player would read the bubble.
 //   node test/thoughts.mjs [run|all] [seed] [--quiet]
 // Plays the existing scripted encounters (mind.mjs, stim.mjs, siege.mjs, attack.mjs) plus a few of its own (hiding behind
 // the same rock, stone decoys, the culvert's two ends), prints every thought with its time and what the animal was doing,
@@ -10,10 +10,10 @@ import { spawn } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
-import { placeWord } from '../src/sim/thoughts.js';
+import { placeWord } from '../src/rex/brain/thoughts.js';
 
 const HERE = fileURLToPath(import.meta.url), dt = 1 / 120, hyp = Math.hypot;
 const RUNS = [

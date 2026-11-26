@@ -10,8 +10,8 @@
 //   edge:   every edge of a triangle touching the neck or its blend into chest and skull (stretch); crush is reported
 // Exits 1 if any pose breaks a bound on any tier.
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { RexSim, IDX } from '../src/sim/rex.js';
-import { buildRexGeometry, boneMatrices, BONE, BONE_COUNT, NECKC, neckFrames } from '../src/view/rexgeo.js';
+import { RexSim, IDX } from '../src/rex/body/rex.js';
+import { buildRexGeometry, boneMatrices, BONE, BONE_COUNT, NECKC, neckFrames } from '../src/rex/skin/rexgeo.js';
 import { Matrix4, Vector3 } from 'three';
 const args = process.argv.slice(2), verbose = args.includes('--v'), cells = args.filter((a) => !a.startsWith('--')).map(Number);
 // edge: the outside of a bend must stretch even on an ideal swept tube: skin R from the curve over a change of curvature dk
@@ -21,7 +21,7 @@ const BOUND = { len: [0.92, 1.1], band: [0.7, 1.4], area: [0.65, 1.35], edge: 2.
 const here = new URL('.', import.meta.url).pathname, CACHE = here + '../out/neck_poses.json';
 
 function collect() {
-  return Promise.all([import('../src/terrain.js'), import('../src/sim/mind.js'), import('../src/sim/arena.js')]).then(([{ makeTerrain }, { Mind }, { Arena }]) => {
+  return Promise.all([import('../src/terrain.js'), import('../src/rex/brain/mind.js'), import('../src/sim/arena.js')]).then(([{ makeTerrain }, { Mind }, { Arena }]) => {
     const PLACES = [['near', 9, 0, 0], ['close', 4, 0, 0], ['tower', 7, 8, 0], ['behind', 10, 0, 1], ['far', 35, 0, 0], ['none', 0, 0, 0]];
     const DT = 1 / 120, SEC = 30, keep = [], ext = {};
     for (const [pl, dist, up, circ] of PLACES) for (let s = 1; s <= 2; s++) {

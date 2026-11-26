@@ -4,8 +4,8 @@
 //   node test/reach.mjs [refuge name substring] [grid step m, default 1.5]
 import fs from 'node:fs';
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Nav, senseSpots } from '../src/sim/nav.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Nav, senseSpots } from '../src/rex/body/nav.js';
 const only = process.argv[2] && process.argv[2] !== 'all' ? process.argv[2] : null, STEP = +(process.argv[3] || 1.5), BITE = 1.0;
 const T = makeTerrain(7), N = new Nav(T); N._build();
 const model = new Creature(T, { x: 4, z: 8, seed: 3 }).selfModel(), from = { x: 4, z: 8 };

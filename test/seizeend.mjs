@@ -2,8 +2,8 @@
 // Prints each seize: how it ended (killed, dropped, tossed, slipped = he worked loose), the taste verdict and its terms, and time to death.
 //   node test/seizeend.mjs [open|window] [hunger] [secs] [seed|all]
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const where = process.argv[2] || 'open', HUN = +(process.argv[3] || 0.9), SECS = +(process.argv[4] || 120), arg = process.argv[5] || 'all', dt = 1 / 120, hyp = Math.hypot, verbose = !!process.env.V;
 const seeds = arg === 'all' ? [1, 2, 3, 4, 5, 6] : [+arg];

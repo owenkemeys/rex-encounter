@@ -1,6 +1,6 @@
 // Dump a scenario's motion for the film/trace renderer: node test/dump.mjs <scenario> <secs> <out.json>
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim, IDX, PV, SPINE_N } from '../src/sim/rex.js';
+import { RexSim, IDX, PV, SPINE_N } from '../src/rex/body/rex.js';
 import fs from 'fs';
 const T=makeTerrain(7); const g=(x,z,id=1)=>({kind:'reach',id,x,z});
 const st={};

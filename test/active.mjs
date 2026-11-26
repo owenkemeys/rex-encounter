@@ -6,8 +6,8 @@
 // predatory seize, knockdowns and the worst injury, the stance shares; and per script, how often it is killed.
 import { covers } from './hidecover.mjs';
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 
 const dt = 1 / 120, hyp = Math.hypot;

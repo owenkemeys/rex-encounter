@@ -3,8 +3,8 @@
 // holds (it cannot pull it open), from inside it gives; checked first on the Gatehouse door (exit 1 if not).
 //   node test/doors.mjs [seed] [secs]
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const seed = +(process.argv[2] || 3), secs = +(process.argv[3] || 60);
 for (const side of [-1, 1]) {      // -1 outside the Gatehouse's south door, 1 inside: its head pressing on the shut leaf for 3 s

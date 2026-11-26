@@ -6,7 +6,7 @@
                                          current tree first if not cached; exit 1 if any test's exit code got worse
     node test/smoke.mjs --save-baseline  copy the current result to out/smoke/baseline-<tier>.json
 Usage: save a baseline on a clean tree once; after a change run `--against baseline` (add --full for the full tier).
-Hash: first 12 hex of SHA-256 over path+contents of src/sim/**, src/species/**, src/paddock.js, src/terrain.js, src/math.js.
+Hash: first 12 hex of SHA-256 over path+contents of the rex's sim files (src/rex/**/*.js but not src/rex/skin), src/sim/**, src/paddock.js, src/terrain.js, src/math.js.
 Cache: `out/smoke/<hash>-<tier>.json` {hash,tier,when,results:{test:{exit,seconds,numbers}}}, raw output in `out/smoke/<hash>-<tier>/<test>.txt`.
 One child process at a time (cwd out/smoke/cwd), timeout 3 x measured time (min 60 s; timeout = exit 124).
 

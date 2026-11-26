@@ -4,8 +4,8 @@
 // point 14.5 m off; prowl hold: frozen low with the approach goal kept, 36.7 m) and in mind-driven runs with a still person at
 // 14.5 m and 36.7 m. --v prints each fidget with what was asked of the body at the lift.
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim, Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { RexSim, Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 import { makeRng } from '../src/math.js';
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };

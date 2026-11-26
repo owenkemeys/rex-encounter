@@ -10,7 +10,8 @@
   "build": "esbuild src/main.js --bundle --format=esm --minify --outfile=dist/app.js && esbuild src/view/mp4.js --bundle --format=esm --minify --outfile=dist/mp4.js && node -e \"const f=require('fs');f.writeFileSync('dist/app.size',String(f.statSync('dist/app.js').size))\"",
   "serve": "python3 -m http.server -d dist 8080",
   "start": "npm run build && npm run serve",
-  "build:saltline": "sh variants/saltline/tools/build.sh"
+  "build:saltline": "sh variants/saltline/tools/build.sh",
+  "test:rex": "node src/rex/test/oneway.mjs && node src/rex/test/smoke.mjs"
  },
  "keywords": [],
  "author": "",

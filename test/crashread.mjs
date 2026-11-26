@@ -3,7 +3,7 @@
 // how far the snout comes back off what it hit, how far the hips come back, the peak pitch / roll / heading change, and how long
 // the snout stays within 0.5 m of where it struck. `trace` prints the 0.1 s rows of the first run.
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim } from '../src/sim/rex.js';
+import { RexSim } from '../src/rex/body/rex.js';
 const CRASH = {
   headon: { rex: [-9, 70, -Math.PI / 2], pace: 9, drive: true }, glancing: { rex: [-22.4, 50, Math.atan2(-1.8, 20)], pace: 9.5, drive: true },
   corner: { rex: [-21.5, 48, 0], pace: 9.5, to: [-46, 77] }, barn: { rex: [30, 40, 0], pace: 9, drive: true }, gate: { rex: [-7, 68, 0], pace: 9, drive: true },

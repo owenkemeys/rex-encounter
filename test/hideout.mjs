@@ -9,7 +9,7 @@ const pos = process.argv.slice(2).filter((x) => !x.startsWith('-'));
 const N = +(pos[0] || 4), STAY = +(pos[1] || 300), WHERE = (pos[2] || 'barn,loft').split(','), SPD = +arg('speed', 1.6), dt = 1 / 120, hyp = Math.hypot, VB = process.argv.includes('-v');
 const ROOT = arg('root', fileURLToPath(new URL('..', import.meta.url))).replace(/\/$/, '');
 const imp = (p) => import(pathToFileURL(ROOT + '/' + p).href);
-const { makeTerrain } = await imp('src/terrain.js'), { Creature } = await imp('src/sim/rex.js'), { Mind } = await imp('src/sim/mind.js'), { Arena } = await imp('src/sim/arena.js'), { Nav } = await imp('src/sim/nav.js');
+const { makeTerrain } = await imp('src/terrain.js'), { Creature } = await imp('src/rex/body/rex.js'), { Mind } = await imp('src/rex/brain/mind.js'), { Arena } = await imp('src/sim/arena.js'), { Nav } = await imp('src/rex/body/nav.js');
 const all = {};
 for (const where of WHERE) {
   all[where] = [];

@@ -1,4 +1,4 @@
-// Peril: binary outcomes and a hidden, drifting kill threshold (src/sim/peril.js). Many animals (seeds) against scripted
+// Peril: binary outcomes and a hidden, drifting kill threshold (src/rex/brain/peril.js). Many animals (seeds) against scripted
 // people, each life from the game's start (paddock spawn, arena.opening()), up to SECS of play:
 //   stand3 / stand8   walk in to 3 or 8 m of it, then stand still (it may close in by itself)
 //   far20             calm distant play: keep ~20 m off, walking slowly away when it comes nearer than 16 m
@@ -13,8 +13,8 @@
 // and strike timing (first motion of the strike to contact) against range. Asserts the contract in the header of peril.js.
 // node test/peril.mjs [seeds=20] [secs=180] [policy,...]   (rocks and torch always run 300 s)
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 import { LAYOUT } from '../src/paddock.js';
 import { makeRng } from '../src/math.js';

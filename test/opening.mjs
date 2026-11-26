@@ -2,8 +2,8 @@
 // you within a couple of seconds, turn, come to within thought range (30 m) and size you up, with no attack in the first 40 s?
 // node test/opening.mjs [nSeeds=30] [--raw]  (--raw: without arena.opening(), as before)
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 import { LAYOUT } from '../src/paddock.js';
 import { makeRng } from '../src/math.js';

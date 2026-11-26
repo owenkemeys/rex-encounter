@@ -21,7 +21,7 @@ const TIER = has('--full') ? 'full' : 'fast';
 // ---------------------------------------------------------------- 1. source hash
 function walk(dir) { const r = []; for (const e of fs.readdirSync(dir, { withFileTypes: true })) { const p = path.join(dir, e.name); if (e.isDirectory()) r.push(...walk(p)); else if (e.isFile()) r.push(p); } return r; }
 function sourceHash() {
-  const files = [...walk(path.join(ROOT, 'src/sim')), ...walk(path.join(ROOT, 'src/species')), ...['src/paddock.js', 'src/terrain.js', 'src/math.js'].map((f) => path.join(ROOT, f))]
+  const files = [...walk(path.join(ROOT, 'src/rex')).filter((f) => !f.includes(path.sep + 'skin' + path.sep) && f.endsWith('.js')), ...walk(path.join(ROOT, 'src/sim')), ...['src/paddock.js', 'src/terrain.js', 'src/math.js'].map((f) => path.join(ROOT, f))]
     .map((f) => path.relative(ROOT, f).split(path.sep).join('/')).sort();
   const h = createHash('sha256');
   for (const f of files) { h.update(f + '\0'); h.update(fs.readFileSync(path.join(ROOT, f))); h.update('\0'); }

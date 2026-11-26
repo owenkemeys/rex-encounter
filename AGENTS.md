@@ -26,27 +26,29 @@ Debug is off on the public page and reachable only with `#debug`: then backtick 
 
 | Path | What |
 |---|---|
-| `src/sim/rex.js` | The body. Deterministic, fixed 120 Hz, seeded, no renderer. Gait, balance, head and neck, jaws, tail, collision volumes, crash response (`_crash`). Emits events (`contact`, footfalls, ...). |
-| `src/sim/mind.js` + `attend.js`, `appraise.js`, `afford.js`, `peril.js`, `thoughts.js` | The mind. Senses, belief about where things are, moods, picks a behaviour, writes an **intent**. The body carries the intent out. Thought lines are 2 to 5 plain words traceable to real state. |
-| `src/sim/nav.js` | Route planning round solids and steep ground. |
-| `src/sim/arena.js` | Steps body, mind, thrown things and the herd together. |
-| `src/species/tyrannosaurus.js` | Everything species-specific: dimensions, gait, senses, temperament, tunables. Put tunables here, not in the engine. |
+| `src/rex/` | **The animal, standalone. Read `src/rex/README.md` first.** It imports nothing from the game (`npm run test:rex` checks this and runs it alone on flat ground). |
+| `src/rex/body/rex.js`, `body/nav.js` | The body. Deterministic, fixed 120 Hz, seeded, no renderer. Gait, balance, head and neck, jaws, tail, collision volumes, crash response (`_crash`). Emits events (`contact`, footfalls, ...). Route planning round solids and steep ground. |
+| `src/rex/brain/mind.js` + `attend.js`, `appraise.js`, `afford.js`, `peril.js`, `thoughts.js` | The mind. Senses, belief about where things are, moods, picks a behaviour, writes an **intent**. The body carries the intent out. Thought lines are 2 to 5 plain words traceable to real state. |
+| `src/rex/species/tyrannosaurus.js` | Everything species-specific: dimensions, gait, senses, temperament, tunables. Put tunables here, not in the engine. |
+| `src/rex/skin/` | Drawing the animal: `rexgeo.js` (skin geometry), `body.js` (`RexBody`, three/webgpu; takes the game's fog and flash uniforms as options), `jawvoice.js`. |
+| `src/rex/terrain-contract.js`, `tune.js`, `math.js` | What a world must answer (`flatTerrain()`, `checkTerrain()`); the tuning registry (the panel is `src/view/tune.js`, saved values come from `src/tunestore.js`, imported first by `main.js`); maths helpers (`src/math.js` re-exports them). |
+| `src/sim/` | The game's glue round the animal: `arena.js` steps body, mind, thrown things (`things.js`), the herd (`herd.js`) and people's bodies (`victim.js`) together. Not part of the rex; Saltline uses it too. |
 | `src/terrain.js`, `src/paddock.js` | The world and its collision. Walls are chains of pillars on the obstacle list. |
-| `src/view/` | Three.js drawing (WebGPU with WebGL2 fallback): `body.js`, `rexgeo.js` (skin), `effects.js`, `audio.js` (+ `audiohybrid.js`), world. View never changes sim state. |
+| `src/view/` | The game's three.js drawing (WebGPU with WebGL2 fallback): world, `effects.js`, `audio.js` (+ `audiohybrid.js`: the rex's voice and footfalls, driven by its events), overlays, the tuning panel. View never changes sim state. |
 | `src/main.js`, `src/ui.js`, `dist/index.html` | The app, input, debug drawer, pause card, crash tests (`CRASH` table in `main.js`). |
 | `test/` | Headless Node checks (`node test/<name>.mjs`) and Playwright capture scripts. Some capture scripts still carry absolute `/home/claude/...` paths from the machine they were written on. |
 | `tools/load_check.py` | In-browser smoke test: `python3 tools/load_check.py <name> "<hash>"` after a build; writes `/tmp/load_<name>.json`. Needs Playwright and Chrome. |
-| `variants/saltline` | The same animal dropped into someone else's game, on the shared `src/sim` (no copy since 2026-11-16; NPC perception parked in `pending/`). `npm run build:saltline`; the owner plays it as the "Saltline Rex" artifact (republish `variants/saltline/dist/saltrex.js` there). Putting the animal into another game: `notes/HOSTING.md`. |
+| `variants/saltline` | The same animal dropped into someone else's game, on the shared `src/rex` and `src/sim/arena.js` (no copy since 2026-11-16; NPC perception parked in `pending/`). `npm run build:saltline`; the owner plays it as the "Saltline Rex" artifact (republish `variants/saltline/dist/saltrex.js` there). Putting the animal into another game: `notes/HOSTING.md`. |
 | `variants/patch-model` | Experiment: our simulation driving a CC0 rigged model (its own animations unused). Head too large, eyes not integrated, behind the main tree. |
 | `wip/bamboo-squeeze` | **Unfinished, never run.** Partial edits toward yielding obstacles and forced squeeze. Review or discard. |
 | `notes/` | Working notes from every work stream. `notes/QUEUE.md` is the owner's requests, verbatim, newest last. `notes/skel/BODY4.md` (body) and `notes/platform/NOTES4.md` (mind) are the latest. |
 | `docs/HANDOFF-claude-project.md` | Older, longer handoff. Its parts about restoring from a "source store" are obsolete: this repository is the master now. |
 
-It is one app, not yet packages. The seams are already clean enough to split later: `src/sim` + `src/species` have no renderer or DOM dependencies, and a host world only has to supply the terrain queries and feed agents and noises (see how `variants/saltline` does it).
+It is one app, not packages. The animal lives in `src/rex/` and imports nothing from the game; the rest of `src/` is the game. `src/rex/body` and `src/rex/brain` have no renderer or DOM dependencies, and a host world only has to supply the terrain queries (`src/rex/terrain-contract.js`) and feed agents and noises (see `src/rex/README.md`, and how `variants/saltline` does it). Never add an import from `src/rex` to the game.
 
 ## Before you ship a change
 
-1. Run the Node tests that cover what you touched. Body: `test/review.mjs`, `test/corner.mjs`, `test/striketime.mjs`, `test/strikepass.mjs`, `test/crashread.mjs` (each crash test twice: knock, speed lost, how far it comes back off the thing). Crash sounds: `python3 test/crash_audio.py` (renders each, prints level, share above 300 Hz, tonality). Mind: `test/mind.mjs all <seed>`, `test/commit.mjs`, `test/platform.mjs`, `test/saltline.mjs`.
+1. Run the Node tests that cover what you touched. Anything in `src/rex`: `npm run test:rex` first (seconds). Body: `test/review.mjs`, `test/corner.mjs`, `test/striketime.mjs`, `test/strikepass.mjs`, `test/crashread.mjs` (each crash test twice: knock, speed lost, how far it comes back off the thing). Crash sounds: `python3 test/crash_audio.py` (renders each, prints level, share above 300 Hz, tonality). Mind: `test/mind.mjs all <seed>`, `test/commit.mjs`, `test/platform.mjs`, `test/saltline.mjs`.
 2. Build and run `tools/load_check.py`; console must be clean.
 3. A body change that helps the arena can stall the animal in Saltline. Check both.
 4. Any new scenario state must be reset by the pause card's "start over", which resets in place without a page load (`main.js startOver`): build it in `newScenario` or put its start value in `freshS` (fields play adds to `S` are dropped by themselves), and give a view object that holds scenario state a reset that startOver calls. State kept in localStorage or a server is not reset. Run `python3 test/restart.py` (start over must equal a fresh load and leave nothing behind).

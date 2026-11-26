@@ -7,9 +7,9 @@
 // Pure geometry: no DOM, no renderer, so it can be built and checked in Node.
 
 import { Vector3, Matrix4, Quaternion } from 'three';
-import { PV, LEG, SPINE_N, IDX, PS, DIM, NECK_RISE, NECK_ROOT } from '../sim/rex.js';
+import { PV, LEG, SPINE_N, IDX, PS, DIM, NECK_RISE, NECK_ROOT } from '../body/rex.js';
 import { TYRANNOSAURUS } from '../species/tyrannosaurus.js';
-import { tune, tuneGroup } from './tune.js';      // tune
+import { tune, tuneGroup } from '../tune.js';      // tune
 
 // ------------------------------------------------------------------ head design (head space:
 // x left, y up, z forward, origin at the skull pivot where the neck meets the skull)

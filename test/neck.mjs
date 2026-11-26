@@ -1,6 +1,6 @@
 import { Vector3 } from 'three';
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim, IDX, DIM } from '../src/sim/rex.js';
+import { RexSim, IDX, DIM } from '../src/rex/body/rex.js';
 const T=makeTerrain(7); const dt=1/120;
 function run(name, script, secs, seed=3){
   const sim=new RexSim(T,{seed}); sim.over=0; let maxGap=0,gsum=0,gn=0,gbad=0,maxSk=0,maxBend=0,maxBase=0,flight=0,moving=0,maxV=0,falls=[],acts={};

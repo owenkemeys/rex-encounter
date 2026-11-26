@@ -4,8 +4,8 @@
 // plane: each neck joint's lateral bend (root off the chest, the six joints between the seven vertebrae, the skull off the last),
 // the sum along the neck, sign reversals along it (an S), and the jaw angle (rate of change and reversals: twitch).
 import { makeTerrain } from '../src/terrain.js';
-import { Creature, IDX } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature, IDX } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const orbit = +arg('--orbit', 0), secs = +arg('--secs', 120), seeds = arg('--seeds', '3,5,8').split(',').map(Number), D0 = +arg('--d', 14), trace = process.argv.includes('--trace');

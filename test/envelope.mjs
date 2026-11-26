@@ -4,8 +4,8 @@
 // bend pitch mean, gradient, bend yaw mean, gradient), the skull's pitch and roll off the last vertebra, and the
 // head's place relative to the chest. Prints percentiles and extremes; neckcheck's poses are taken from these.
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { RexSim } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const SEC = +(process.argv[2] || 90), DT = 1 / 120;
 const PLACES = [['near', 9, 0, 0], ['close', 4, 0, 0], ['tower', 7, 8, 0], ['tower2', 4, 6, 0], ['behind', 10, 0, 1], ['far', 35, 0, 0], ['none', 0, 0, 0]];

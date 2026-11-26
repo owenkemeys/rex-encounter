@@ -4,11 +4,11 @@
 // first nudge / shove / toss, when it decides to have him (the reach, a rush or a strike), and the kill; times from stepping in.
 //   node test/openstart.mjs [seeds=1-12] [--card 5] [--secs 150] [--hunger 0.65,0.75] [--open 45] [--set drainT=45,curPeril=0.8]
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 import { LAYOUT } from '../src/paddock.js';
-import { TYRANNOSAURUS } from '../src/species/tyrannosaurus.js';
+import { TYRANNOSAURUS } from '../src/rex/species/tyrannosaurus.js';
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const [s0, s1] = (process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : '1-12').split('-').map(Number);
 const OSECS = +arg('--open', 45), HUN = arg('--hunger', LAYOUT.spawns.first.hunger.join(',')).split(',').map(Number);

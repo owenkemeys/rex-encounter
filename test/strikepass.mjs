@@ -2,8 +2,8 @@
 // when he is level with its head the committed strike is fired at where he is then. Hit or miss, and ms to contact, per offset and
 // heading of his walk (the ambush at a way out: 1.4-3 m).
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const dt = 1 / 120, out = [];
 for (const off of [1.4, 2, 3]) for (const along of [2.5, 4]) for (const dir of [1, -1]) {

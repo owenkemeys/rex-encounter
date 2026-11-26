@@ -5,8 +5,8 @@
 // Scripts: still walkpast dart flee peek hidden rocks hop lure flare food_dart herd_dart threat
 // Fairness scripts (out/platform/TUNE.md): still10 still6 slowwalk backoff dartcalm run5 walk38 (see FAIR below)
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 import { makeForeign, RECT } from './foreign_world.mjs';
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';

@@ -15,7 +15,7 @@ const SRC = arg('src', new URL('../src', import.meta.url).pathname), V = process
 const pos = process.argv.slice(2).filter((x) => !x.startsWith('--'));
 const SEEDS = (pos[0] || '1,2,3').split(',').map(Number), ONLY = pos[1] || 'all';
 const imp = (p) => import(pathToFileURL(SRC + p).href);
-const { makeTerrain } = await imp('/terrain.js'), { Creature } = await imp('/sim/rex.js'), { Mind } = await imp('/sim/mind.js'), { Arena } = await imp('/sim/arena.js');
+const { makeTerrain } = await imp('/terrain.js'), { Creature } = await imp('/rex/body/rex.js'), { Mind } = await imp('/rex/brain/mind.js'), { Arena } = await imp('/sim/arena.js');
 const { covers } = await import('./hidecover.mjs');
 const dt = 1 / 120, hyp = Math.hypot;
 

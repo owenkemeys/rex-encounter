@@ -2,7 +2,7 @@
 // legs wide and drop its hips for a split second (owner, 2026-11-17), as body-only scripts (no mind, no arena: `sim.step(dt, intent)`), run
 // with the gait as it is (`sim.gaitLegacy = false`) or as it was (true; see the Creature constructor). The scripts are the ones in
 // test/splay.mjs (arcs, drive + steer) and test/lunge.mjs (T15 cancelled rush, T14 run then stop and turn). DOM-free: node imports it too.
-import { DIM, PV } from './sim/rex.js';
+import { DIM, PV } from './rex/body/rex.js';
 
 const STAND = 0.88, LIMS = { drop: 0.25, stance: 1.5 * STAND, speed: 4 };
 // hip height above the feet's ground in a straight run, by speed (test/splay.mjs prints the table; the current gait's)

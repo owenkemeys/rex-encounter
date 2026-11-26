@@ -11,7 +11,7 @@ import { Things } from './things.js';
 import { Herd } from './herd.js';
 import { Victim } from './victim.js';
 import { clamp } from '../math.js';
-import { tune } from '../view/tune.js';      // tune
+import { tune } from '../rex/tune.js';      // tune
 
 // What is left of someone it killed to eat: gone in this many mouthfuls (owner 2026-11-15: "the meat resource the body represents
 // should be depleted pretty quickly, a bite or two. in a long play session the rex is distracted for a long time eating the body

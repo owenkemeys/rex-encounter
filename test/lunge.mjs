@@ -12,8 +12,8 @@
 //   roll / pitch   body roll |pRoll| > 0.25, pitch |pPitch| > 0.45 rad
 //   tailYaw  tail root-to-tip direction against the heading in plan (flag > 1.2 rad)
 import { makeTerrain } from '../src/terrain.js';
-import { Creature, IDX, DIM, PV, SPINE_N } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature, IDX, DIM, PV, SPINE_N } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const dt = 1 / 120, hyp = Math.hypot, quiet = process.argv[2] === 'quiet';
 const LEGL = DIM.femur + DIM.tibia, EP = 0.5;

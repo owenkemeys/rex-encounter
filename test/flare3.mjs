@@ -9,7 +9,7 @@ const pos = process.argv.slice(2).filter((x) => !x.startsWith('-'));
 const N = +(pos[0] || 4), GAP = +(pos[1] || 20), dt = 1 / 120, hyp = Math.hypot;
 const ROOT = arg('root', fileURLToPath(new URL('..', import.meta.url))).replace(/\/$/, '');
 const imp = (p) => import(pathToFileURL(ROOT + '/' + p).href);
-const { makeTerrain } = await imp('src/terrain.js'), { Creature } = await imp('src/sim/rex.js'), { Mind } = await imp('src/sim/mind.js'), { Arena } = await imp('src/sim/arena.js'), { LAYOUT } = await imp('src/paddock.js');
+const { makeTerrain } = await imp('src/terrain.js'), { Creature } = await imp('src/rex/body/rex.js'), { Mind } = await imp('src/rex/brain/mind.js'), { Arena } = await imp('src/sim/arena.js'), { LAYOUT } = await imp('src/paddock.js');
 const SP = LAYOUT.spawn, all = [[], [], []];
 for (let seed = 1; seed <= N; seed++) {
   const T = makeTerrain(7), sim = new Creature(T, { x: SP.rex.x, z: SP.rex.z, yaw: SP.rex.yaw, seed }), mind = new Mind(sim, seed), A = new Arena(T, sim, mind, seed);

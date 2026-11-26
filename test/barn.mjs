@@ -2,8 +2,8 @@
 // Does the head reach him, do its snaps connect, how long to the first seize, is the head squared on him while it sees him?
 //   node test/barn.mjs [seed] [secs] [quiet]      (seeds 1..6 if seed is "all")
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const arg = process.argv[2] || 'all', SECS = +(process.argv[3] || 90), quiet = arg === 'all' || process.argv[4] === 'quiet', dt = 1 / 120, hyp = Math.hypot;
 const seeds = arg === 'all' ? [1, 2, 3, 4, 5, 6] : [+arg];

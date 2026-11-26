@@ -7,8 +7,8 @@
 // CROSS s: how soon after he gets there its head is at the west window, the opening nearest him (test/focus.mjs: back and forth).
 //   node test/gatehouse.mjs [seed|all] [secs] [splash]
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 import { gateFidget } from '../src/gatesplash.js';
 const arg = process.argv[2] || 'all', SECS = +(process.argv[3] || 30), SPLASH = +(process.argv[4] || 15), CROSS = 40, dt = 1 / 120, hyp = Math.hypot;

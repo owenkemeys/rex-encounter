@@ -3,7 +3,7 @@ import { pathToFileURL } from 'node:url';
 const arg = (k, d) => { const a = process.argv.find((x) => x.startsWith('--' + k + '=')); return a ? a.split('=')[1] : d; };
 const SRC = arg('src', new URL('../src', import.meta.url).pathname), seed = +(process.argv[2] || 1), SECS = +arg('secs', 70);
 const imp = (p) => import(pathToFileURL(SRC + p).href);
-const { makeTerrain } = await imp('/terrain.js'), { Creature } = await imp('/sim/rex.js'), { Mind } = await imp('/sim/mind.js'), { Arena } = await imp('/sim/arena.js');
+const { makeTerrain } = await imp('/terrain.js'), { Creature } = await imp('/rex/body/rex.js'), { Mind } = await imp('/rex/brain/mind.js'), { Arena } = await imp('/sim/arena.js');
 const dt = 1 / 120, hyp = Math.hypot;
 const T = makeTerrain(7), St = T.structures.find((s) => s.kind === 'barn') || T.structures[0], O = St.openings[0], nl = hyp(O.nx, O.nz) || 1;
 const back = +arg("back", 24), rx = O.x + O.nx / nl * back, rz = O.z + O.nz / nl * back, yaw = Math.atan2(St.cx - rx, St.cz - rz), h = St.hide || { x: St.cx, z: St.cz };

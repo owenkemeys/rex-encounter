@@ -4,8 +4,8 @@
 // collision query (terrain.near: columns and wall runs with top/bottom), and per part x structure the ticks with any sphere more
 // than 2 cm inside and the deepest are counted. Uses only the world's query: no names.
 import { makeTerrain } from '../src/terrain.js';
-import { Creature, IDX, DIM } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature, IDX, DIM } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const seeds = arg('--seeds', '3,5').split(',').map(Number), secs = +arg('--secs', 120), only = arg('--only', '') ? arg('--only').split(',').map(Number) : null, V = process.argv.includes('--v');

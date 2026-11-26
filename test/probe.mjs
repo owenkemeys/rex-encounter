@@ -16,7 +16,7 @@ const dt = 1 / 120;
 
 async function one(si, seed) {
   const imp = (p) => import(pathToFileURL(ROOT.replace(/\/$/, '') + '/' + p).href);
-  const { makeTerrain } = await imp('src/terrain.js'), { Creature } = await imp('src/sim/rex.js'), { Mind } = await imp('src/sim/mind.js'), { Arena } = await imp('src/sim/arena.js'), { Nav } = await imp('src/sim/nav.js');
+  const { makeTerrain } = await imp('src/terrain.js'), { Creature } = await imp('src/rex/body/rex.js'), { Mind } = await imp('src/rex/brain/mind.js'), { Arena } = await imp('src/sim/arena.js'), { Nav } = await imp('src/rex/body/nav.js');
   const T = makeTerrain(7), S = T.structures[si];
   // start 20-38 m out from a way in, on easy open ground (as test/siege.mjs)
   const NV = new Nav(T); let ax = 0, az = 0;

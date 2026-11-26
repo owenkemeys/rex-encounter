@@ -12,8 +12,8 @@
 //  - adds the rex mesh to G.scene; pills to #ui; its sounds to Saltline's AudioContext
 // The NPCs are described by physical properties only (world.creatures, contract in pending/others.js): no Saltline names.
 import { makeSaltTerrain } from './saltworld.js';
-import { Creature } from '../../../src/sim/rex.js';
-import { Mind } from '../../../src/sim/mind.js';
+import { Creature } from '../../../src/rex/body/rex.js';
+import { Mind } from '../../../src/rex/brain/mind.js';
 import { Arena } from '../../../src/sim/arena.js';
 import { RexBodyGL } from './view/rexbody_gl.js';
 import { makePills } from './pills.js';

@@ -1,4 +1,4 @@
-import { RexSim, DIM } from '../src/sim/rex.js';
+import { RexSim, DIM } from '../src/rex/body/rex.js';
 const flat = {height:()=>0, normal:(x,z,o)=>{o.x=0;o.y=1;o.z=0;return o;}, arena:900, size:1000};
 const sim=new RexSim(flat,{seed:3}); const dt=1/120; let rows=[];
 for(let i=0;i<16*120;i++){ sim.over=0; sim.step(dt,{goal:{kind:'drive',throttle:1,steer:0},pace:12,attention:null}); sim.events.length=0;

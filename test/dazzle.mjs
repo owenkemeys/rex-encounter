@@ -2,8 +2,8 @@
 // Reports each eye's dazzle and acuity, whether it still sees you, its certainty about where you are over time, the behaviour
 // mix, blind snaps, and the lids (squint pose) against the eyes. node test/dazzle.mjs [seed]
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const seed = +(process.argv[2] || 3);
 let fail = 0;

@@ -1,9 +1,9 @@
 // Species profile: everything that makes this animal this animal, as data the engine reads.
-// The motion engine (sim/rex.js), the mind (sim/mind.js), route planning (sim/nav.js) and the
-// skin builder (view/rexgeo.js) take their anatomy, gait, mass, senses and temperament from
-// here. A second species is a second profile (and, for a quadruped, a second leg set in `legs`).
+// The motion engine (body/rex.js), the mind (brain/mind.js), route planning (body/nav.js) and the
+// skin builder (skin/rexgeo.js) take their anatomy, gait, mass, senses and temperament from
+// here. A second biped of this build is a second profile; a quadruped is not: it needs a new skeleton (see src/rex/README.md).
 import { lerp, sstep } from '../math.js';
-import { tune, tuneGroup } from '../view/tune.js';      // tune
+import { tune, tuneGroup } from '../tune.js';      // tune
 
 export const TYRANNOSAURUS = {
   name: 'Tyrannosaurus rex, adult',
@@ -24,7 +24,7 @@ export const TYRANNOSAURUS = {
     reachStop: 4.33,         // hips stop this far from a point the snout must reach (4.75 with the 1.75 m head and 2.85 m back; less 0.17 head and 0.25 back)
     walk: 2.2, run: 8.0, sprint: 12.0,
   },
-  // the reserve for a long run (sim/rex.js): a run at `dims.run` empties it in `full` s (faster above it; nothing below
+  // the reserve for a long run (body/rex.js): a run at `dims.run` empties it in `full` s (faster above it; nothing below
   // sqrt(free) of run speed), and it refills over `recover` s at a walk or standing. A committed chase turns at up to `turn`
   // rad/s and holds `turnAcc` m/s^2 of turn at speed; it brakes for a moving goal no earlier than `brake` m/s^2 would need
   stamina: { full: 50, free: 0.12, recover: 35, restV: 3, turn: 1.1, turnAcc: 4.5, brake: 6 },
@@ -38,7 +38,7 @@ export const TYRANNOSAURUS = {
     duty: (v) => lerp(0.68, 0.53, sstep(2.5, 7.5, v)) - 0.11 * sstep(8.5, 12, v),     // stance fraction; under 0.5 both feet leave the ground
     track: (v) => lerp(0.44, 0.19, sstep(0.05, 1.1, v)) - 0.07 * sstep(3, 8, v),        // half trackway width: a narrow track, prints near the midline
   },
-  // how the hips, back and tail take part in walking and turning (engine defaults in sim/rex.js HIPS_DEFAULT)
+  // how the hips, back and tail take part in walking and turning (engine defaults in body/rex.js HIPS_DEFAULT)
   hips: {
     pelvisHold: 0.92, pelvisLag: 0.35, pelvisCatch: 9,
     // (T6/T14/T15) the owner, 2026-11-17: "we really have to fix this splaying thing when it is taking a wide corner fast I think, its body drops
@@ -88,7 +88,7 @@ export const TYRANNOSAURUS = {
   // clear (before that, at the furthest bend or edge of the route it can see, and `peek` of the way on from there toward the goal). Off the body axis by at most `maxYaw` rad (`sprintYaw` flat out,
   // the neck is balance then), eased over `ease` s, turned at up to `rate` rad/s and `acc` rad/s^2; `roll` rad of head bank into the turn at full turn rate.
   gazeLead: { minSpeed: 3.5, fullSpeed: 5.5, start: 0.7, peek: 0.1, turnLead: 0.5, maxYaw: 0.6, sprintYaw: 0.45, ease: 0.18, rate: 2.2, acc: 9, pad: 0.5, roll: 0.07, after: 2.0 },
-  // running into things (sim/rex.js _crash). A head-on knock closing faster than `reelFrom` m/s makes it reel (head thrown back,
+  // running into things (body/rex.js _crash). A head-on knock closing faster than `reelFrom` m/s makes it reel (head thrown back,
   // a drop on bent legs), fully from `reelFull`: it then backs off at `reelBack` m/s (least, most) and, from a reel of `shakeFrom`
   // (0..1), shakes its head. `stumble` scales the lurch of a glancing or corner hit at a run.
   crash: { reelFrom: 2.5, reelFull: 6.5, reelBack: [0.4, 0.9], shakeFrom: 0.35, stumble: 1,
@@ -108,7 +108,7 @@ export const TYRANNOSAURUS = {
   // temperament is drawn per animal from these ranges
   temper: { bold: [0.35, 0.85], patience: [0.35, 0.9], curious: [0.45, 0.95], irritable: [0.25, 0.75], nervy: [0.25, 0.75] },
   // standing distances (hips to a person, m), set by how far the neck and head reach forward
-  // the mind: how it commits to a goal and what reads to it as prey (engine defaults and the meaning of each: sim/mind.js MIND_DEFAULT)
+  // the mind: how it commits to a goal and what reads to it as prey (engine defaults and the meaning of each: brain/mind.js MIND_DEFAULT)
   mind: {
     commit: { hold: 0.6, bore: 25, sameTarget: 0.5, fixHold: 0.9, progressD: 1.5, breakSal: 0.5 },
     prey: { quick: 0.6, dart: 0.11, bob: 0.015, bobH: 0.3, flee: 0.22, vanish: 0.16, vanishD: 40, slowHide: 0.5, prime: 4, peek: 0.1, small: 0.7, calmT: 20, goneT: 60, on: 0.45, off: 0.25,
@@ -118,7 +118,7 @@ export const TYRANNOSAURUS = {
     chase: { losingAfter: 4, flat: 0.85, giveUp: 3, lostD: 60, maxT: 45, boltD: 40 },
     // the pressure to strike: its slow causes climb at most `rise` (shares of its fuse per s); a thing leaving at a walk takes `leave` off
     peril: { rise: 0.05, leave: 0.45 },
-    // the core (out/platform/CORE.md; meanings in sim/mind.js MIND_DEFAULT.core): food from a first clear look, curiosity that keeps
+    // the core (out/platform/CORE.md; meanings in brain/mind.js MIND_DEFAULT.core): food from a first clear look, curiosity that keeps
     // the thing alive while it lasts, the body's questions (sniff, nudge, shove, foot, the slow reach), the opening of a look away
     core: { on: true, claimLook: 2.5, claim: 0.75, first: 0.75, fill: 0.5, habGain: 0.65, habT: 150, habHold: 30, drainT: 45, drainFar: 200, surprise: 0.2,
       curPeril: 0.8, want: 1.1, hunt: 0.8, damp: 0.3, paceU: 2.3, paceG: 1.5, paceW: 0.55, paceFar: 1.5, farD: [8, 20], lookT: 2, glanceT: 1.2, hungryPace: 1.6, inspectD: 6.2,

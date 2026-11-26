@@ -1,4 +1,4 @@
-p='src/sim/rex.js';s=open(p).read()
+p='src/rex/body/rex.js';s=open(p).read()
 def rep(a,b,cnt=1):
     global s
     assert s.count(a)>=1, a[:100]

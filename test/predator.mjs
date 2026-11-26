@@ -1,4 +1,4 @@
-// What is the small thing? The appraisal (src/sim/appraise.js) played out headlessly.
+// What is the small thing? The appraisal (src/rex/brain/appraise.js) played out headlessly.
 //   node test/predator.mjs [all|matrix|levers|provoke|override|transcript] [--seeds 3,5,8,11,13] [--secs 240]
 // A scripted person (wanders in the open, stands and watches, walks off with their back turned, bolts from a fast rush
 // about half the time, struggles when taken, gets up after a fall) meets each animal at held hunger levels. Per run it
@@ -8,10 +8,10 @@
 // provocation (stones: should end in nuisance, not threat), the debug override, and the thought transcript around a decision.
 import { covers } from './hidecover.mjs';
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
-import { PRED } from '../src/sim/appraise.js';
+import { PRED } from '../src/rex/brain/appraise.js';
 
 const dt = 1 / 120, hyp = Math.hypot, D = 180 / Math.PI;
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };

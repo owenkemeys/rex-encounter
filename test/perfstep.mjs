@@ -1,7 +1,7 @@
 // Arena step cost (the score's perf section, standalone): node test/perfstep.mjs [secs] [--prof]
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const dt = 1 / 120, secs = +(process.argv[2] || 60);
 const T = makeTerrain(7), sim = new Creature(T, { x: 0, z: 0, yaw: 0.4, seed: 3 }), mind = new Mind(sim, 3), A = new Arena(T, sim, mind, 3);

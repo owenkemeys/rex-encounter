@@ -3,7 +3,7 @@
 //   node test/arenamap.mjs && python3 test/arenamap.py out/arena_map.json out/arena_map.png
 import fs from 'node:fs';
 import { makeTerrain } from '../src/terrain.js';
-import { Nav } from '../src/sim/nav.js';
+import { Nav } from '../src/rex/body/nav.js';
 const T = makeTerrain(7), N = new Nav(T); N._build();
 const S = 0.5, R = 101, n = Math.round(2 * R / S), H = [], D = [], C = [];
 for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = -R + (i + 0.5) * S, z = R - (j + 0.5) * S; H.push(+T.height(x, z).toFixed(2)); D.push(+T.depthAt(x, z).toFixed(2)); C.push(+T.coverAt(x, z).toFixed(2)); }
