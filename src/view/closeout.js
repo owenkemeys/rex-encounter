@@ -223,7 +223,7 @@ advice.lastIndex = -1;
 // ------------------------------------------------------------------ the card
 const CREAM = '#f3e9c9', INK = '#1d2a22', AMBER = '#f2a21b', BOX = '#18231c';
 const SANS = '"Arial Black", "Helvetica Neue", "IBM Plex Sans", Arial, sans-serif', MONO = '"IBM Plex Mono", "Lucida Console", "Courier New", monospace';
-export const CLIP_LINK = 'owenkemeys.github.io/rex-encounter';      // drawn small under the name
+export const CLIP_LINK = 'rexencounter.com';      // drawn small under the name
 function wrap(g, text, maxW) {
   const words = text.split(/\s+/), lines = []; let cur = '';
   for (const w of words) { const t = cur ? cur + ' ' + w : w; if (cur && g.measureText(t).width > maxW) { lines.push(cur); cur = w; } else cur = t; }

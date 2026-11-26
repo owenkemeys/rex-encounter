@@ -18,7 +18,7 @@ export function countRun(now = new Date()) {
 const COUNTER = 'https://abacus.jasoncameron.dev/hit/owenkemeys-rex-encounter/';
 let global = 0, daily = false;
 function countGlobal(day) {
-  if (typeof location === 'undefined' || !location.hostname.endsWith('github.io')) return;
+  if (typeof location === 'undefined' || !(location.hostname === 'rexencounter.com' || location.hostname === 'www.rexencounter.com' || location.hostname.endsWith('github.io'))) return;
   fetch(COUNTER + (daily ? 'runs-' + day : 'runs')).then((r) => r.json()).then((j) => {
     const v = +j.value || 0; if (v > 9999 && !daily) { daily = true; countGlobal(day); } else global = v;
   }).catch(() => {});
