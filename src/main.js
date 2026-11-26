@@ -771,7 +771,7 @@ async function boot() {
     if (formy(e.target)) return;
     if (e.ctrlKey || e.metaKey || e.altKey) { S.keys.clear(); return; }      // leave every browser shortcut alone, and bind none
     const k = e.key.toLowerCase();
-    if (!S.started) { if ((k === 'enter' || k === ' ') && !(e.target && e.target.closest && e.target.closest('#start button, #start label'))) { e.preventDefault(); start(false); } return; }
+    if (!S.started) { if ((k === 'enter' || k === ' ') && !(e.target && e.target.closest && e.target.closest('#start button, #start label, #sharedStart button'))) { e.preventDefault(); start(false); } return; }
     if (k === 'escape') { if (ui.flags.panel) return; e.preventDefault(); setPaused(!S.paused); return; }
     if (k === 'p' && !S.dead) { setPaused(!S.paused); return; }
     if (S.paused || S.dead) return;
@@ -878,6 +878,7 @@ async function boot() {
   // start, pause, fullscreen
   $('startGo').addEventListener('click', (e) => { e.stopPropagation(); start(false); });
   $('start').addEventListener('click', (e) => { if (!e.target.closest('label, button, input')) start(false); });
+  for (const b of document.querySelectorAll('.fork')) b.addEventListener('click', (e) => { e.stopPropagation(); window.open('https://github.com/owenkemeys/rex-encounter', '_blank', 'noopener'); });
   if (!fsOk) for (const el of document.querySelectorAll('.fs-only')) el.hidden = true;
   $('pauseBtn').addEventListener('click', () => { audio.resume(); setPaused(!S.paused); });
   $('pResume').addEventListener('click', () => setPaused(false));
@@ -1068,10 +1069,11 @@ async function boot() {
     if (S.frozen) { pad.prev = bt; return; }      // the note box is open: the pad does nothing
     if (clip.panelOpen()) { clip.panelPad(down(0), down(1)); pad.prev = bt; return; }      // closeout: the clip-ready panel
     if (S.replay && !S.replayHold) { if (!recLocked() && !S.tapeHold && bt.some((b, i) => b && !pad.prev[i])) stopReplay(); pad.prev = bt; return; }      // death cam: any button skips
-    if (!S.started) { if (down(9)) start(false); else padMenu($('start'), down); pad.prev = bt; return; }   // Start: begin; A: the focused control (start, unless moved)
+    if (!S.started) { if (down(9)) start(false); else padMenu($('sharedStart').hidden ? $('start') : $('sharedStart'), down); pad.prev = bt; return; }   // Start: begin; A: the focused control (start, unless moved)
     if (down(9) && !S.dead) setPaused(!S.paused);                                                      // Start/Menu: pause
     if (S.paused) { if (down(1)) setPaused(false); else padMenu($('pause'), down); pad.prev = bt; return; }   // B: resume; d-pad and A work the card
     if (S.dead) { if (document.body.classList.contains('dead')) { if (down(2) && !$('xReplay').hidden) $('xReplay').click(); else if (down(3) && !$('xClip').hidden) $('xClip').click(); else padMenu($('dead'), down); } pad.prev = bt; return; }      // (closeout: X watch again, Y save clip)
+    if (!$('sharedEnd').hidden) { padMenu($('sharedEnd'), down); pad.prev = bt; return; }
     if (S.mode === 'observe' && (Math.hypot(pad.lx, pad.ly, pad.rx, pad.ry) > 0.3)) takeOver();          // a stick: step in
     if (!!bt[8] !== !!pad.prev[8]) ui.peek(!!bt[8]);                                                     // View/Back held: peek at the controls
     if (S.mode !== 'observe') {
