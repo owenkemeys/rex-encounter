@@ -7,7 +7,7 @@
 import { tune, tuneGroup } from './tune.js';      // tune
 export const CAPT = { size: 1, shadow: 0.85 };      // tune: the caption's size (x) and the strength of its shadow
 { tuneGroup('Clip and closing card', { order: 90 }); tune('Clip and closing card', 'Caption size (x)', CAPT, 'size', 0.4, 3, 0.05, null, 'clip.captionSize'); tune('Clip and closing card', 'Caption shadow strength', CAPT, 'shadow', 0, 1, 0.01, null, 'clip.captionShadow'); }      // tune
-export const CLIP_CAPTION = 'rex encounter · alpha';      // burned into a corner of every clip: change it here
+export const CLIP_CAPTION = 'rexencounter.com';      // burned into a corner of every clip: change it here
 import { facts as cardFacts, pick as cardPick, makeTape, note as cardNote, LEN as CARD_LEN } from './closeout.js';      // closeout
 import { incidentNo } from '../runs.js';
 // clipsound: every candidate names a video AND an audio codec; a stream that has an audio track never gets a video-only type (some browsers then drop the sound).
