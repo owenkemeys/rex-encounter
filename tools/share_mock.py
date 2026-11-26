@@ -4,7 +4,7 @@ POST /tape (multipart: tape, still, seed) -> {"id"}; GET /tape/<id>; GET /still/
 import email.parser, email.policy, json, os, secrets, sys, tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-GAME = os.environ.get('GAME', 'https://owenkemeys.github.io/rex-encounter/')
+GAME = os.environ.get('GAME', 'https://rexencounter.com/')
 STORE = tempfile.mkdtemp(prefix='rexshare-')
 
 
