@@ -3,11 +3,16 @@
 // (source in the OpenBot shared folder, rex-encounter-share). Old workers.dev links still work.
 export const SHARE_API = 'https://share.rexencounter.com';
 
-export const sharedId = () => { const m = location.hash.match(/tape=([\w-]+)/); return m ? m[1] : null; };
+export const sharedId = () => { try { const m = (location.hash + location.search).match(/tape=([\w-]+)/); return m ? m[1] : null; } catch { return null; } };
 
 export async function fetchTape(id) {
-  const r = await fetch(`${SHARE_API}/tape/${encodeURIComponent(id)}`); if (!r.ok) throw new Error('tape ' + r.status);
-  return new Uint8Array(await r.arrayBuffer());
+  const url = `${SHARE_API}/tape/${encodeURIComponent(id)}`;
+  let last;
+  for (let i = 0; i < 3; i++) {
+    try { const r = await fetch(url); if (!r.ok) throw new Error('tape ' + r.status); return new Uint8Array(await r.arrayBuffer()); }
+    catch (e) { last = e; await new Promise((ok) => setTimeout(ok, 400 * (i + 1))); }
+  }
+  throw last;
 }
 
 /** Upload; returns the link to paste. */

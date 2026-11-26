@@ -36,7 +36,7 @@ const $ = (id) => document.getElementById(id);
 const TEST = location.hash.startsWith('#test');
 // quality: chosen by measured frame time (src/view/quality.js); hints (GPU name, cores, memory, phone) only make the first guess
 const Q = detectQuality(TEST);
-const pickSeed = () => { const m = location.hash.match(/seed(\d+)/); return m ? +m[1] : TEST ? 3 : (Date.now() % 100000); };
+const pickSeed = () => { const m = (location.hash + (typeof location.search === 'string' ? location.search : '')).match(/seed(\d+)/); return m ? +m[1] : TEST ? 3 : (Date.now() % 100000); };
 let SEED = pickSeed();      // a new one for each scenario: every page load and every start over
 
 async function boot() {
@@ -62,7 +62,8 @@ async function boot() {
   function fallBack() {
     if (swapping || backend !== 'WebGPU') return;
     swapping = true;
-    location.hash = TEST ? '#test-webgl' : '#webgl';
+    const keep = ((location.hash + (location.search || '')).match(/tape=[\w-]+(?:,seed\d+)?/) || (location.hash + (location.search || '')).match(/seed\d+/));
+    location.hash = (TEST ? '#test-webgl' : '#webgl') + (keep ? ',' + keep[0] : '');
     location.reload();
   }
   await makeRenderer(location.hash.includes('webgl') || (!location.hash.includes('webgpu') && !TEST && backendPreference(Q.hints.gpu) === 'webgl'));
@@ -190,7 +191,7 @@ async function boot() {
     document.body.classList.add('clipping'); return true;
   }
   // share your run: a shared tape (#tape=<id>) plays first through the same frozen-game path as a clip in play, then the card offers this rex or a new one
-  let sharedTape = sharedId() && SHARE_API ? fetchTape(sharedId()).then(decodeTape).catch(() => null) : null, sharedT = null, sharedNo = '', sharedAt = 0;
+  let sharedTape = sharedId() && SHARE_API ? fetchTape(sharedId()).then(decodeTape).catch((e) => { console.error('[share] tape', e); return null; }) : null, sharedT = null, sharedNo = '', sharedAt = 0;
   function watchShared(t) {
     if (!t || S.replay || S.dead || !rec.fromTape(t) || !rec.play(camera.aspect)) { rec.reset(); return false; }
     sharedT = t; sharedNo = t.meta.no; sharedAt = t.meta.at; S.watching = true;
@@ -1420,9 +1421,14 @@ async function boot() {
     // a rAF timestamp is when the frame began, which can be earlier than the performance.now() taken above (by seconds after a
     // long boot on a slow device): never hand the simulation a negative step (it ran the director's easing backwards, so its
     // look point and lens blew up before the start card was dismissed, and the takeover inherited a ground-facing, whited-out view)
-    const loop = (now) => { const dt = clamp((now - last) / 1000, 0, 0.1); last = Math.max(last, now); frame(dt); unboot(); requestAnimationFrame(loop); };
+    let holdBoot = !!sharedTape;      // a shared link: keep the loading screen up until the tape is ready, or until it fails, so the usual start card is not shown in between
+    const loop = (now) => { const dt = clamp((now - last) / 1000, 0, 0.1); last = Math.max(last, now); frame(dt); if (!holdBoot) unboot(); requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
-    if (sharedTape) sharedTape.then((t) => { if (!t || !watchShared(t)) return; S.tapeHold = true; $('ssNo').textContent = t.meta.no || ''; $('ssDate').textContent = tapeLine(t.meta.no, t.meta.at); document.body.classList.add('shared'); $('sharedStart').hidden = false; });
+    if (sharedTape) {
+      const done = (t) => { holdBoot = false; if (!t || !watchShared(t)) return; S.tapeHold = true; $('ssNo').textContent = t.meta.no || ''; $('ssDate').textContent = tapeLine(t.meta.no, t.meta.at); document.body.classList.add('shared'); $('sharedStart').hidden = false; };
+      sharedTape.then(done);
+      setTimeout(() => { if (holdBoot) { holdBoot = false; console.error('[share] tape timed out'); } }, 20000);
+    }
   }
 }
 
