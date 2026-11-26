@@ -1,10 +1,10 @@
 // Single-command realism scorecard.  node test/score.mjs [--quick] [--save-baseline]
 // Deterministic, in-process, imports only from src/. Every section is isolated: an exception becomes a FAIL line.
 import fs from 'node:fs';
-import { Nav } from '../src/sim/nav.js';
+import { Nav } from '../src/rex/body/nav.js';
 import { makeTerrain } from '../src/terrain.js';
-import { Creature, IDX, PV, SPINE_N } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature, IDX, PV, SPINE_N } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 import { limitMeter } from './limits.mjs';
 

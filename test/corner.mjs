@@ -3,7 +3,7 @@
 // (pace 3). The man is close behind the north end, so the route bends round the north-east corner. Prints the contact events (part / surface / force), the deepest any body volume went into the container (clip.mjs'
 // volumes), and the time to reach the man.
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim } from '../src/sim/rex.js';
+import { RexSim } from '../src/rex/body/rex.js';
 import { depthAt, bodySpheres } from './clip.mjs';
 for (const [lab, pace, burst] of [['chase', 9.5, true], ['calm', 3, false]]) {
   const T = makeTerrain(7), sim = new RexSim(T, { seed: 3 }); sim.reset(-21.5, 48, 0);

@@ -2,14 +2,13 @@
 // eyes and teeth riding the skull and jaw. Reads only the pose buffer.
 import * as THREE from 'three/webgpu';
 import { attribute, vertexColor, vec3, float, mix, uniform, positionView, normalView, cross, dot, normalize, abs, sign, mx_worley_noise_float, mx_worley_noise_vec2, mx_noise_float, smoothstep, clamp, length, fwidth, max, faceDirection, exp } from 'three/tsl';
-import { RexSim, PS } from '../sim/rex.js';
+import { RexSim, PS } from '../body/rex.js';
 import { jawFromVoice } from './jawvoice.js';
-import { tune, tuneGroup } from './tune.js';      // tune
-import { WEATHER } from './world.js';
+import { tune, tuneGroup } from '../tune.js';      // tune
 import { positionWorld, cameraPosition, pow, normalWorld, normalLocal } from 'three/tsl';
 import { buildRexGeometry, paintRex, boneMatrices, BONE_COUNT, BONE, mouthY, EYE, EYE_AIM, eyeAim, WEB, WEBSHEET } from './rexgeo.js';
 
-// EYES2 (view-side workaround; the real fix belongs in src/sim/rex.js, see out/skel/EYES2.md): main.js hands the view
+// EYES2 (view-side workaround; the real fix belongs in src/rex/body/rex.js, see out/skel/EYES2.md): main.js hands the view
 // `body.fix = sim.fix` once, at boot, but `RexSim.reset` replaces `this.fix` with a new Vector3, and the game's opening
 // (arena.js `opening`) resets the animal next to the gate at the start of every game. The view was left holding the boot
 // spawn's point (40 m ahead, 4 m up) for the whole game, so the eyes stared at a fixed spot in the sky, not at the player.
@@ -67,7 +66,7 @@ function headDetail(hp, scute, E, N, lo, jaw) {
   return { h, dark, rgh, inMouth };
 }
 
-function skinMaterial(wet, lo, E, NOS, jaw) {
+function skinMaterial(wet, lo, E, NOS, jaw, env) {
   const m = new THREE.MeshStandardNodeMaterial();
   m.name = 'rexSkin';      // pipeline errors name it (renderPipeline_rexSkin_<id>), and the self-check below looks for it
   const rest = attribute('rest', 'vec3'), rough = attribute('rough', 'float'), small = attribute('scl', 'float'), face = attribute('face', 'float');
@@ -146,9 +145,9 @@ function skinMaterial(wet, lo, E, NOS, jaw) {
     m.roughnessNode = clamp(rough.add(0.04).add(HD.rgh.mul(face)).add(vGroove.mul(0.12)).add(float(0.5).sub(dl).mul(0.1).mul(face)).sub(wet.mul(0.2)).add(float(1).sub(fC).mul(0.08)).add(nVar.mul(0.6)), 0.42, 1);
     m.metalness = 0;
     // plus a modest lift on the shadowed underside (sky bounce), carrying the scute grooves so the relief reads against a bright sky
-    m.emissiveNode = vec3(WEATHER.fog).mul(fr).mul(mix(float(0.26), float(0.45), wet)).mul(float(1).sub(HD.inMouth))
-      .add(vertexColor().mul(vec3(WEATHER.fog)).mul(normalWorld.y.mul(0.5).add(0.5)).mul(0.2))
-      .add(vertexColor().mul(vec3(WEATHER.fog)).mul(clamp(normalWorld.y.negate(), 0, 1)).mul(0.22).mul(float(1).sub(vGroove.mul(0.7))).mul(float(1).sub(HD.dark.mul(face))));
+    m.emissiveNode = vec3(env.fog).mul(fr).mul(mix(float(0.26), float(0.45), wet)).mul(float(1).sub(HD.inMouth))
+      .add(vertexColor().mul(vec3(env.fog)).mul(normalWorld.y.mul(0.5).add(0.5)).mul(0.2))
+      .add(vertexColor().mul(vec3(env.fog)).mul(clamp(normalWorld.y.negate(), 0, 1)).mul(0.22).mul(float(1).sub(vGroove.mul(0.7))).mul(float(1).sub(HD.dark.mul(face))));
     return m;
   }
   const scuteA = attribute('scute', 'float'), scute = scuteA.max(0), horn = scuteA.negate().clamp(0, 1);      // a negative scute marks claw horn
@@ -201,7 +200,7 @@ function skinMaterial(wet, lo, E, NOS, jaw) {
   m.metalness = 0;
   // the air around it: a thin fresnel of fog colour at the silhouette, so a dark wet hide still reads against the storm
   // (not in the face's own occluded places: lip gap, nostrils, the shut mouth corner, where a grazing crease lit up as a pale seam)
-  m.emissiveNode = vec3(WEATHER.fog).mul(fr).mul(mix(float(0.12), float(0.35), wet)).add(vec3(0.7, 0.75, 0.9).mul(WEATHER.flash).mul(fr).mul(0.3)).mul(float(1).sub(HD.dark.mul(face))).mul(float(1).sub(HD.inMouth));
+  m.emissiveNode = vec3(env.fog).mul(fr).mul(mix(float(0.12), float(0.35), wet)).add(vec3(0.7, 0.75, 0.9).mul(env.flash).mul(fr).mul(0.3)).mul(float(1).sub(HD.dark.mul(face))).mul(float(1).sub(HD.inMouth));
   return m;
 }
 
@@ -311,8 +310,11 @@ const LID = { follow: 0.8, up: 0.9, tau: 0.1, yawMax: 0.45, pitchMax: 0.4, cant:
   tune(G, 'Lids: furthest sideways drift (rad)', LID, 'yawMax', 0, 0.9, 0.01, null, 'eyes.lidYawMax'); tune(G, 'Lids: furthest up/down drift (rad)', LID, 'pitchMax', 0, 0.9, 0.01, null, 'eyes.lidPitchMax'); tune(G, 'Lids: outer corner tilt (rad)', LID, 'cant', -0.4, 0.4, 0.01, null, 'eyes.lidCant'); }      // tune
 
 export class RexBody {
-  constructor(Q = { tier: 'high' }) {
+  /** Q: { tier: 'high' | 'low' }. env: the host's air, as TSL uniform nodes: fog (colour: the hide's rim of fog light) and flash
+   *  (0..1: lightning on the hide). Left out, the rim is black and there is no lightning. The game passes its weather (view/world.js). */
+  constructor(Q = { tier: 'high' }, { fog = null, flash = null } = {}) {
     const lo = Q.tier === 'low';
+    this.env = { fog: fog || uniform(new THREE.Color(0, 0, 0)), flash: flash || uniform(0) };
     this.group = new THREE.Group();
     const bindSim = new RexSim(flat, { x: 0, z: 0, yaw: 0, seed: 1 });
     const geo = buildRexGeometry(bindSim.pose, { cell: lo ? 0.0725 : 0.04 }), paint = paintRex(geo, { lo });
@@ -366,7 +368,7 @@ export class RexBody {
     // review aid: '-dbggrey' in the URL hash renders the hide as plain grey (pure geometry), '-dbgnrm' as geometry normals
     const dbg = typeof location !== 'undefined' ? location.hash : '';
     const skinMat = dbg.includes('dbgw') ? new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.9, metalness: 0 }) : dbg.includes('dbggrey') ? new THREE.MeshStandardNodeMaterial({ color: 0x8a8a8a, roughness: 0.8, metalness: 0 })
-      : dbg.includes('dbgnrm') ? new THREE.MeshNormalNodeMaterial() : skinMaterial(this.wet, lo, geo.eye || EYE, geo.nostril, this.jawU);
+      : dbg.includes('dbgnrm') ? new THREE.MeshNormalNodeMaterial() : skinMaterial(this.wet, lo, geo.eye || EYE, geo.nostril, this.jawU, this.env);
     this.mesh = new THREE.SkinnedMesh(g, skinMat);
     this.mesh.bind(this.skeleton, new THREE.Matrix4());
     this.mesh.frustumCulled = false; this.mesh.castShadow = true; this.mesh.receiveShadow = true;

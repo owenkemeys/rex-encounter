@@ -2,8 +2,8 @@
 // (a new sim.crashS) is counted with what the mind then shows (mind.voice.think) within 0.6 s and how long that stays up.
 //   node test/crashthoughtchase.mjs [seed|all] [secs]
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const arg = process.argv[2] || 'all', SECS = +(process.argv[3] || 300), dt = 1 / 120, hyp = Math.hypot, seeds = arg === 'all' ? [1, 2, 3, 4] : [+arg];
 const PAIN = /^(bump|ow|OW|hard thing|careful|slow\. careful)|hurt|head/i, DISM = /not care|no stop|keep go|still chase|no\. stop|press|on\b|ow\. no/i;

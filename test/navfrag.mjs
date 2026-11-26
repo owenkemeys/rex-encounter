@@ -2,11 +2,11 @@
 //   node test/navfrag.mjs [--navbody=R]
 import fs from 'fs';
 import { makeSaltTerrain, saltlineDesc } from './worlds/saltworld.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
-import { bodyRoom } from '../src/sim/nav.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
+import { bodyRoom } from '../src/rex/body/nav.js';
 import { makeTerrain } from '../src/terrain.js';
-import { TYRANNOSAURUS } from '../src/species/tyrannosaurus.js';
+import { TYRANNOSAURUS } from '../src/rex/species/tyrannosaurus.js';
 const a = process.argv.find((s) => s.startsWith('--navbody=')), NB = a ? +a.split('=')[1] : null;
 const W = JSON.parse(fs.readFileSync(new URL('./worlds/saltline.json', import.meta.url)));
 function frag(T, x, z, label) {

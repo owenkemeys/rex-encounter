@@ -1,5 +1,5 @@
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim, PV, IDX } from '../src/sim/rex.js';
+import { RexSim, PV, IDX } from '../src/rex/body/rex.js';
 const T=makeTerrain(7); const sim=new RexSim(T,{seed:3}); const dt=1/120; let p1,p2,n=0;
 for(let i=0;i<9*120;i++){ const t=i*dt; sim.step(dt,{goal:{kind:'drive',throttle:1,steer:Math.sin(t*0.7)*0.8},pace:4.5,attention:null}); sim.events.length=0;
   const c=[sim.py.x,sim.pPitch.x,sim.pRoll.x,sim.pYaw.x,sim.sway.x,sim.x,sim.z,sim.psi,sim.tail[12].p.y,sim.tail[12].p.x,sim.groundY];

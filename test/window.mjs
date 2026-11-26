@@ -1,8 +1,8 @@
 // The owner's window playtest: a hungry rex outside the Warehouse, a person standing still just inside a window (x -50.3, z 60.6).
 // Does the head go through, how near does the snout get, how long does it stand back?   node test/window.mjs [seed] [secs]
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const seed = +(process.argv[2] || 1), SECS = +(process.argv[3] || 60), dt = 1 / 120, hyp = Math.hypot;
 const T = makeTerrain(7), S = T.structures.find((s) => s.kind === 'warehouse');

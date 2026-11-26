@@ -1,7 +1,7 @@
 // Plays scripted people against the mind and prints what the animal did.
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { RexSim } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 export function play(name, script, secs, { seed = 3, light = 0.8, wind = { x: 0, z: -3 }, verbose = true, rexAt = { x: 0, z: 0, yaw: 0 } } = {}) {
   const T = makeTerrain(7), sim = new RexSim(T, { ...rexAt, seed }), mind = new Mind(sim, seed);
   const dt = 1 / 120, me = { id: 'you', x: 0, y: 0, z: 30, vx: 0, vz: 0, speed: 0, crouch: false, fx: 0, fz: -1 };

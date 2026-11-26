@@ -1,7 +1,7 @@
 // node test/stuck_repro.mjs <seed> <mode: strike|script> <crash:1|0> [flare:0|1] [verbose]
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const seed = +(process.argv[2] || 1), mode = process.argv[3] || 'script', crash = process.argv[4] !== '0', flare = process.argv[5] === '1', V = !!process.argv[6], dt = 1 / 120, hyp = Math.hypot;
 const PATCH = (process.env.PATCH || '').split(',');

@@ -37,13 +37,13 @@
 // agents can be passed in (co-op); it attends to the one it finds most interesting.
 
 import { Peril } from './peril.js';
-import { tune, tuneGroup } from '../view/tune.js';      // tune
+import { tune, tuneGroup } from '../tune.js';      // tune
 import { makeRng, clamp, lerp, wrap, bearing, expK } from '../math.js';
 import { Attention } from './attend.js';
 import { Thinker } from './thoughts.js';
 import { Appraisal, PRED } from './appraise.js';
 import { reachJudge } from './afford.js';
-import { bodyRoom } from './nav.js';
+import { bodyRoom } from '../body/nav.js';
 
 // ON HOLD: the bond (trust, petting, hand-feeding) and the thorn scenario (pain, limp, lying down, tending, pulling the thorn).
 // The code is kept but switched off here: trust never grows, the friendly behaviours (greet, follow, pet, pull, rest, tend,

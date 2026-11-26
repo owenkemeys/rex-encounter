@@ -1,11 +1,11 @@
 // Automatic reviewer: runs scenarios and reports discontinuities ("pops"), penetrations and joint violations.
 import { Vector3 } from 'three';
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim, IDX, DIM, PV, LEG, SPINE_N, PS } from '../src/sim/rex.js';
-import { TYRANNOSAURUS } from '../src/species/tyrannosaurus.js';
+import { RexSim, IDX, DIM, PV, LEG, SPINE_N, PS } from '../src/rex/body/rex.js';
+import { TYRANNOSAURUS } from '../src/rex/species/tyrannosaurus.js';
 import { fidgetWatch } from './fidget.mjs';
 const TOES = TYRANNOSAURUS.foot ? TYRANNOSAURUS.foot.toes : [0.56, 0.7, 0.56], TOE_R = 0.12 * (TYRANNOSAURUS.foot ? TYRANNOSAURUS.foot.flesh : 1);
-// the toes of one foot as segments (MTP, joint, tip per digit), the skin's toe math (view/rexgeo.js)
+// the toes of one foot as segments (MTP, joint, tip per digit), the skin's toe math (rex/skin/rexgeo.js)
 function toePts(v, s, k) { const o = (PV.LEG + k * 6) * 3, M = [v[o + 9], v[o + 10], v[o + 11]], f = [v[o + 12], v[o + 13], v[o + 14]], u = [v[o + 15], v[o + 16], v[o + 17]], n = (a) => { const l = Math.hypot(...a) || 1; return a.map((x) => x / l); };
   const tf = n(f), tu = n(u), tl = n([tu[1] * tf[2] - tu[2] * tf[1], tu[2] * tf[0] - tu[0] * tf[2], tu[0] * tf[1] - tu[1] * tf[0]]), sg = k ? -1 : 1, fan = s[PS.SPREAD + k], out = [];
   for (let d = 0; d < 3; d++) { const a = (d - 1) * fan * -sg, g = tf.map((x, i) => x * Math.cos(a) + tl[i] * Math.sin(a)), cp = s[PS.TOE + k * 6 + d], cd = s[PS.TOE + k * 6 + 3 + d];
@@ -117,7 +117,7 @@ if(process.argv[1].endsWith('review.mjs')){
 }
 
 // Mind-driven encounters: the same motion checks, but with the animal making its own decisions
-import { Mind } from '../src/sim/mind.js';
+import { Mind } from '../src/rex/brain/mind.js';
 if (process.argv[1].endsWith('review.mjs') && process.argv[2] === 'mind') {
   for (const seed of [3, 5, 7, 11]) {      // (5: the standing-start slide of BODYFIX/BODYFIX2)
     const T = makeTerrain(7); let mind = null;

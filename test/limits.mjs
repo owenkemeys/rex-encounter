@@ -3,7 +3,7 @@
 // Neck/skull limits (rad): the skull may turn at most YAW_MAX off the chest's heading (horizontal), at most SKULL_MAX off the
 // line of the last neck segment, a neck joint may bend at most BEND_MAX, and the neck leaves the shoulders within ROOT_MAX of
 // the chest's forward-up axis. Feet: knee, shin, ankle, metatarsus and toes against every collider's footprint below its top.
-import { IDX, PV, DIM } from '../src/sim/rex.js';
+import { IDX, PV, DIM } from '../src/rex/body/rex.js';
 export const LIM = { YAW_MAX: 1.68, SKULL_MAX: 1.2, BEND_MAX: 0.62, ROOT_MAX: 1.25, ROLL_MAX: 0.45 };
 const ang = (ax, ay, az, bx, by, bz) => { const l = Math.hypot(ax, ay, az) * Math.hypot(bx, by, bz) || 1; return Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by + az * bz) / l))); };
 export function neckTick(sim) {
@@ -83,8 +83,8 @@ export function postureMeter() {
 /** Runs each behaviour forced (a person standing in the open, or hiding in the shed for besiege) and audits the posture. */
 export async function postureAudit(secs = 30, seeds = [3], behs = ['idle', 'watch', 'circle', 'appraise', 'guard', 'besiege']) {
   const { makeTerrain } = await import('../src/terrain.js');
-  const { Creature } = await import('../src/sim/rex.js');
-  const { Mind } = await import('../src/sim/mind.js');
+  const { Creature } = await import('../src/rex/body/rex.js');
+  const { Mind } = await import('../src/rex/brain/mind.js');
   const { Arena } = await import('../src/sim/arena.js');
   const PM = postureMeter(), fails = [];
   for (const seed of seeds) for (const beh of behs) {
@@ -116,8 +116,8 @@ export async function postureAudit(secs = 30, seeds = [3], behs = ['idle', 'watc
 if (process.argv[1] && process.argv[1].endsWith('limits.mjs')) {
   if (process.argv[2] === 'audit') { const r = await postureAudit(+(process.argv[3] || 30)); console.log('posture audit (occ = occiput height above chest joint, m; pitch = skull, rad)\n' + r.report); console.log(r.fails.length ? 'AUDIT FAIL\n  ' + r.fails.join('\n  ') : 'AUDIT PASS'); process.exit(0); }
   const { makeTerrain } = await import('../src/terrain.js');
-  const { Creature } = await import('../src/sim/rex.js');
-  const { Mind } = await import('../src/sim/mind.js');
+  const { Creature } = await import('../src/rex/body/rex.js');
+  const { Mind } = await import('../src/rex/brain/mind.js');
   const { Arena } = await import('../src/sim/arena.js');
   const secs = +(process.argv[2] || 40), dt = 1 / 120;
   // 1. looking behind itself: a subject circling it, jumping behind it, a voice from right behind

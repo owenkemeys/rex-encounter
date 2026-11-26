@@ -6,8 +6,8 @@
 // (where they are, hides, exits, decoys, grudge, verdict, tests, bond), the general prior about small things remains, nothing
 // goes on hunting where the dead one was, and the first sighting of the newcomer is a first meeting in its thoughts.
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 
 const dt = 1 / 120, hyp = Math.hypot, quiet = process.argv.includes('--quiet');

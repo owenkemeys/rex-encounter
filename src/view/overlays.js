@@ -1,7 +1,7 @@
 // Debug overlays: foot contacts and planned landings, support line, gaze, skeleton, and a
 // scrolling gait diagram.
 import * as THREE from 'three/webgpu';
-import { PV, LEG, SPINE_N, IDX } from '../sim/rex.js';
+import { PV, LEG, SPINE_N, IDX } from '../rex/body/rex.js';
 
 const C = { planted: 0x4fd18b, swing: 0xf2a33a, gaze: 0x8fd3ff, goal: 0xf05a3c };
 

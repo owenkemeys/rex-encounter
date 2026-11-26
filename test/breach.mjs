@@ -3,10 +3,10 @@
 // It knows where you are from the start (`ov.omniscient`, besiege forced): this measures the capability and the will, not the
 // finding. Prints, per run: first crack, first panel/leg giving way, the reach-in (seize), whether it gave up, what it tried.
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
-import { Nav } from '../src/sim/nav.js';
+import { Nav } from '../src/rex/body/nav.js';
 
 const kinds = (process.argv[2] || 'shed,pen,tower').split(','), motives = (process.argv[3] || 'curious,hungry,angry').split(',');
 const secs = +(process.argv[4] || 300), seed = +(process.argv[5] || 3);

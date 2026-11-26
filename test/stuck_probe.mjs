@@ -1,6 +1,6 @@
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const T = makeTerrain(7), sim = new Creature(T, { x: -9, z: 70, yaw: -Math.PI / 2, seed: 3 }), mind = new Mind(sim, 3), A = new Arena(T, sim, mind, 3);
 A.herd.list.length = 0; A.herd.disabled = true;

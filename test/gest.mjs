@@ -1,5 +1,5 @@
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim } from '../src/sim/rex.js';
+import { RexSim } from '../src/rex/body/rex.js';
 const T=makeTerrain(7); const sim=new RexSim(T,{seed:3}); const dt=1/120; const ev={};
 const P={x:2,y:T.height(2,12)+1.7,z:12};
 for(let i=0;i<20*120;i++){ const t=i*dt;

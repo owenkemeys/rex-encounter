@@ -1,11 +1,11 @@
 // A person hides in each structure; print how the animal works the openings.
 // node test/siege.mjs [kind|all|novel] <seed> <secs>; FORCE=1 makes it besiege from the start, knowing where you are (the capability alone).
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 import { limitMeter } from './limits.mjs';
-import { Nav } from '../src/sim/nav.js';
+import { Nav } from '../src/rex/body/nav.js';
 import { novel } from './novel.mjs';
 const only = process.argv[2], seed = +(process.argv[3] || 3), secs = +(process.argv[4] || 120);
 const T0 = makeTerrain(7);

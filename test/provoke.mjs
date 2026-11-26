@@ -2,8 +2,8 @@
 // Per hunger and seed: time from first within 6 m to first physical contact, the longest stretch within 6 m spent only looking/sniffing/circling,
 // counts of each kind of contact, time of death.   node test/provoke.mjs [hungers=0.2,0.5,0.8] [secs=120] [seeds=1-6] [still|run]   V=1 for timelines
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const HUNS = (process.argv[2] || '0.2,0.5,0.8').split(',').map(Number), SECS = +(process.argv[3] || 120), seeds = (process.argv[4] || '1,2,3,4,5,6').split(',').map(Number), MODE = process.argv[5] || 'still', dt = 1 / 120, hyp = Math.hypot, V = !!process.env.V;
 const med = (a) => (a.length ? a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)] : null);

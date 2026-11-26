@@ -1,8 +1,8 @@
 // node test/striketime.mjs: the committed strike's timing against range (peril.mjs' timing block, alone): from a standing start, the
 // first motion of the head to the jaws reaching the person; and the neck while it strikes (gap between head and neck end, bends).
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const dt = 1 / 120, hyp = Math.hypot, timing = [];
 const side = +(process.argv[2] || 0);      // the person this many m off to the side as well

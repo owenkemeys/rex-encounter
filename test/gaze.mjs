@@ -2,8 +2,8 @@
 // node test/gaze.mjs [seed...]  prints, per behaviour, the gaze-to-target angle (mean / p90 / share > 60 deg / > 120 deg / looking up > 35 deg)
 // and, for the bad ticks, what was steering the head (a gesture's point, a glance, glare, no look, body could not turn).
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const seeds = process.argv.slice(2).filter((a) => /^\d+$/.test(a)).map(Number); if (!seeds.length) seeds.push(3, 5, 8);
 const dt = 1 / 120, D = 180 / Math.PI;

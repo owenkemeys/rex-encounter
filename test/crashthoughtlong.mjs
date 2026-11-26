@@ -2,8 +2,8 @@
 // with a hungry (1.0) mind and a person standing still 13 m off. Prints the thought stream, behaviour changes, time in `pause`, longest gap.
 //   node test/crashthoughtlong.mjs [seed] [off]      ("off": the crash handling (mind._onCrash) returns at once)
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 const seed = +(process.argv[2] || 3), OFF = process.argv.includes('off'), dt = 1 / 120, verbose = !!process.env.V, GONE = +(process.env.GONE || 0);      // GONE=s: he leaves (out of sight) s seconds after it is released
 const T = makeTerrain(7), sim = new Creature(T, { x: -9, z: 70, yaw: -Math.PI / 2, seed }), mind = new Mind(sim, seed), A = new Arena(T, sim, mind, seed);

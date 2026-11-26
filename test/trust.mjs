@@ -4,8 +4,8 @@
 // The scripts only act on what a player could see or hear (where the animal is, what it is doing, its voice); trust is read
 // for the report only.
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 import { applyScenario } from '../src/sim/scenario.js';
 

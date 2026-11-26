@@ -3,7 +3,7 @@
 // mean speed inside, brush events); (2) a reach goal inside the stand from 15 m out (does it get there); and the sim's cost per tick
 // inside the stand against open ground.
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim } from '../src/sim/rex.js';
+import { RexSim } from '../src/rex/body/rex.js';
 const V = process.argv.includes('--v');
 const run = (lab, x0, z0, yaw, intentFn, secs) => {
   const T = makeTerrain(7), sim = new RexSim(T, { seed: 3 }); sim.reset(x0, z0, yaw);

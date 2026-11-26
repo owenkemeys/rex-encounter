@@ -1,9 +1,9 @@
 // Debug one forced besiege: node test/sdbg.mjs <kind> <seed> <secs> [every]
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
-import { Nav } from '../src/sim/nav.js';
+import { Nav } from '../src/rex/body/nav.js';
 import { novel } from './novel.mjs';
 const kind = process.argv[2], seed = +(process.argv[3] || 3), secs = +(process.argv[4] || 60), every = +(process.argv[5] || 0.25);
 const T = makeTerrain(7), S = novel[kind] ? novel[kind](T) : T.structures.find((s) => s.kind === kind);

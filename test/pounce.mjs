@@ -5,8 +5,8 @@
 // sprinting then stopping dead the moment it locks on (should defuse it, mostly), and sprinting for the shed door 33 m off
 // (cover it cannot enter). Reports trigger, launch and catch rates, what happened after the grab, and its top speed.
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 
 const dt = 1 / 120, hyp = Math.hypot, quiet = process.argv.includes('--quiet');

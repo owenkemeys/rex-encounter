@@ -4,8 +4,8 @@
 // to get its head to the new nearest opening, and the new focus thoughts per minute, by kind.
 //   node test/focus.mjs [seed|all] [secs] [every] [--log]
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 import { gateFidget } from '../src/gatesplash.js';
 const args = process.argv.slice(2).filter((a) => !a.startsWith('--')), LOG = process.argv.includes('--log');

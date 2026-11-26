@@ -1,6 +1,6 @@
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim, PV } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { RexSim, PV } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 const T=makeTerrain(7), sim=new RexSim(T,{seed:7}), mind=new Mind(sim,7), dt=1/120;
 const me={id:'you',x:6,y:0,z:26,vx:0,vz:0,speed:0,crouch:false,fx:0,fz:-1};
 const o=(PV.LEG+6)*3;

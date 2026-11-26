@@ -3,7 +3,7 @@
 // rest. Every impact is a sound with a loudness set by how hard it hit; a hit on the animal is felt.
 // Deterministic given the same throws; no renderer here.
 import { clamp } from '../math.js';
-import { tune } from '../view/tune.js';      // tune
+import { tune } from '../rex/tune.js';      // tune
 
 const G = 9.81;
 const KIND = {

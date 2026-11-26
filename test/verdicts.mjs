@@ -1,4 +1,4 @@
-// Determined players against the appraisal (src/sim/appraise.js): can a person who sets out to be a rival, or a threat, get
+// Determined players against the appraisal (src/rex/brain/appraise.js): can a person who sets out to be a rival, or a threat, get
 // there in a session, and does it look and sound different from a nuisance once they do?
 //   node test/verdicts.mjs [seeds e.g. 3,5,8] [--secs 300] [--quiet]
 // rival: keeps 12-20 m off facing it (holds its gaze), never runs, walks at it whenever it displays or charges, shouts back
@@ -10,8 +10,8 @@
 // nuisance (control): two stones at its body and goes on wandering. Should stay nuisance (never rival or threat).
 // Reports time to the verdict, the lead-up (rivalry/fear at 60 s intervals), the stance mix after it, and the thoughts.
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 
 const dt = 1 / 120, hyp = Math.hypot, quiet = process.argv.includes('--quiet');

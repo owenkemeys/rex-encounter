@@ -2,8 +2,8 @@
 // with the person released and able to get up.  node test/attack.mjs [scenario|all] [seed] [--quiet]
 // Each scripted person reacts to what is done to them: 'fight' mashes keys whenever handled, 'limp' goes still.
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 
 const dt = 1 / 120;

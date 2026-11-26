@@ -2,10 +2,10 @@
 // scenes: feed (meat nearby), flare, shed (person in the shed), tower, hunt (hungry, herd near), hit (stones thrown at it),
 //         grab (hungry, a person close who fights when caught), swipe (stones from right behind it, after warnings)
 import { makeTerrain } from '../src/terrain.js';
-import { Creature, PV, SPINE_N } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature, PV, SPINE_N } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
-import { Nav } from '../src/sim/nav.js';
+import { Nav } from '../src/rex/body/nav.js';
 import fs from 'fs';
 const [,, scene = 'feed', from = '0', secs = '6', out = 'out/d.json', seed = '3'] = process.argv;
 const T = makeTerrain(7); let sim, me = null;

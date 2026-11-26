@@ -7,8 +7,8 @@
 // at two leg lengths), `drive` at full throttle with steer 0.3/0.6/1.0, the corner.mjs chase; and with the mind: a scripted runner
 // weaving round the Containers (3 seeds, 60 s).
 import { makeTerrain } from '../src/terrain.js';
-import { Creature, DIM, PV } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature, DIM, PV } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 // GAIT=legacy: the gait before the 2026-11-17 fix (sim.gaitLegacy; see Creature constructor)
 const mkC = (T, o) => { const c = new Creature(T, o); if (process.env.GAIT === 'legacy') c.gaitLegacy = true; return c; };

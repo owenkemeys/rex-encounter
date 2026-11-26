@@ -1,7 +1,7 @@
 // Counts the mind's wedged-body recoveries (mem.stuck) and give-ups (mem.gaveUp) in any single-process test, by watching the
 // mind after each step; prints the tally at exit, by behaviour, with the nearest solid to the hips at the moment.
 //   node test/stuckcount.mjs <test script> [its args...]     e.g. node test/stuckcount.mjs test/saltline.mjs
-import { Mind } from '../src/sim/mind.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 const T = { stuck: [], gaveup: [] }, step = Mind.prototype.step;

@@ -1,7 +1,7 @@
 // node test/necklat.mjs: the neck at rest and tracking straight ahead must lie in the animal's sagittal plane (no sideways S).
 // Reports each neck joint's lateral offset from the chest's mid-plane, and the neck parameters. Exits 1 if any joint is
 // more than 3 cm aside at rest or straight ahead.
-import { RexSim, IDX } from '../src/sim/rex.js';
+import { RexSim, IDX } from '../src/rex/body/rex.js';
 const flat = { height: () => 0, normal: (x, z, o) => { o.x = 0; o.y = 1; o.z = 0; return o; }, arena: 1e4, size: 1e4, addBump() {}, bumps: [] };
 let bad = 0;
 for (const [name, look] of [['rest', null], ['ahead 6m eye height', [0, 1.7, 6]], ['ahead 12m low', [0, 0.5, 12]], ['ahead 4m high', [0, 4.5, 4]]]) for (const seed of [1, 2, 3]) {

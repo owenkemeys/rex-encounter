@@ -1,4 +1,4 @@
-p='src/sim/rex.js';s=open(p).read()
+p='src/rex/body/rex.js';s=open(p).read()
 def rep(a,b):
     global s
     assert a in s, a[:100]
@@ -50,7 +50,7 @@ rep("""    } else if (a.kind === 'path') {
 open(p,'w').write(s)
 
 # ---- g) pursuit cuts the target off instead of chasing its tail
-p='src/sim/mind.js';s=open(p).read()
+p='src/rex/brain/mind.js';s=open(p).read()
 def rep2(a,b):
     global s
     assert a in s, a[:100]

@@ -4,11 +4,11 @@
 // node test/afford.mjs [place|all] [seed] [secs]
 import { makeTerrain } from '../src/terrain.js';
 import { makePaddock } from '../src/paddock.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
-import { Nav } from '../src/sim/nav.js';
-import { affordances } from '../src/sim/afford.js';
+import { Nav } from '../src/rex/body/nav.js';
+import { affordances } from '../src/rex/brain/afford.js';
 const only = process.argv[2] || 'all', seed = +(process.argv[3] || 3), secs = +(process.argv[4] || 180);
 const PD = makePaddock(7), ref = (n) => PD.refuges.find((r) => r.name === n);
 const T0 = makeTerrain(7);

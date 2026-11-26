@@ -1,5 +1,5 @@
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim, PV } from '../src/sim/rex.js';
+import { RexSim, PV } from '../src/rex/body/rex.js';
 const T=makeTerrain(7); const sim=new RexSim(T,{seed:3}); const dt=1/120;
 const o=(PV.LEG)*3; let prev=null;
 for(let i=0;i<4*120;i++){ const t=i*dt; sim.step(dt,{goal:{kind:'reach',id:1,x:10,z:40},pace:2.2,attention:null}); sim.events.length=0;

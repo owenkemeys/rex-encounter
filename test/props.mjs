@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 const arg = (k, d = null) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const SRC = arg('--src') ? pathToFileURL(arg('--src').replace(/\/?$/, '/')).href : new URL('../src/', import.meta.url).href;
 const { makeTerrain } = await import(SRC + 'terrain.js');
-const { RexSim } = await import(SRC + 'sim/rex.js');
+const { RexSim } = await import(SRC + 'rex/body/rex.js');
 const ALL = process.argv.includes('--all'), ONLY = arg('--kind'), SEED = +(arg('--seed') || 7), LIM = 0.25;
 const T = makeTerrain(SEED), PD = T.paddock, dt = 1 / 120;
 // fallen logs lie in the dense wood, where no 12 m run is clear of stems: they are tried on the open Lawn instead, as copies of the same

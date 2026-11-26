@@ -1,5 +1,5 @@
-import { RexSim } from '../src/sim/rex.js';
-import { buildRexGeometry } from '../src/view/rexgeo.js';
+import { RexSim } from '../src/rex/body/rex.js';
+import { buildRexGeometry } from '../src/rex/skin/rexgeo.js';
 import fs from 'fs';
 const flat = {height:()=>0, normal:(x,z,o)=>{o.x=0;o.y=1;o.z=0;return o;}, arena:500, size:1000, addBump(){}, bumps:[]};
 const sim = new RexSim(flat,{x:0,z:0,yaw:0,seed:1});

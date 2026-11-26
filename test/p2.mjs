@@ -1,5 +1,5 @@
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim } from '../src/sim/rex.js';
+import { RexSim } from '../src/rex/body/rex.js';
 const T=makeTerrain(7); const sim=new RexSim(T,{seed:3}); const dt=1/120;
 for(let i=0;i<5*120;i++){ if(i===240) sim.shove(2.6,0); sim.step(dt,{goal:null,pace:2.2,attention:null});
  for(const e of sim.events) if(e.type!=='liftoff') console.log((i*dt).toFixed(2),e.type); sim.events.length=0;

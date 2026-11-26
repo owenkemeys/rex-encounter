@@ -6,10 +6,10 @@
 // what the feet were doing. Fails (exit 1) when any happens with no solid within a body length of the hips.
 //   node test/stuckopen.mjs [--seeds=1,2,3] [--secs=180] [--world=arena|foreign|both] [--dist=alone,6,12,25] [--verbose]
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
-import { rectOf } from '../src/sim/nav.js';
+import { rectOf } from '../src/rex/body/nav.js';
 import { makeForeign } from './foreign_world.mjs';
 
 const arg = (k, d) => { const a = process.argv.find((s) => s.startsWith('--' + k + '=')); return a ? a.split('=')[1] : d; };

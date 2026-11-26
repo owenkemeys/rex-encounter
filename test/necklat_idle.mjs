@@ -1,6 +1,6 @@
 // node test/necklat_idle.mjs: idle (no intent), 60 s x 4 seeds; whenever the head is within 10 deg of straight ahead (place and
 // facing), the neck's sideways bulge: each joint's lateral distance from the chord neck-base -> head. Reports the max.
-import { RexSim, IDX } from '../src/sim/rex.js';
+import { RexSim, IDX } from '../src/rex/body/rex.js';
 const flat = { height: () => 0, normal: (x, z, o) => { o.x = 0; o.y = 1; o.z = 0; return o; }, arena: 1e4, size: 1e4, addBump() {}, bumps: [] };
 let worst = 0, n = 0, all = 0;
 for (const seed of [1, 2, 3, 4]) {

@@ -6,8 +6,8 @@
 //   probe    a mind probe (ov) removes a sense so a rare state can be reached on demand
 // An achievement with no scenario that fires it is reported as unverified.
 import { makeTerrain } from '../src/terrain.js';
-import { Creature } from '../src/sim/rex.js';
-import { Mind } from '../src/sim/mind.js';
+import { Creature } from '../src/rex/body/rex.js';
+import { Mind } from '../src/rex/brain/mind.js';
 import { Arena } from '../src/sim/arena.js';
 import { Achievements, ACHIEVEMENTS } from '../src/achievements.js';
 

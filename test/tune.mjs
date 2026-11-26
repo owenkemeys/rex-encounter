@@ -1,13 +1,14 @@
-// The tuning registry (src/view/tune.js), headless: registration from the sim-side files, writing through the registry, reset, the copy text, persistence.
+// The tuning registry (src/rex/tune.js; the panel is src/view/tune.js) with the game's browser store (src/tunestore.js), headless: registration from the sim-side files, writing through the registry, reset, the copy text, persistence.
 // node test/tune.mjs
 const store = {};
 globalThis.localStorage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
 let fails = 0; const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } };
+const { browserStore } = await import('../src/tunestore.js');      // as main.js: the store first, then everything that registers
 const T = await import('../src/view/tune.js');
 const mods = {};
-for (const f of ['../src/species/tyrannosaurus.js', '../src/sim/arena.js', '../src/sim/things.js', '../src/view/ptz.js', '../src/view/jawvoice.js', '../src/view/rexgeo.js', '../src/view/closeout.js']) { try { mods[f] = await import(f); } catch (e) { fails++; console.log('FAIL import', f, e.message.slice(0, 200)); } }
-const { Mind } = await import('../src/sim/mind.js'); const { RexSim } = await import('../src/sim/rex.js');
-const { TYRANNOSAURUS } = mods['../src/species/tyrannosaurus.js'];
+for (const f of ['../src/rex/species/tyrannosaurus.js', '../src/sim/arena.js', '../src/sim/things.js', '../src/view/ptz.js', '../src/rex/skin/jawvoice.js', '../src/rex/skin/rexgeo.js', '../src/view/closeout.js']) { try { mods[f] = await import(f); } catch (e) { fails++; console.log('FAIL import', f, e.message.slice(0, 200)); } }
+const { Mind } = await import('../src/rex/brain/mind.js'); const { RexSim } = await import('../src/rex/body/rex.js');
+const { TYRANNOSAURUS } = mods['../src/rex/species/tyrannosaurus.js'];
 // a Mind registers its dials on its own merged config
 { const { makeTerrain } = await import('../src/terrain.js'); const Tr = makeTerrain(7), sim = new RexSim(Tr, { x: 0, z: 0, psi: 0, seed: 1 }); new Mind(sim, 1); }
 const before = T.tuneEntries().length;
@@ -42,7 +43,9 @@ const { PTZ } = mods['../src/view/ptz.js']; const P = T.tuneEntries().find((x) =
 const co = T.tuneEntries().find((x) => x.code === 'card.seconds'); T.tuneSet(co, 3); ok(mods['../src/view/closeout.js'].LEN === 3, 'closing card length follows (live binding)'); T.tuneResetAll(); ok(mods['../src/view/closeout.js'].LEN === 6.4, 'and back');
 // persistence across a fresh load
 store['rex.tune.v1'] = JSON.stringify({ v: { 'Test group|Late': 5 }, pin: [] });
-const T2 = await import('../src/view/tune.js?again'); const o3 = { y: 1 }; T2.tune('Test group', 'Late', o3, 'y', 0, 9, 1, null, 'test.y'); ok(o3.y === 5, 'stored value applied at registration'); ok(T2.tuneCount() === 1, 'count');
+const T2 = await import('../src/rex/tune.js?again'); T2.tuneStorage(browserStore); const o3 = { y: 1 }; T2.tune('Test group', 'Late', o3, 'y', 0, 9, 1, null, 'test.y'); ok(o3.y === 5, 'stored value applied at registration'); ok(T2.tuneCount() === 1, 'count');
+// without a store (a host that never calls tuneStorage, e.g. Saltline or a Node test): nothing is loaded or saved
+{ const T3 = await import('../src/rex/tune.js?bare'); const o4 = { y: 1 }; T3.tune('Test group', 'Late', o4, 'y', 0, 9, 1, null, 'test.y'); ok(o4.y === 1, 'no store: the default stands'); const before3 = store['rex.tune.v1']; T3.tuneSet(T3.tuneEntry('Test group|Late'), 7); ok(o4.y === 7 && store['rex.tune.v1'] === before3, 'no store: set works, nothing written'); }
 // every slider's current value lies within its range, steps are positive
 let bad = 0; for (const x of T.tuneEntries()) if (x.kind === 'num' && !(x.step > 0 && x.min < x.max && x.obj[x.key] >= x.min - 1e-9 && x.obj[x.key] <= x.max + 1e-9)) { bad++; console.log('range', x.id, x.min, x.obj[x.key], x.max); }
 ok(bad === 0, bad + ' parameters outside their own range');

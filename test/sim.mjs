@@ -1,5 +1,5 @@
 import { makeTerrain } from '../src/terrain.js';
-import { RexSim, DIM } from '../src/sim/rex.js';
+import { RexSim, DIM } from '../src/rex/body/rex.js';
 const T = makeTerrain(7);
 function run(name, script, secs){
   const sim = new RexSim(T,{x:0,z:0,yaw:0,seed:3});

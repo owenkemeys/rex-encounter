@@ -12,8 +12,8 @@
 //   &cam=oside|ofront|otop [&scale=64]   orthographic at a known scale (px per metre), with a 1 m grid (see test/studio.md)
 // When the frame is drawn window.__studio = { done: true, info } and the canvas holds the image.
 import * as THREE from 'three/webgpu';
-import { RexSim, PV, LEG, IDX, SPINE_N, PS } from './sim/rex.js';
-import { RexBody } from './view/body.js';
+import { RexSim, PV, LEG, IDX, SPINE_N, PS } from './rex/body/rex.js';
+import { RexBody } from './rex/skin/body.js';
 import { WEATHER } from './view/world.js';
 
 // deterministic: the eyes' saccades and anything else that draws on Math.random
@@ -76,7 +76,7 @@ async function main() {
   scene.add(new THREE.HemisphereLight(0xe4e8ee, 0x7a766e, 1.7));
   const key = new THREE.DirectionalLight(0xfff6e8, 3.2); scene.add(key); scene.add(key.target);
   const Q = { tier: H.tier === 'low' ? 'low' : 'high' };
-  const body = new RexBody(Q); scene.add(body.group);
+  const body = new RexBody(Q, { fog: WEATHER.fog, flash: WEATHER.flash }); scene.add(body.group);
   body.update(sim.pose);
   log('tris', body.stats.tris); log('verts', body.stats.verts);
   const tBody = performance.now();

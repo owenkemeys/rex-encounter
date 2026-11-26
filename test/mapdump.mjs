@@ -1,7 +1,7 @@
 // Dumps the paddock's layers for test/map.py (top-down map at out/map.png). node test/mapdump.mjs [seed] [out/map.json]
 import fs from 'node:fs';
 import { makeTerrain } from '../src/terrain.js';
-import { Nav } from '../src/sim/nav.js';
+import { Nav } from '../src/rex/body/nav.js';
 const seed = +(process.argv[2] || 7), out = process.argv[3] || 'out/map.json';
 const T = makeTerrain(seed), N = new Nav(T); N._build();
 const S = 0.5, R = 112, n = Math.round(2 * R / S);
