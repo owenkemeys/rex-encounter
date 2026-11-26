@@ -167,7 +167,7 @@ async function boot() {
   // While it runs the things in the world are the recorded ones (rec.things), live sim events are not played, and the recorded sound events are
   // re-emitted through the usual audio calls with the listener at the camera, through a thin small-microphone filter (audio.mic). Dust, rain, the herd stay as now.
   let torchLive = false, micHeld = false;
-  const clip = createClip({ getCanvas: () => canvas, audio, tape: rec, extra: () => { const V = arena.victims && arena.victims.get('you'); return { cause: V && V.cause, eaten: !!(V && V.gone), motive: V && V.lastHurt && V.lastHurt.motive, deaths: V ? V.lives : 1, crouch: !!S.you.crouch, label: rec.label, lasted: S.footSince && V ? (performance.now() - S.footSince) / 1000 - (V.dead ? Math.max(0, (V.clock || 0) - (V.deadT || 0)) : 0) : 0 }; }, onCard: (live) => { if (!live && S.dead) paChime(true); else if (S.watching) audio.chime(true, false, 0.5); } });      // a shared tape's notice chimes too S.clip = clip;      // closeout: the card's facts      // clip: "save clip" on the death card records the replay to a file
+  const clip = createClip({ getCanvas: () => canvas, audio, tape: rec, extra: () => { const V = arena.victims && arena.victims.get('you'); return { cause: V && V.cause, eaten: !!(V && V.gone), motive: V && V.lastHurt && V.lastHurt.motive, deaths: V ? V.lives : 1, crouch: !!S.you.crouch, label: rec.label, lasted: S.footSince && V ? (performance.now() - S.footSince) / 1000 - (V.dead ? Math.max(0, (V.clock || 0) - (V.deadT || 0)) : 0) : 0 }; }, onCard: (live) => { if (!live && S.dead) paChime(true); else if (S.watching) audio.chime(true, clip.active, 0.5); } });      // a shared tape's notice chimes too S.clip = clip;      // closeout: the card's facts      // clip: "save clip" on the death card records the replay to a file
   // The death card's PA chime, 0.5 s after the card is up: out loud once per death, and into every recording of the card (watch again and SAVE CLIP re-record it)
   function paChime(intoClip) { const V = arena.victims && arena.victims.get('you'), life = V ? V.lives : 1, spk = S.chimed !== life; S.chimed = life; audio.chime(spk, intoClip && clip.active, 0.5); }
   function startClip() {      // closeout: "save clip" on the death menu when there is no finished clip (the replay was skipped): the replay and card play once more, recorded, with the small tag
@@ -203,9 +203,9 @@ async function boot() {
     return true;
   }
   const tapeLine = (no, at) => { const d = new Date(at || Date.now()); return `Incident ${no || '----'} - ${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}, 1996`; };
-  function sharedEnd() { $('sharedStart').hidden = true; $('seTape').textContent = tapeLine(sharedNo, sharedAt); $('seShareSub').hidden = true; $('seVideo').hidden = !clip.hasClip(); S.watching = false; rec.reset(); releasePointer(); $('sharedEnd').hidden = false; }      // the mouse comes back for the card
-  function leaveShared() { $('sharedEnd').hidden = true; history.replaceState(null, '', location.pathname + location.search); startOver(); }
-  $('seRewind').addEventListener('click', () => { $('sharedEnd').hidden = true; if (watchShared(sharedT)) recordShared(); }); $('seNew').addEventListener('click', leaveShared);
+  function sharedEnd() { $('sharedStart').hidden = true; $('seTape').textContent = tapeLine(sharedNo, sharedAt); $('seShareSub').hidden = true; $('seVideo').hidden = !clip.hasClip(); S.watching = false; releasePointer(); $('sharedEnd').hidden = false; if (!S.replay) rec.reset(); }      // the mouse comes back for the card
+  function leaveShared() { $('sharedEnd').hidden = true; dropShared(); document.body.classList.remove('shared'); history.replaceState(null, '', location.pathname + location.search); startOver(); }
+  $('seRewind').addEventListener('click', () => { $('sharedEnd').hidden = true; dropShared(); if (watchShared(sharedT)) recordShared(); }); $('seNew').addEventListener('click', leaveShared);
   // a shared link opens on the tape's first frame, held, under its own card; View security footage plays it (and records it, for Download video)
   const recordShared = () => { clip.resetLine(); if (clip.canRecord()) clip.start(false, false); };
   $('ssPlay').addEventListener('click', (e) => { e.stopPropagation(); $('sharedStart').hidden = true; start(false); S.tapeHold = false; recordShared(); });
@@ -291,7 +291,7 @@ async function boot() {
     clip.openReady(() => { if (S.clipLive) endLiveClip(); else try { ui.deathFocus(); } catch {} });
   }
   // The footage and the card are over (or a key or click, Escape). After a death: the death menu over the closing card (or over the last frame when it was skipped before the card), dimmed. A clip taken in play: back to the game.
-  function stopReplay(natural) { if (!S.replay) return; if (S.dead && !S.clipLive) holdReplay(natural); else endReplay(natural); }
+  function stopReplay(natural) { if (!S.replay) return; if (S.dead && !S.clipLive) holdReplay(natural); else if (S.watching && S.clipLive && natural === true) holdShared(natural); else endReplay(natural); }
   function holdReplay(natural) {
     if (!S.replay) return;
     clipStop(natural); clip.dim(true);
@@ -299,6 +299,16 @@ async function boot() {
     if (audio.mic) audio.mic(true, true); audio.hiss(0); post.cctvU.burst.value = 0;
     try { ui.deathMenu(); } catch {}      // the chime belongs to the safety notice: skipping the replay before the card skips it too
   }
+  // A shared tape that has played out: like the death menu, its end card comes up over the closing card (dimmed, silent), never over the live scene; the clip is finished first
+  // (a conversion can take seconds) and the menu comes when it is. dropShared() is the way out of that hold.
+  function holdShared(natural) {
+    if (!S.replay || S.replayHold) return;
+    const fin = clipStop(natural); clip.dim(true);
+    S.replayHold = true; document.body.classList.remove('replay'); document.body.classList.add('hold'); tagEl.hidden = true;
+    if (audio.mic) audio.mic(true, true); audio.hiss(0); post.cctvU.burst.value = 0;
+    if (!fin) endLiveClip();
+  }
+  function dropShared() { if (S.replay) endReplay(); audio.chimeStop(); rec.reset(); }
   function endReplay(natural) {
     if (!S.replay) return;
     const fin = clipStop(natural); clip.dropCard(); clip.dim(false); S.replayHold = false; document.body.classList.remove('hold');
@@ -1298,7 +1308,7 @@ async function boot() {
     for (let i = 0; i < bv.length; i++) bv[i] = pv[i] + (cv[i] - pv[i]) * a;
     for (let i = 0; i < blend.s.length; i++) blend.s[i] = prev.s[i] + (sim.pose.s[i] - prev.s[i]) * a;
     // the tape: the pose as drawn, with the player's body and the head (while the death cam plays, the tape is shown instead)
-    if (S.replay && !S.dead && !S.clipLive) endReplay();
+    if (S.replay && !S.dead && !S.clipLive && !S.replayHold) endReplay();
     {      // (keeps appending the tail after the death while the replay already plays)
       if (S.watching) {}      // a shared tape is in the recorder: nothing of this game is taped over it
       else if (S.mode === 'foot' && S.started) {
