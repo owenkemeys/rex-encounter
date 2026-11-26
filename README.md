@@ -36,3 +36,7 @@ If you are changing the game, [AGENTS.md](AGENTS.md) is the cheat sheet for this
 Audio: [`dist/audio/CREDITS.md`](dist/audio/CREDITS.md).
 
 Textures and arena models: [`dist/assets/CREDITS.md`](dist/assets/CREDITS.md) and [`dist/assets/arena/CREDITS.md`](dist/assets/arena/CREDITS.md).
+
+## License
+
+The code is MIT. Sounds and models keep the licenses in their CREDITS files.

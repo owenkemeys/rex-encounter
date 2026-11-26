@@ -39,7 +39,6 @@ Debug is off on the public page and reachable only with `#debug`: then backtick 
 | `test/` | Headless Node checks (`node test/<name>.mjs`) and Playwright capture scripts. Some capture scripts still carry absolute `/home/claude/...` paths from the machine they were written on. |
 | `tools/load_check.py` | In-browser smoke test: `python3 tools/load_check.py <name> "<hash>"` after a build; writes `/tmp/load_<name>.json`. Needs Playwright and Chrome. |
 | `variants/saltline` | The same animal dropped into someone else's game, on the shared `src/rex` and `src/sim/arena.js` (no copy since 2026-11-16; NPC perception parked in `pending/`). `npm run build:saltline`; the owner plays it as the "Saltline Rex" artifact (republish `variants/saltline/dist/saltrex.js` there). Putting the animal into another game: `notes/HOSTING.md`. |
-| `variants/patch-model` | Experiment: our simulation driving a CC0 rigged model (its own animations unused). Head too large, eyes not integrated, behind the main tree. |
 | `wip/bamboo-squeeze` | **Unfinished, never run.** Partial edits toward yielding obstacles and forced squeeze. Review or discard. |
 | `notes/` | Working notes from every work stream. `notes/QUEUE.md` is the owner's requests, verbatim, newest last. `notes/skel/BODY4.md` (body) and `notes/platform/NOTES4.md` (mind) are the latest. |
 | `docs/HANDOFF-claude-project.md` | Older, longer handoff. Its parts about restoring from a "source store" are obsolete: this repository is the master now. |
