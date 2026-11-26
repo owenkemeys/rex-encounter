@@ -15,7 +15,7 @@
  },
  "keywords": [],
  "author": "",
- "license": "ISC",
+ "license": "MIT",
  "dependencies": {
   "@mediabunny/aac-encoder": "^1.66.5",
   "esbuild": "^0.28.2",

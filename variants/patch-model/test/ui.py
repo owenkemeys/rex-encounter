@@ -1,8 +1,0 @@
-pg.set_viewport_size({'width':1280,'height':720})
-pg.evaluate("__dino.advance(21)")
-pg.screenshot(path=f'{out}/ui0.png')
-pg.evaluate("__dino.setMode('foot');__dino.advance(1)")
-pg.mouse.move(500,480); pg.keyboard.press('r'); pg.keyboard.press('z'); pg.mouse.click(520,470)
-pg.evaluate("__dino.advance(6)"); pg.keyboard.press('v'); pg.evaluate("__dino.advance(0.8)")
-print(pg.evaluate("JSON.stringify({bumps:__dino.sim.terrain.bumps.length,mode:__dino.sim.mode,goal:!!__dino.S.goal,ux:__dino.sim.ux.toFixed(2)})"))
-pg.screenshot(path=f'{out}/ui1.png')
