@@ -267,8 +267,11 @@ body.locked[data-mode="foot"] #crosshair, body.hover[data-mode="foot"] #crosshai
 .card .small { font-size: 18px; opacity: 0.6; margin: 10px 0 0; }
 .card button, .dm-btns button { display: block; width: fit-content; max-width: 100%; margin: 2px 0; padding: 1px 8px; font: inherit; letter-spacing: inherit; text-transform: uppercase; text-align: left; text-shadow: inherit; color: #fff; background: none; border: 0; border-radius: 0; }
 .card button:hover, .card button:focus-visible, .card button.big, .dm-btns button:hover, .dm-btns button:focus, #xAgain { background: #fff; color: #000; text-shadow: none; box-shadow: 2px 2px 0 #000; outline: none; }
-.card:has(button:hover, button:focus-visible) button.big:not(:hover):not(:focus-visible), .dm-btns:has(button:hover, button:focus) #xAgain:not(:hover):not(:focus) { background: none; color: #fff; text-shadow: inherit; box-shadow: none; }
+.card:has(button:hover, button:focus-visible) button.big:not(:hover):not(:focus-visible), .dm:has(button:hover, button:focus) #xAgain:not(:hover):not(:focus) { background: none; color: #fff; text-shadow: inherit; box-shadow: none; }
 #startGo::before, #pResume::before { content: "\25B6\00a0 "; } #pAgain::before { content: "\23CF\00a0 "; } #pClip::before { content: "\25CF\00a0 "; }
+.rule { border-top: 2px dashed #fff8; margin: 12px 0 8px; }
+.fork::before { content: "\2197\00a0 "; }
+.fork { white-space: nowrap; }
 .card details { border-top: 0; padding-top: 0; gap: 4px; }
 .card details > summary { font: inherit; letter-spacing: inherit; display: flex; justify-content: space-between; }
 .card details > summary::before { content: none; } .card details > summary::after { content: "+"; } .card details[open] > summary::after { content: "\2212"; }
@@ -445,6 +448,7 @@ body.tuning #tuneStrip { display: none; }
     <p class="lede">one tyrannosaur, thinking for itself. what will it make of you?</p>
     <button id="startGo" class="big"><span class="kd">click to begin</span><span class="tp">tap to begin</span><span class="pd">press A to begin</span></button>
     <div class="opts"><label class="chk"><input type="checkbox" id="sSound" checked> sound</label><label class="chk"><input type="checkbox" id="sVHS" checked> VHS mode</label></div>
+    <div class="rule"></div><button class="fork">fork it into your game</button>
   </div>
 </div>
 <div id="sharedStart" class="cardwrap" role="dialog" aria-label="Tape" hidden>
@@ -454,6 +458,7 @@ body.tuning #tuneStrip { display: none; }
     <p>Visitor did not survive</p>
     <button id="ssPlay" class="big">view security footage</button>
     <button id="ssNew">next visitor</button>
+    <div class="rule"></div><button class="fork">fork it into your game</button>
   </div>
 </div>
 <div id="sharedEnd" class="cardwrap" role="dialog" aria-label="End of tape" hidden>
@@ -465,6 +470,7 @@ body.tuning #tuneStrip { display: none; }
     <button id="seNew">next visitor</button>
     <button id="seShareMenu">share this tape</button>
     <div id="seShareSub" hidden><button id="seVideo" hidden>download video</button><button id="seLink">playable link</button></div>
+    <div class="rule"></div><button class="fork">fork it into your game</button>
   </div>
 </div>
 <div id="invite" role="status"></div>
@@ -505,6 +511,7 @@ body.tuning #tuneStrip { display: none; }
     <button id="pDebug" class="dbg-only" style="width:100%;margin-top:6px">debug tools</button>
     <button id="pSandbox" class="dbg-only" style="width:100%;margin-top:6px">sandbox tools</button>
     <button id="pTune" hidden style="width:100%;margin-top:6px">tuning</button>
+    <div class="rule"></div><button class="fork">fork it into your game</button>
   </div>
 </section>
 <div id="replayTag" hidden>any key for menu</div>
@@ -518,6 +525,7 @@ body.tuning #tuneStrip { display: none; }
     <div class="dm-btns"><button id="xAgain">next visitor</button><button id="xReplay">rewind tape</button><button id="xShareMenu" hidden aria-expanded="false">share this tape</button>
       <div id="xShareSub" hidden><button id="xClip" hidden>download video</button><button id="xShare" hidden>playable link</button></div></div>
     <p id="xClipSub" hidden>plays the tape once more while recording a video for you</p>
+    <div class="rule"></div><button class="fork">fork it into your game</button>
     <p id="xDare" hidden></p>
     <p id="xKeys"></p>
   </div>
