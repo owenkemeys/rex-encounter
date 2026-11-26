@@ -29,7 +29,7 @@ export function createClip({ getCanvas, audio, tape, extra, onCard }) {      // 
   const base = clipSupported();
   // the hand-over paths, checked once now: the Claude artifact's downloads capability (asked now, it may take a while to answer: 3 s), the share sheet (files), a plain download link
   const claudeHas = (() => { try { return !!(window.claude && typeof window.claude.use === 'function'); } catch { return false; } })();
-  const shareOK = (() => { try { const f = new File([new Blob(['x'], { type: 'video/webm' })], 'a.webm', { type: 'video/webm' }); return !!(navigator.canShare && navigator.share && navigator.canShare({ files: [f] })); } catch { return false; } })();
+  const shareOK = (() => { try { const f = new File([new Blob(['x'], { type: 'video/mp4' })], 'a.mp4', { type: 'video/mp4' }); return !!(navigator.canShare && navigator.share && navigator.canShare({ files: [f] })); } catch { return false; } })();
   const linkOK = (() => { try { if (window.self === window.top) return true; void window.top.location.href; return true; } catch { return false; } })();      // a page in a foreign frame cannot be trusted to allow a download
   let dlDone = !claudeHas;
   if (claudeHas) { try { Promise.race([Promise.resolve(window.claude.use('downloads')), new Promise((r) => setTimeout(() => r(null), 3000))]).then((d) => { C.dl = d || null; dlDone = true; emit(); }, () => { dlDone = true; emit(); }); } catch { dlDone = true; } }
@@ -202,10 +202,17 @@ export function createClip({ getCanvas, audio, tape, extra, onCard }) {      // 
     if (my !== gen) return false;      // cancelled or discarded meanwhile
     teardown();
     if (cancelled || !chunks.length) { C.state = 'idle'; emit(); return false; }
-    const base = ((chunks[0] && chunks[0].type) || C.mime || 'video/webm').split(';')[0] || 'video/webm', ext = /mp4/.test(base) ? 'mp4' : 'webm';      // clipsound: the type the recorder really produced, so an mp4 is never named .webm
-    C.blob = new Blob(chunks, { type: base }); C.name = `rex-encounter-${stamp()}.${ext}`;
-    try { C.file = new File([C.blob], C.name, { type: base }); } catch { C.file = null; }
-    chunks = []; C.state = 'ready';
+    const full = (chunks[0] && chunks[0].type) || C.mime || 'video/webm', type = full.split(';')[0] || 'video/webm';      // clipsound: the type the recorder really produced, so an mp4 is never named .webm
+    let blob = new Blob(chunks, { type }); chunks = [];
+    if (!/mp4/.test(type) || /opus/.test(full)) {      // X takes only MP4 with AAC sound: WebM, or an MP4 with Opus sound (Chrome on Linux), is converted (src/view/mp4.js, built as dist/mp4.js, loaded now); a browser that cannot keeps its own file
+      const t0 = performance.now(); C.mp4 = null;
+      try { blob = await (await import(new URL('mp4.js', document.baseURI).href)).toMp4(blob); C.mp4 = { ms: Math.round(performance.now() - t0) }; } catch (e) { C.mp4 = { error: String(e && e.message || e) }; }
+      console.info('[clip] mp4 ' + JSON.stringify(C.mp4));
+      if (my !== gen) return false;
+    }
+    C.blob = blob; C.name = `rex-encounter-${stamp()}.${/mp4/.test(blob.type) ? 'mp4' : 'webm'}`;
+    try { C.file = new File([blob], C.name, { type: blob.type }); } catch { C.file = null; }
+    C.state = 'ready';
     try { const a = C.audioInfo; if (a) { try { const p = audio.clipLevel(true); if (p > a.peakDb) a.peakDb = p; } catch {} a.mime = C.mime; a.bytes = C.blob.size; a.silent = !a.hasAudioTrack || a.peakDb < -60; console.info('[clip] audio ' + JSON.stringify({ hasAudioTrack: a.hasAudioTrack, peakDb: Math.round(a.peakDb * 10) / 10, ctx: a.ctxState, mime: a.mime, bytes: a.bytes })); } } catch {}
     // clipsound: an automatic recording that came out silent although the tape held sounds (a context that was not running: phones) is dropped quietly; SAVE CLIP then records it again with a real gesture behind it
     try { const a = C.audioInfo; if (a && a.silent && !C.tagged && !C.live && tape && tape.ev && tape.ev.some((x) => x.f >= (tape.s0 || 0))) { C.silentDropped = true; a.dropped = true; C.blob = null; C.file = null; C.state = 'idle'; emit(); return false; } } catch {}

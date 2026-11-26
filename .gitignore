@@ -5,3 +5,4 @@ variants/*/dist/app.js
 __pycache__/
 *.pyc
 out/
+dist/mp4.js

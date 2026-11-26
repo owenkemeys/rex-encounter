@@ -7,7 +7,7 @@
   "test": "test"
  },
  "scripts": {
-  "build": "esbuild src/main.js --bundle --format=esm --minify --outfile=dist/app.js && node -e \"const f=require('fs');f.writeFileSync('dist/app.size',String(f.statSync('dist/app.js').size))\"",
+  "build": "esbuild src/main.js --bundle --format=esm --minify --outfile=dist/app.js && esbuild src/view/mp4.js --bundle --format=esm --minify --outfile=dist/mp4.js && node -e \"const f=require('fs');f.writeFileSync('dist/app.size',String(f.statSync('dist/app.js').size))\"",
   "serve": "python3 -m http.server -d dist 8080",
   "start": "npm run build && npm run serve",
   "build:saltline": "sh variants/saltline/tools/build.sh"
@@ -16,7 +16,9 @@
  "author": "",
  "license": "ISC",
  "dependencies": {
+  "@mediabunny/aac-encoder": "^1.66.5",
   "esbuild": "^0.28.2",
+  "mediabunny": "^1.66.5",
   "three": "^0.187.0"
  },
  "type": "module",
