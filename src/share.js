@@ -1,7 +1,7 @@
 // "Share your run": the death tape and one still go to the share server, which hands back a short link whose page shows the still as its
-// preview and sends people on to this game with #tape=<id>,seed<n>. Server: Mike's Cloudflare Worker (source in the OpenBot shared folder,
-// rex-encounter-share).
-export const SHARE_API = 'https://rex-encounter-share.rex-encounter-share.workers.dev';
+// preview and sends people on to this game with #tape=<id>,seed<n>. Server: Mike's Cloudflare Worker at https://share.rexencounter.com
+// (source in the OpenBot shared folder, rex-encounter-share). Old workers.dev links still work.
+export const SHARE_API = 'https://share.rexencounter.com';
 
 export const sharedId = () => { const m = location.hash.match(/tape=([\w-]+)/); return m ? m[1] : null; };
 
