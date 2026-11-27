@@ -66,9 +66,9 @@ if (which === 'all' || which === 'missile') {
 if (which === 'all' || which === 'props') {
   // Open lane around x=228, z=-308..-293 (clear of BOXES and STRUCTS in foreign_world.mjs):
   // Foreign glowing/hot object ("ember") focuses, allows investigate, and triggers fire wariness;
-  // foreign agent id ("visitor-7") with `light: true` builds grudge on missile hit without being named "you"
+  // foreign agent id ("visitor-7") with `lamp: true` builds grudge on missile hit without being named "you"
   const S1 = setup(3, 228, -308, 0);
-  const visitor = { ...person(228, -295), id: 'visitor-7', light: true, lx: 0, ly: 0, lz: -1 };
+  const visitor = { ...person(228, -295), id: 'visitor-7', lamp: true, light: 0.4, lx: 0, ly: 0, lz: -1 };
   const ember = { id: 701, kind: 'ember', x: 228, y: S1.T.height(228, -301) + 0.1, z: -301, rest: true, bright: 0.9, hot: true, by: 'visitor-7' };
   let sawEmber = false, canInvestigate = false, hitSent = false;
   for (let i = 0; i < 8 * 120; i++) {

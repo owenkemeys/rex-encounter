@@ -1,5 +1,5 @@
 // Property-based helpers for things and agents the animal senses.
-// Keeps the brain driven by physical properties (edible, bright, hot, missile, light, observer)
+// Keeps the brain driven by physical properties (edible, bright, hot, missile, lamp, observer)
 // while remaining backward-compatible with legacy kind/id names used by existing worlds.
 
 /** Something the animal can smell or eat (explicit edible flag, scent, or legacy meat/carcass kind). */
@@ -20,8 +20,10 @@ export const isMissile = (o) => !!(o && (o.missile === true || o.kind === 'stone
 /** A non-bodied watcher/camera agent that the animal ignores for physical contact and predation. */
 export const isObserver = (a) => !!(a && (a.ghost || a.observer || a.id === 'observer'));
 
-/** An agent carrying an active directional light source (general light property, or legacy torch). */
-export const hasLight = (a) => !!(a && (a.light || a.torch));
+/** An agent carrying an active directional light source (`lamp: true`, boolean `light: true`, or legacy `torch`).
+ *  Strict `=== true` on `light` avoids colliding with numeric ambient light levels (e.g. `light: 0.2..1`). */
+export const hasLight = (a) => !!(a && (a.lamp === true || a.light === true || a.torch));
 
-/** Whether an action/object's `by` owner matches the animal's current target (or legacy `'you'` id). */
+/** Whether an action/object's `by` owner matches the animal's current target.
+ *  Falls back to legacy `by === 'you'` (assumes a single player named `'you'`). */
 export const isByTarget = (by, target) => !!(by && ((target && by === target.id) || by === 'you'));
