@@ -53,6 +53,15 @@ export function stuckStep(st, x) {
 /** A recorder that does nothing (telemetry off, or it could not be made). */
 export const NO_TELEMETRY = { frame() {}, afterDraw() {}, flush() {}, restart() {}, notes: 0, off: true };
 
+/** Telemetry only attaches when #debug is requested or a Claude artifact host provides `window.claude.use`.
+ *  Public visitors without either stay on NO_TELEMETRY (no prototype wrapping, timers, or RAM buffers). */
+export function shouldAttachTelemetry(hash = '', win = typeof window !== 'undefined' ? window : null) {
+  const h = String(hash || '');
+  if (/notel/.test(h)) return false;
+  if (/debug/.test(h)) return true;
+  try { return !!(win && win.claude && typeof win.claude.use === 'function'); } catch { return false; }
+}
+
 export function createTelemetry(o) {
   try { return make(o); } catch (e) { try { console.warn('[dino] telemetry off:', e); } catch {} return NO_TELEMETRY; }
 }
