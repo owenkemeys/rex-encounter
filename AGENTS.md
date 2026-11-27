@@ -62,7 +62,7 @@ It is one app, not packages. The animal lives in `src/rex/` and imports nothing 
 
 ## State and open work (handoff written 2026-11-17; read this, then `notes/TODO.md`)
 
-**Where the game lives.** Public page: https://rexencounter.com/, opening in the open field since 2026-11-18 (the gatehouse start is behind `#gate`) (the repo is public; `.github/workflows/pages.yml` builds and deploys `dist/` on every push to `main`, about 2 minutes). The owner's own copy with playtest notes: the "Rex Sandbox" artifact on claude.ai (public link; its database rules keep `notes`, `sessions`, `chunks` readable by him only; it declares `db`, `user`, `downloads`). To update that artifact: `npm run build`, then publish `dist/app.js` and `dist/index.html` to it in patch mode with `shared_live: "public"` and its title "Rex Sandbox". Saltline: the "Saltline Rex" artifact gets `variants/saltline/dist/saltrex.js` after `npm run build:saltline`. `main` must always be what both pages run. The game's name is Rex Encounter.
+**Where the game lives.** Public page: https://rexencounter.com/, opening in the open field since 2026-11-18 (the gatehouse start is behind `#gate`). The repo is public; `.github/workflows/pages.yml` builds and deploys `dist/` on every push to `main` (about 2 minutes). *(Legacy/optional: the older "Rex Sandbox" artifact on claude.ai is no longer the primary play target—`rexencounter.com` is what players and the owner run; Saltline still builds `variants/saltline/dist/saltrex.js` via `npm run build:saltline`.)* The game's name is Rex Encounter.
 
 **Rules from the owner, all binding.**
 - He designs and playtests; he does not do git, builds or hosting. Do the bookkeeping quietly and keep this repo current so an agent on any platform can continue.
@@ -91,7 +91,6 @@ Housekeeping: a stale remote branch `crashes-read` can be deleted (fully merged)
 - Start a fresh session per task and read this file plus the one note you need. Do not resume day-long sessions.
 - Never print big files or test dumps into context; grep, cut and tail.
 - Cheap model for rote work, strong model only for body-simulation and mind judgement.
-- Playtest notes in the hosted arena's database carry inline screenshots: never read them raw.
+- Legacy playtest notes (if any are read from an old Claude artifact database) carry inline screenshots: never read them raw.
 - The owner designs and playtests. He does not use git and should never be asked to think about branches, checkouts, builds, merges or pull requests: that bookkeeping is the agent's to do, quietly. Report to him in terms of what he will see and hear in the game.
-- He plays by clicking the hosted arena, the "Rex Sandbox" artifact on claude.ai. To give him a build: `npm run build`, then republish only `dist/app.js` (and `dist/index.html` if it changed) to that artifact in patch mode; the assets there stay.
-- `main` is what the hosted arena runs. Work on a short branch, run the checks, then merge to `main`, push, delete the branch and republish the arena in the same sitting, so the two never drift. If he rejects a change after playing it, fix forward or revert on `main` and republish. If several agents are working at once, merge through pull requests and rebase before merging.
+- He plays at https://rexencounter.com/ (auto-deployed from `main` by GitHub Pages). When working on a change, use a short branch, run the checks, and open a PR (or merge to `main` when approved). If several agents are working at once, merge through pull requests and rebase before merging.
