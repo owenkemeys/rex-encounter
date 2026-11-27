@@ -26,7 +26,7 @@ import { encodeTape, decodeTape } from './tape.js';
 import { ST } from './view/figure.js';
 import { GAIT_DEMOS, GAIT_CAM, GaitMeter } from './gaitdemo.js';      // gait demos
 import { detectQuality, backendPreference, QualityController, qualityMenu } from './view/quality.js';
-import { createTelemetry, NO_TELEMETRY } from './telemetry.js';
+import { createTelemetry, NO_TELEMETRY, shouldAttachTelemetry } from './telemetry.js';
 import { countRun, incidentNo } from './runs.js';
 import { makeGatehouseDesk } from './view/gatehouse.js';      // the gatehouse start: the guard's counter and monitor
 import { gateFidget } from './gatesplash.js';      // the gatehouse start: the guard's small sounds that keep the animal round the hut
@@ -1396,9 +1396,9 @@ async function boot() {
     }
     return true;
   }
-  // session telemetry and notes (src/telemetry.js): reads the game, never changes it; '#notel' turns it off
+  // session telemetry and notes (src/telemetry.js): only attach with #debug or a Claude artifact host; '#notel' turns it off
   let tel = NO_TELEMETRY;
-  if (!/notel/.test(location.hash)) tel = createTelemetry({ replayInfo: () => (S.replay ? rec.info() : null), S, sim, mind, arena, act, audio, camera, canvas, Q, ui, props, post, renderer, SEED, backend: () => backend, freeze });
+  if (shouldAttachTelemetry(location.hash, window)) tel = createTelemetry({ replayInfo: () => (S.replay ? rec.info() : null), S, sim, mind, arena, act, audio, camera, canvas, Q, ui, props, post, renderer, SEED, backend: () => backend, freeze });
   window.__tel = tel;
 
   qualityMenu(qc);
