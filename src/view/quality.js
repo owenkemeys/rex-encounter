@@ -17,6 +17,7 @@
 // #quality-low / -medium / -high hashes force one. #perf shows an overlay a tester can read off and copy (see report()).
 
 import * as THREE from 'three/webgpu';
+import { isBackendPinActive } from '../gpu_recovery.js';
 
 export const LEVELS = ['low', 'medium', 'high'];
 const dpr = () => (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
@@ -87,10 +88,10 @@ export function detectQuality(test = false) {
     hints: h, touch: h.touch, ratio, maxRatio: build === 'low' ? P.ratio[1] : P.ratio[1], minRatio: build === 'low' ? 0.5 : P.ratio[0], log: [] };
 }
 
-/** Whether to start on WebGL2 rather than WebGPU (an earlier session on this GPU found WebGPU slower, or a trial is due). */
+/** Whether to start on WebGL2 rather than WebGPU (an earlier session on this GPU found WebGPU slower, a trial is due, or a recent crash pinned WebGL2). */
 export function backendPreference(gpu) {
   const b = store.json('dh.backend');
-  if (!b || b.gpu !== gpu) return null;
+  if (!b || b.gpu !== gpu || !isBackendPinActive(b)) return null;
   return b.use === 'webgl' || b.use === 'trial-webgl' ? 'webgl' : 'webgpu';
 }
 
