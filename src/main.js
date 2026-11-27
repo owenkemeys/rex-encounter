@@ -27,6 +27,7 @@ import { ST } from './view/figure.js';
 import { GAIT_DEMOS, GAIT_CAM, GaitMeter } from './gaitdemo.js';      // gait demos
 import { detectQuality, backendPreference, QualityController, qualityMenu } from './view/quality.js';
 import { createTelemetry, NO_TELEMETRY, shouldAttachTelemetry } from './telemetry.js';
+import { rememberWebGLFallback, stepDownAfterContextLoss, formatBootError } from './gpu_recovery.js';
 import { countRun, incidentNo } from './runs.js';
 import { makeGatehouseDesk } from './view/gatehouse.js';      // the gatehouse start: the guard's counter and monitor
 import { gateFidget } from './gatesplash.js';      // the gatehouse start: the guard's small sounds that keep the animal round the hut
@@ -41,7 +42,19 @@ const pickSeed = () => { const m = (location.hash + (typeof location.search === 
 let SEED = pickSeed();      // a new one for each scenario: every page load and every start over
 
 async function boot() {
-  let canvas = $('view'), renderer, backend, swapping = false;
+  let canvas = $('view'), renderer, backend, swapping = false, contextLost = false, qcRef = null;
+  // WebGL2 driver-reset recovery (e.g. Windows AMD/NVIDIA TDR): preventDefault lets the browser restore the context
+  // instead of leaving a dead beige canvas, and stepping down from high avoids immediately tripping a second timeout.
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    contextLost = true;
+    const next = stepDownAfterContextLoss(typeof localStorage !== 'undefined' ? localStorage : null, Q.hints.gpu, Q.level);
+    if (next && qcRef) qcRef.apply(next, 'context-lost');
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    contextLost = false;
+    try { resize(); } catch {}
+  });
   // the loading bar (index.html fills the first half as the code arrives): each step is shown before the next one holds the page
   const bootAt = (f) => { const i = document.querySelector('#bootBar i'); if (i) i.style.width = (f * 100).toFixed(1) + '%'; return new Promise((ok) => setTimeout(ok, 0)); };
   // WebGPU first, WebGL2 if it is missing. If the WebGPU device dies mid-session the page
@@ -58,11 +71,12 @@ async function boot() {
     r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.0;
     renderer = r; backend = r.backend && r.backend.isWebGPUBackend ? 'WebGPU' : 'WebGL2';
     const dev = r.backend && r.backend.device;
-    if (dev && dev.lost) dev.lost.then(() => fallBack());
+    if (dev && dev.lost) dev.lost.then(() => fallBack('device-lost'));
   }
-  function fallBack() {
+  function fallBack(why = 'device-lost') {
     if (swapping || backend !== 'WebGPU') return;
     swapping = true;
+    if (!TEST) rememberWebGLFallback(typeof localStorage !== 'undefined' ? localStorage : null, Q.hints.gpu, why);
     const keep = ((location.hash + (location.search || '')).match(/tape=[\w-]+(?:,seed\d+)?/) || (location.hash + (location.search || '')).match(/seed\d+/));
     location.hash = (TEST ? '#test-webgl' : '#webgl') + (keep ? ',' + keep[0] : '');
     location.reload();
@@ -1365,7 +1379,7 @@ async function boot() {
     ov.update(sim, blend, S.mindOn ? (mind.intent.goal && mind.intent.goal.kind === 'reach' ? mind.intent.goal : null) : S.goal, null, 9);
     ov.updateSenses(sim, mind);
     audio.breath(shown.s[1], camera.position.distanceTo(S.replay ? rpx.head.pos : sim.head.pos));
-    if (!S.noRender && !swapping) { if (desk && S.gate) monitorTick(dtReal); try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack(); else throw err; } tel.afterDraw(); if (S.replay && !S.watching && !S.clipLive && !S.replayHold && rec.on && SHARE_API) S.still.consider(rec, renderer.domElement, camera, ST); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.gate && post && !post.cctv && ++gateWarm === 3 && post.setCCTV) post.setCCTV(true); }      // the monitor before the frame that shows it; clip: copy the picture right after the render
+    if (!S.noRender && !swapping && !contextLost) { if (desk && S.gate) monitorTick(dtReal); try { draw(); } catch (err) { if (backend === 'WebGPU') fallBack('draw-error'); else throw err; } tel.afterDraw(); if (S.replay && !S.watching && !S.clipLive && !S.replayHold && rec.on && SHARE_API) S.still.consider(rec, renderer.domElement, camera, ST); if (clip.active || clip.closing()) clip.frame(); if (desk && !S.gate && post && !post.cctv && ++gateWarm === 3 && post.setCCTV) post.setCCTV(true); }      // the monitor before the frame that shows it; clip: copy the picture right after the render
 
     S.fps += (1 / Math.max(dtReal, 1e-3) - S.fps) * 0.05;
     // hold the frame rate: resolution (fast) and the quality level (slow), from measured frame times (src/view/quality.js)
@@ -1402,6 +1416,7 @@ async function boot() {
   window.__tel = tel;
 
   qualityMenu(qc);
+  qcRef = qc;
   watchBody(renderer, body);      // self-check a few frames in: is the skin visible and drawing? (window.__bodyCheck, #perf)
   document.body.dataset.mode = 'observe'; document.body.dataset.mind = 'on'; document.body.classList.toggle('gatestart', !!GATE); S.gateStart = !!GATE;
   const KEEP = new Set(Object.keys(S));      // settings and session fields: what startOver leaves in S
@@ -1447,5 +1462,5 @@ async function boot() {
 
 boot().catch((err) => {
   console.error(err);
-  const b = $('boot'); if (b) b.textContent = 'This browser could not start the 3D renderer (' + (err && err.message ? err.message : err) + '). Try a current Chrome, Edge, Firefox or Safari.';
+  const b = $('boot'); if (b) b.textContent = formatBootError(err);
 });
