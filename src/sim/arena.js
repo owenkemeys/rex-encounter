@@ -234,10 +234,10 @@ export class Arena {
     if (intent && intent.plant && lying) for (let k = 0; k < 2; k++) {
       const f = sim.feet[k]; if (f.planted && sim.t - f.tLand < 0.3 && Math.hypot(f.pos.x - v.x, f.pos.z - v.z) < 1.0) { v.pin(k); break; }
     }
-    // what holding you does to you: jaws shaking you, a foot pressing down, teeth that stay closed
+    // what holding you does to you: visual/audio feedback events only (Victim.hurt leaves health at 1; only a strike kills)
     if (v.state === 'held') {
       const shaking = act && act.kind === 'worry', K = motive === 'prey' ? 1 : motive === 'anger' ? 0.7 : 0.15;
-      if (shaking) v.hurt(0.13 * K * dt, 'shaken', motive);      // a worry (1.9 s) costs a hunted person ~0.25 of their health, an angry one's ~0.17
+      if (shaking) v.hurt(0.13 * K * dt, 'shaken', motive);      // feedback pulse only; no health attrition
       else if (motive === 'prey') v.hurt(0.012 * dt, 'crushed', motive);
     } else if (v.state === 'pinned' && motive !== 'play') v.hurt((0.012 + 0.03 * v.struggle * (motive === 'prey' || motive === 'anger' ? 1 : 0)) * dt, 'pinned', motive);
     if (v.dead && v.grip && !(intent && intent.grip)) v.release(v.vx * 0.5, 0, v.vz * 0.5, 'drop');
