@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import {
   BACKEND_KEY,
   QUALITY_AUTO_KEY,
-  rememberWebGLFallback,
-  stepDownAfterContextLoss,
+  WEBGL_PIN_TTL_MS,
+  nextLowerLevel,
+  isBackendPinActive,
+  recordGpuLoss,
   formatBootError,
+  formatRepeatedLossMessage,
 } from '../src/gpu_recovery.js';
 
 function makeStorage(initial = {}) {
@@ -16,34 +19,54 @@ function makeStorage(initial = {}) {
   };
 }
 
-// 1. WebGPU device loss persists WebGL2 preference and steps auto quality down to medium
+// 1. Quality step-down chain: high -> medium -> low -> low
+assert.equal(nextLowerLevel('high'), 'medium');
+assert.equal(nextLowerLevel('medium'), 'low');
+assert.equal(nextLowerLevel('low'), 'low');
+
+// 2. WebGPU loss pins WebGL2 with timestamp and steps high -> medium -> low across reloads, stopping auto-reload on the 3rd loss
 {
-  const s = makeStorage();
-  rememberWebGLFallback(s, 'AMD Radeon RX 6800', 'device-lost');
-  assert.deepEqual(s.dump(BACKEND_KEY), { gpu: 'AMD Radeon RX 6800', use: 'webgl', why: 'device-lost' });
-  assert.deepEqual(s.dump(QUALITY_AUTO_KEY), { gpu: 'AMD Radeon RX 6800', level: 'medium', why: 'device-lost' });
+  const local = makeStorage();
+  const sess = makeStorage();
+  const t0 = 1_700_000_000_000;
+
+  const r1 = recordGpuLoss(local, sess, { gpu: 'AMD RX', backend: 'WebGPU', currentLevel: 'high', now: t0 });
+  assert.equal(r1.shouldReload, true);
+  assert.equal(r1.count, 1);
+  assert.equal(local.dump(BACKEND_KEY).use, 'webgl');
+  assert.equal(local.dump(BACKEND_KEY).at, t0);
+  assert.equal(local.dump(QUALITY_AUTO_KEY).level, 'medium');
+
+  const r2 = recordGpuLoss(local, sess, { gpu: 'AMD RX', backend: 'WebGL2', currentLevel: 'medium', now: t0 + 10_000 });
+  assert.equal(r2.shouldReload, true);
+  assert.equal(r2.count, 2);
+  assert.equal(local.dump(QUALITY_AUTO_KEY).level, 'low');
+
+  const r3 = recordGpuLoss(local, sess, { gpu: 'AMD RX', backend: 'WebGL2', currentLevel: 'low', now: t0 + 20_000 });
+  assert.equal(r3.shouldReload, false);
+  assert.equal(r3.count, 3);
 }
 
-// 2. Does not overwrite an already-low quality memory for the same GPU
+// 3. Manual quality setting is respected (dh.q.auto not overwritten)
 {
-  const s = makeStorage({ [QUALITY_AUTO_KEY]: JSON.stringify({ gpu: 'AMD Radeon', level: 'low' }) });
-  rememberWebGLFallback(s, 'AMD Radeon', 'draw-error');
-  assert.equal(s.dump(QUALITY_AUTO_KEY).level, 'low');
+  const local = makeStorage();
+  const sess = makeStorage();
+  recordGpuLoss(local, sess, { gpu: 'AMD RX', backend: 'WebGL2', currentLevel: 'high', manual: 'high', now: 1000 });
+  assert.equal(local.dump(QUALITY_AUTO_KEY), null);
 }
 
-// 3. WebGL context loss steps down from high -> medium, leaves medium/low alone
+// 4. Crash WebGL2 pins expire after 14 days so WebGPU can be retried after driver updates; trial pins without `why: 'device-lost'` stay active
 {
-  const s = makeStorage();
-  assert.equal(stepDownAfterContextLoss(s, 'AMD Radeon', 'high'), 'medium');
-  assert.equal(s.dump(QUALITY_AUTO_KEY).level, 'medium');
-  assert.equal(stepDownAfterContextLoss(s, 'AMD Radeon', 'medium'), null);
+  const t0 = 1_700_000_000_000;
+  const crashPin = { gpu: 'AMD RX', use: 'webgl', why: 'device-lost', at: t0 };
+  assert.equal(isBackendPinActive(crashPin, t0 + WEBGL_PIN_TTL_MS - 1000), true);
+  assert.equal(isBackendPinActive(crashPin, t0 + WEBGL_PIN_TTL_MS + 1000), false);
+  const trialPin = { gpu: 'Intel', use: 'webgl', webgpu: 20, webgl: 45 };
+  assert.equal(isBackendPinActive(trialPin, t0 + WEBGL_PIN_TTL_MS * 10), true);
 }
 
-// 4. Boot error message mentions quitting and reopening the browser after a driver reset
-{
-  const msg = formatBootError(new Error('WebGL2 unavailable'));
-  assert.match(msg, /WebGL2 unavailable/);
-  assert.match(msg, /fully quit and reopen your browser/i);
-}
+// 5. Player-facing messages advise quitting and reopening the browser
+assert.match(formatBootError(new Error('WebGL2 unavailable')), /fully quit and reopen your browser/i);
+assert.match(formatRepeatedLossMessage(), /automatic reload paused/i);
 
 console.log('gpu_recovery: ok');
