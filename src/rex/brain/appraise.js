@@ -24,6 +24,7 @@
 // The verdict is the strongest of these with some hysteresis; `ov.verdict` (debug) pins it. Deterministic: its only
 // randomness is its own stream (the animal's palate), so it never perturbs the mind's.
 import { makeRng, clamp, wrap, bearing } from '../math.js';
+import { isEdible, isObserver, hasLight, isByTarget } from './props.js';
 
 const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 export const PRED = ['appraise', 'test', 'shadow', 'lurk', 'prowl'];
@@ -58,7 +59,7 @@ export class Appraisal {
   // ------------------------------------------------------------------ what it learns
   /** A blow it felt. Pinned on you if it can see you or saw you a moment ago. */
   onHit(hit, k) {
-    const m = this.m, K = m.know, mine = hit.by === 'you' && (K.seen || m.t - K.lastSeenT < 12), b = 1 - this.bold;
+    const m = this.m, K = m.know, mine = isByTarget(hit.by, K.target) && (K.seen || m.t - K.lastSeenT < 12), b = 1 - this.bold;
     if (!mine) return;
     this.hitT = m.t;
     // a stone is an annoyance (the grudge, mind.js); pain that keeps coming, well aimed (the head most), makes it wary of you
@@ -190,7 +191,7 @@ export class Appraisal {
     // slow forgetting: costs fade, fear and rivalry cool, a conclusion about your worth drifts back to an open question
     this.cost *= 1 - dt / 600; this.fear *= 1 - dt / (260 + 120 * bold); this.rivalry *= 1 - dt / 480; this.worth *= 1 - dt / 900; this.standing *= 1 - dt / 900;
     const hunger = m.hunger, need = this.need = sstep(0.45, 0.95, hunger);
-    const seen = !!(K.seen && a && a.id !== 'observer' && !a.ghost);
+    const seen = !!(K.seen && a && !isObserver(a));
     const Q = this.cues = {};
     if (seen) {
       const st = a.state || 'free', dx = a.x - m.sim.x, dz = a.z - m.sim.z, d = c.d ?? Math.hypot(dx, dz);
@@ -220,10 +221,10 @@ export class Appraisal {
       if (st === 'free' && c.watched && d < 24 && !c.running && a.speed < 1.8 && this.verdict !== 'food') this.rivalry = clamp(this.rivalry + dt * 0.0035 * (0.4 + bold) * (1 - d / 30), 0, 1);
     }
     if (!seen) this.leaving = Math.max(0, this.leaving - dt / m.cfg.prey.leaveT);
-    this._signature(dt, c, a && a.id !== 'observer' && !a.ghost ? a : null, seen);
+    this._signature(dt, c, a && !isObserver(a) ? a : null, seen);
     this._curio(dt, c, seen ? a : null, Q);
     const ak = this.arousal;      // the prey reflex: a small quick thing that hides is food, hungry or not, and easier food does not count
-    const alt = (m.prey && m.prey.see > 0.1 ? 0.35 : 0) + (m.focus && (m.focus.kind === 'meat' || m.focus.kind === 'carcass') && !m.focus.hand ? 0.5 : 0);
+    const alt = (m.prey && m.prey.see > 0.1 ? 0.35 : 0) + (isEdible(m.focus) && !m.focus.hand ? 0.5 : 0);
     const vul = 0.12 * (Q.slow || 0) + 0.16 * (Q.back || 0) + 0.12 * (Q.low || 0) + 0.12 * (Q.open || 0) + 0.15 * (Q.cornered || 0) + 0.08 * (Q.alone || 0) + 0.38 * (Q.runAway || 0) + 0.4 * (Q.down || 0) + 0.25 * (Q.hurt || 0) - 0.1 * (Q.comes || 0) - 0.3 * (Q.high || 0) - 0.3 * (Q.leaving || 0);
     const value = 0.4 + this.palate + 0.45 * this.worth + 0.4 * (Q.meat || 0) + 0.35 * (Q.blood || 0);
     // a frightening thing is not prey until it is very hungry
@@ -286,7 +287,7 @@ export class Appraisal {
     // hungry, it can see you, and it is not hunting you: why not (what its thoughts say instead of pretending)
     f.why = null;
     if (seen && hunger > 0.7 && H < 0.25 && this.verdict !== 'food' && !(m.beh && PRED.includes(m.beh.name))) {
-      f.why = m.focus && (m.focus.kind === 'meat' || m.focus.kind === 'carcass') && !m.focus.hand ? 'meat' : m.prey && m.prey.see > 0.1 ? 'herd' : this.verdict === 'notfood' || this.rejected > 0 ? 'notfood'
+      f.why = isEdible(m.focus) && !m.focus.hand ? 'meat' : m.prey && m.prey.see > 0.1 ? 'herd' : this.verdict === 'notfood' || this.rejected > 0 ? 'notfood'
         : this.verdict === 'threat' || this.fear > 0.35 ? 'afraid' : this.verdict === 'nuisance' || nuisance > 0.35 ? 'angry' : this.verdict === 'rival' ? 'rival' : M.interest > 0.35 ? 'fun' : null;
     }
     void f;
@@ -295,7 +296,7 @@ export class Appraisal {
   /** The appraisal's say in what it does next (adds to, damps or removes the mind's utilities). */
   utilities(c, U) {
     const m = this.m, K = m.know, a = K.target, M = m.mood, bold = this.bold, v = this.verdict, H = this.H, w = this.weigh, Q = this.cues;
-    if (!(K.seen && a) || a.id === 'observer' || a.ghost) {
+    if (!(K.seen && a) || isObserver(a)) {
       // out of sight: one that has decided you are food, or is weighing it hungrily, waits where you usually go
       const hunt = Math.max(H * 1.2, this.Fs > 0.15 ? this.Fs : 0, this.verdict === 'food' ? 0.5 : 0);
       if (hunt > 0.15 && m.mem.haunts && m.mem.haunts.some((h) => h.n >= 3) && !c.beliefIn && m.t - (m.lastLurk ?? -99) > 40) U.lurk = 0.25 + 0.9 * hunt * (0.5 + m.temper.patience);
@@ -382,7 +383,7 @@ export class Appraisal {
       this.curio = Math.max(0, this.curio - dt / (d < 15 ? C.drainT : C.drainFar));
       if ((a.state || 'free') !== 'free') S.downT = m.t;
       const own = m.t - (S.downT ?? -99) > 2.5, edge = (k, on) => { if (on && !S[k] && own) this.act(k); S[k] = on; };
-      edge('light', !!a.torch);
+      edge('light', hasLight(a));
       edge('low', !!a.crouch && (a.state || 'free') === 'free');
       S.stillT = sp < 0.3 && (a.state || 'free') === 'free' ? (S.stillT || 0) + dt : sp > 0.6 && own ? 0 : S.stillT || 0;      // (getting up is not moving)
       edge('still', S.stillT > 3);

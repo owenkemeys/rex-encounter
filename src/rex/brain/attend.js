@@ -12,6 +12,7 @@
 //               disregard: a flick and a thought that carries the weighing ("small thing. eat first").
 // Deterministic: its own random stream, no effect on the mind's.
 import { makeRng, clamp } from '../math.js';
+import { isBright, isByTarget } from './props.js';
 
 const ATTACKS = ['butt', 'swipe', 'pin', 'seize', 'toy'];
 // how much the current activity holds it: a glance needs at least this salience, below half of it the item is disregarded
@@ -82,12 +83,12 @@ export class Attention {
     const it = new Map();
     if (K.seen && K.target) {
       const d = c.d ?? 99, ap = clamp(c.approach || 0, 0, 1), run = c.running ? 1 : 0, nT = m.mem.lastNoise && Math.hypot(m.mem.lastNoise.x - K.target.x, m.mem.lastNoise.z - K.target.z) < 6 ? t - m.mem.lastNoise.t : 99;
-      let s = 0.1 + 0.35 * ap + 0.25 * run * (ap > 0.3 ? 1.4 : 0.6) + (d < 12 ? 0.3 : d < 25 ? 0.15 : 0) + (nT < 2 ? 0.3 : 0) + (t - m.hitAt < 3 && m.lastHit && m.lastHit.by === 'you' ? 0.6 : 0);
+      let s = 0.1 + 0.35 * ap + 0.25 * run * (ap > 0.3 ? 1.4 : 0.6) + (d < 12 ? 0.3 : d < 25 ? 0.15 : 0) + (nT < 2 ? 0.3 : 0) + (t - m.hitAt < 3 && m.lastHit && isByTarget(m.lastHit.by, K.target) ? 0.6 : 0);
       if (m.mem.stoneSeen && t - m.mem.stoneSeen.t < 2) s += 0.3;
       it.set('you', clamp(s, 0, 1));
     } else if (m.sum && m.sum.cert > 0.2 && t - K.lastSeenT < 120) it.set('you', 0.05 + 0.1 * m.sum.cert);
     if (m.prey) it.set('prey:' + m.prey.id, clamp(0.1 + 0.25 * m.hunger + (m.prey.state === 'flee' ? 0.2 : 0), 0, 1));
-    if (m.focus && m.focus.id != null) it.set('obj:' + m.focus.id, clamp(0.15 + 0.35 * m.hunger * (m.focus.kind === 'flare' ? 0.3 : 1) + (m.focus.kind === 'flare' ? 0.25 : 0), 0, 1));
+    if (m.focus && m.focus.id != null) { const br = isBright(m.focus); it.set('obj:' + m.focus.id, clamp(0.15 + 0.35 * m.hunger * (br ? 0.3 : 1) + (br ? 0.25 : 0), 0, 1)); }
     const n = m.mem.lastNoise; if (n && t - n.t < 1.5) it.set('sound', clamp(0.25 + (n.loud || 0.3), 0, 1));
     this.items.clear();
     for (const [k, s] of it) if (k !== f) this.items.set(k, { sal: s });

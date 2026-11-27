@@ -1,7 +1,7 @@
 // Platform checks: the mind in a world that is not our arena (test/foreign_world.mjs: a rectangle far from the origin,
 // structures and things of kinds the code has never heard of, made-up zone names). One check per clean-up item
 // (out/platform/REPORT.md). Prints one line per check and exits 1 if any fails.
-//   node test/platform.mjs [bounds|missile|gates|voice|leave|noise|tower|all]
+//   node test/platform.mjs [bounds|missile|props|gates|voice|leave|noise|tower|all]
 import { makeForeign, RECT, STRUCTS, inRect } from './foreign_world.mjs';
 import { makeTerrain } from '../src/terrain.js';
 import { Creature } from '../src/rex/body/rex.js';
@@ -60,6 +60,40 @@ if (which === 'all' || which === 'missile') {
   check('missile: a hit that is not a stone gives a grudge', S.mind.grudge > 0.05, `grudge ${S.mind.grudge.toFixed(2)}`);
   const rocks = S.mind.voice.stream.filter((e) => /\brock\b/.test(e.text));
   check('missile: no "rock" in its thoughts when no stone came', rocks.length === 0, rocks.map((e) => e.text).join(' | '));
+}
+
+// ---- item 2b: physical properties drive food, bright/hot objects, lights and non-'you' agent ids without arena names
+if (which === 'all' || which === 'props') {
+  // Open lane around x=228, z=-308..-293 (clear of BOXES and STRUCTS in foreign_world.mjs):
+  // Foreign glowing/hot object ("ember") focuses, allows investigate, and triggers fire wariness;
+  // foreign agent id ("visitor-7") with `light: true` builds grudge on missile hit without being named "you"
+  const S1 = setup(3, 228, -308, 0);
+  const visitor = { ...person(228, -295), id: 'visitor-7', light: true, lx: 0, ly: 0, lz: -1 };
+  const ember = { id: 701, kind: 'ember', x: 228, y: S1.T.height(228, -301) + 0.1, z: -301, rest: true, bright: 0.9, hot: true, by: 'visitor-7' };
+  let sawEmber = false, canInvestigate = false, hitSent = false;
+  for (let i = 0; i < 8 * 120; i++) {
+    const t = i * dt;
+    const hits = t >= 2 && !hitSent && S1.mind.know.seen && (i % 12 === 0)
+      ? (hitSent = true, [{ type: 'hit', kind: 'dart', missile: true, by: 'visitor-7', part: 'flank', speed: 18, x: S1.sim.x, y: 14, z: S1.sim.z, vx: 0, vy: 0, vz: -18, from: { x: visitor.x, z: visitor.z } }])
+      : [];
+    const intent = S1.mind.step(dt, { agents: [visitor], things: [ember], noises: [], hits, light: 0.5, flash: false, wind: { x: 0, z: -2 } });
+    S1.sim.step(dt, intent); S1.sim.events.length = 0; S1.mind.events.length = 0;
+    if (S1.mind.focus && S1.mind.focus.id === 701) { sawEmber = true; if (S1.mind.canStart('investigate')) canInvestigate = true; }
+  }
+  check('props: bright/hot foreign object ("ember") focuses and allows investigate', sawEmber && canInvestigate);
+  check('props: hot foreign object close by triggers fire fear without kind "flare"', (S1.mind.ap.firedT ?? -99) > 0);
+  check('props: non-"you" agent id ("visitor-7") builds grudge on missile hit', S1.mind.grudge > 0.05, `grudge ${S1.mind.grudge.toFixed(2)}`);
+
+  // Foreign edible object ("ration") triggers focus and feed/trail eligibility without kind "meat"
+  const S2 = setup(3, 228, -308, 0); S2.mind.hunger = 0.85;
+  const ration = { id: 702, kind: 'ration', x: 228, y: S2.T.height(228, -301) + 0.1, z: -301, rest: true, edible: true, scent: 0.8, amount: 1, by: 'world' };
+  let sawRation = false, canFeed = false;
+  for (let i = 0; i < 5 * 120; i++) {
+    const intent = S2.mind.step(dt, { agents: [], things: [ration], noises: [], hits: [], light: 0.8, flash: false, wind: { x: 0, z: -2 } });
+    S2.sim.step(dt, intent); S2.sim.events.length = 0; S2.mind.events.length = 0;
+    if (S2.mind.focus && S2.mind.focus.id === 702) { sawRation = true; if (S2.mind.canStart('feed')) canFeed = true; }
+  }
+  check('props: edible foreign object ("ration") focuses and allows feed', sawRation && canFeed);
 }
 
 // ---- item 3: whether it can get at you in or on a structure comes from geometry against its body, not the structure's kind
