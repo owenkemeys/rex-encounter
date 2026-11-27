@@ -129,8 +129,15 @@ export class Things {
 
   /** What the mind gets: positions and the properties it can sense. */
   snapshot() {
-    return this.list.map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, z: o.z, speed: Math.hypot(o.vx, o.vy, o.vz), rest: o.rest,
-      bright: o.kind === 'flare' && o.burn > 0 ? clamp(o.burn / 4, 0, 1) : 0, scent: (o.kind === 'meat' || o.kind === 'carcass') ? Math.min(1, 0.35 + 0.65 * o.amount / 2) * (o.amount > 0 ? 1 : 0) : 0, amount: o.amount,
-      by: o.by, hand: o.hand || null, vx: o.vx, vz: o.vz }));
+    return this.list.map((o) => {
+      const lit = o.kind === 'flare' && o.burn > 0;
+      const edible = o.kind === 'meat' || o.kind === 'carcass';
+      return {
+        id: o.id, kind: o.kind, x: o.x, y: o.y, z: o.z, speed: Math.hypot(o.vx, o.vy, o.vz), rest: o.rest,
+        bright: lit ? clamp(o.burn / 4, 0, 1) : 0, hot: lit, edible, missile: o.kind === 'stone',
+        scent: edible ? Math.min(1, 0.35 + 0.65 * o.amount / 2) * (o.amount > 0 ? 1 : 0) : 0, amount: o.amount,
+        by: o.by, hand: o.hand || null, vx: o.vx, vz: o.vz,
+      };
+    });
   }
 }

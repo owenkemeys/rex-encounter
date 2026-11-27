@@ -46,10 +46,10 @@ for (const e of mind.events) { /* bite, kill, ... */ } mind.events.length = 0;
 ```
 
 **What the mind is given each step (`world`):**
-- `agents`: people it can sense, `{ id, x, y (eye height), z, vx, vz, speed, crouch, fx, fz (facing), torch, lx, ly, lz (look), state }`. `state` other than `'free'` means it has hold of them. Pass `[]` when nobody is there.
+- `agents`: people it can sense, `{ id, x, y (eye height), z, vx, vz, speed, crouch, fx, fz (facing), lamp (boolean, or torch), lx, ly, lz (look), state, observer? / ghost? }`. `state` other than `'free'` means it has hold of them. Pass `[]` when nobody is there.
 - `noises`: `{ x, y, z, loud (0..1), kind, you? }`. Walking is about 0.045, sprinting 0.16, crouching 0.012 and a gunshot 1. Kinds the mind knows include `step thud shout whistle bang thunder prey hit`. A noise is the only way it hears anything.
 - `light` 0..1, `flash` (lightning) and `wind {x, z}` in m/s.
-- Optional: `things` (stones, flares, meat it can see or smell: `{ id, kind, x, y, z, vx?, bright?, amount?, by? }`), `prey` (animals it may hunt), `hits` (what struck it) and `touch` (a hand on it).
+- Optional: `things` (objects sensed by physical properties rather than name: `{ id, kind, x, y, z, vx?, bright?, hot?, edible?, scent?, missile?, amount?, by? }`), `prey` (animals it may hunt), `hits` (what struck it; set `missile: true` for projectiles) and `touch` (a hand on it).
 
 **What comes back:**
 - The intent, from `mind.step`, which the body carries out (below).

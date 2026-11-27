@@ -24,6 +24,7 @@
 // Players never see P or fuse; tests read them.
 import { makeRng, clamp } from '../math.js';
 import { bodyOf } from './afford.js';
+import { isObserver, hasLight } from './props.js';
 
 const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const WARN_KINDS = ['stare', 'rumble', 'clap', 'stamp', 'lower', 'bluff'];
@@ -70,7 +71,7 @@ export class Peril {
     this.frus = Math.max(0, this.frus - d / 90);
     this.drift += (this.R.range(-1, 1) * 0.6 - this.drift * 0.08) * d * 0.25; this.drift = clamp(this.drift, -0.12, 0.12);
     const opening = m.opening && m.t < m.opening.until && this.irk < 0.05 && m.grudge < 0.05;
-    if (!a || !K.seen && !(c.cert > 0.6 && c.beliefD < 8) || a.dead || a.id === 'observer' || a.ghost) { this.P = 0; this.r = 0; this._calm(); return; }
+    if (!a || !K.seen && !(c.cert > 0.6 && c.beliefD < 8) || a.dead || isObserver(a)) { this.P = 0; this.r = 0; this._calm(); return; }
     const dist = c.d ?? 99, near = sstep(16, 3.5, dist), st = a.state || 'free';
     if (st === 'free') this.rFree = this.r; else this.rFree = this.rFree ?? 0;      // how near it was to deciding while you were still free to read it
     if (dist < 12) this.closeT += d; else this.closeT = Math.max(0, this.closeT - d * 0.5);
@@ -237,7 +238,7 @@ export class Peril {
       const tgt = { x: a.x, y: st === 'free' ? a.y - 0.4 : gy + 0.35, z: a.z };
       I.goal = { kind: 'approach', id: 'reach', x: a.x, z: a.z, stop: Math.max(3.2, this.reach() - 1.6), hold: 30 }; I.pace = C.reachPace; I.noIdle = true; I.quickTurn = true;
       I.probe = { ...tgt, k: 1, standoff: 1.6 - 1.4 * u }; I.mouth = 0.08 + 0.5 * u; I.low = 0.7; I.breathHold = 0.3; I.alert = 1; I.freeze = false; I.relax = 0;
-      I.look = R.ready.includes('light') && a.torch ? { x: a.x + sim.head.l.x * 3, y: a.y, z: a.z + sim.head.l.z * 3, lock: false } : { ...eye };
+      I.look = R.ready.includes('light') && hasLight(a) ? { x: a.x + sim.head.l.x * 3, y: a.y, z: a.z + sim.head.l.z * 3, lock: false } : { ...eye };
       return I;
     }
     if (this.stage === 'strike' && (a.speed || 0) > 1.5) {

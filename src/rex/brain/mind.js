@@ -44,6 +44,7 @@ import { Thinker } from './thoughts.js';
 import { Appraisal, PRED } from './appraise.js';
 import { reachJudge } from './afford.js';
 import { bodyRoom } from '../body/nav.js';
+import { isEdible, isBright, isLit, isHot, isMissile, isObserver, hasLight, isByTarget } from './props.js';
 
 // ON HOLD: the bond (trust, petting, hand-feeding) and the thorn scenario (pain, limp, lying down, tending, pulling the thorn).
 // The code is kept but switched off here: trust never grows, the friendly behaviours (greet, follow, pet, pull, rest, tend,
@@ -256,7 +257,7 @@ export class Mind {
   _preyDrive(dt, c) {
     const K = this.know, a = K.target, P = this.pd, sens = this.pdSens * (1 - 0.5 * clamp(this.ap.fear, 0, 1));
     let rate = 0;
-    if (K.seen && a && a.id !== 'observer' && !a.ghost && !a.dead && (a.state || 'free') === 'free' && !c.walled) {
+    if (K.seen && a && !isObserver(a) && !a.dead && (a.state || 'free') === 'free' && !c.walled) {
       if (K.via === 'sight' && a.speed > 4.2 && c.d < 30 + 25 * sens) rate = clamp((a.speed - 3.6) / 2.6, 0.3, 1.2) * (c.d < 30 ? 1 : 0.7);
       else if (K.via === 'near' && K.gait === 'run' && c.d < 16) rate = 0.4;
     }
@@ -410,17 +411,17 @@ export class Mind {
     const K = this.know, c = this.ctx || this._ctx();
     if (!BOND_ON && FRIENDLY.includes(name)) return false;
     if (['watch', 'stalk', 'circle', 'inspect', 'display', 'bluff', 'chase', 'snap', 'feign', 'backoff', 'nudge', 'avoid', 'guard'].includes(name)) return !!(K.seen && K.target);
-    if (name === 'probe') return !!(K.seen && K.target && K.target.id !== 'observer' && !K.target.ghost && !c.walled && this.cfg.core.on);
-    if (['appraise', 'test', 'shadow', 'prowl'].includes(name)) return !!(K.seen && K.target && K.target.id !== 'observer' && !K.target.ghost && !c.walled);
+    if (name === 'probe') return !!(K.seen && K.target && !isObserver(K.target) && !c.walled && this.cfg.core.on);
+    if (['appraise', 'test', 'shadow', 'prowl'].includes(name)) return !!(K.seen && K.target && !isObserver(K.target) && !c.walled);
     if (name === 'lurk') return !!(this.mem.haunts && this.mem.haunts.length);
-    if (name === 'pounce') return !!(K.seen && K.target && !K.target.dead && K.target.id !== 'observer' && !K.target.ghost);
+    if (name === 'pounce') return !!(K.seen && K.target && !K.target.dead && !isObserver(K.target));
     if (ATTACKS.includes(name)) return !!(K.seen && K.target && !K.target.dead && !c.walled);
     if (name === 'besiege') return !!(c.enclosed || c.beliefIn);
-    if (name === 'feed' || name === 'trail') return !!(this.focus && (this.focus.kind === 'meat' || this.focus.kind === 'carcass'));
-    if (name === 'investigate') return !!(this.focus && this.focus.kind === 'flare');
+    if (name === 'feed' || name === 'trail') return isEdible(this.focus);
+    if (name === 'investigate') return isBright(this.focus);
     if (name === 'hunt') return !!this.prey;
     if (name === 'answer') return !!this.thunder;
-    if (name === 'greet' || name === 'follow') return !!(K.seen && K.target && K.target.id !== 'observer' && !K.target.ghost && !c.walled);
+    if (name === 'greet' || name === 'follow') return !!(K.seen && K.target && !isObserver(K.target) && !c.walled);
     if (name === 'pet') return !!(this.touch && this.touch.part === 'snout' && K.target);
     if (name === 'pull') return !!(this.touch && this.touch.part === 'foot' && K.target);
     if (name === 'tend') return !!(this.sim.injury && this.sim.injury.sev > 0.1);
@@ -497,7 +498,7 @@ export class Mind {
     const hide = (a.crouch ? 0.55 : 1) * (1 - 0.85 * cov) * (1 - 0.35 * cov * (1 - motion));
     const light = Math.max(world.flash ? 1 : world.light, this.lightAt(a.x, a.z, world));
     let p = field * outline * hide * light / (1 + (d / SN.sightScale) ** 2);
-    if (a.torch) p = Math.max(p, field * 0.9 / (1 + (d / (SN.sightScale * 2.2)) ** 2));      // a lamp in the dark is the most visible thing there is
+    if (hasLight(a)) p = Math.max(p, field * 0.9 / (1 + (d / (SN.sightScale * 2.2)) ** 2));      // a lamp in the dark is the most visible thing there is
     return clamp(Math.max(near, p), 0, 1);
   }
   /** How well what grows at (x, z) hides a person there (0..1): ferns (~1 m) hide someone crouching and only half hide someone
@@ -754,7 +755,7 @@ export class Mind {
     if (!BOND_ON) return;
     const B = this.bond, K = this.know, a = K.target, M = this.mood;
     B.scar *= 1 - dt / 1500;
-    if (!K.seen || !a || a.id === 'observer' || a.ghost) { if (!K.seen) B.trust *= 1 - dt / 2400; return; }
+    if (!K.seen || !a || isObserver(a)) { if (!K.seen) B.trust *= 1 - dt / 2400; return; }
     // quiet company: you near it, not running at it or away, nothing done to it lately
     const d = Math.hypot(a.x - this.sim.x, a.z - this.sim.z);
     const calm = a.speed < 2.2 && this.glare < 0.3 && (!B.lastBad || this.t - B.lastBad.t > 30) && M.irritation < 0.45 && (a.state || 'free') === 'free' && !(this.beh && ATTACKS.includes(this.beh.name));
@@ -860,26 +861,27 @@ export class Mind {
     let best = null, bs = 0;
     const OV = this.ov;
     for (const t of world.things || []) {
-      if (t.kind === 'stone') {
-        // a stone seen in flight: once it has learnt what stones are for, it can trace one back to whoever threw it
+      if (isMissile(t)) {
+        // a thrown missile seen in flight: once it has learnt what missiles are for, it can trace one back to whoever threw it
         if (!t.rest && t.vx !== undefined && OV.senses.sight) { const e = eyeTo(t.x, t.y, t.z); if (e.field > 0 && e.d < 45) this.mem.stoneSeen = { id: t.id, x: t.x, z: t.z, vx: t.vx, vz: t.vz, t: this.t }; }
         continue;
       }
-      if ((t.kind === 'flare' && !OV.notice.flares) || ((t.kind === 'meat' || t.kind === 'carcass') && !OV.notice.food)) continue;
+      const edible = isEdible(t), brightObj = isBright(t), lit = isLit(t), hot = isHot(t);
+      if ((brightObj && !OV.notice.flares) || (edible && !OV.notice.food)) continue;
       const m = this.objMem[t.id] || (this.objMem[t.id] = { hab: 0, seen: 0, smelt: 0, kind: t.kind });
-      const e = eyeTo(t.x, t.y, t.z), light = Math.max(world.light, t.bright);
-      let see = (OV.senses.sight ? 1 : 0) * e.field * (t.bright > 0 ? 1.2 / (1 + (e.d / 140) ** 2) : (t.kind === 'carcass' ? 0.9 : 0.4) * light / (1 + (e.d / 25) ** 2));
+      const e = eyeTo(t.x, t.y, t.z), light = Math.max(world.light, t.bright || 0);
+      let see = (OV.senses.sight ? 1 : 0) * e.field * (lit ? 1.2 / (1 + (e.d / 140) ** 2) : ((t.amount || 0) >= 2 || t.kind === 'carcass' ? 0.9 : 0.4) * light / (1 + (e.d / 25) ** 2));
       if (!t.rest) see = Math.max(see, e.field * 0.8 / (1 + (e.d / 40) ** 2));         // something flying through the air
       const smell = t.scent > 0 && OV.senses.smell ? smellOf(t.x, t.z, 260 * t.scent) * t.scent : 0;
       m.seen = Math.max(see > 0.25 ? 1 : 0, m.seen - dt * 0.05); m.smelt += (smell - m.smelt) * Math.min(1, dt * 0.8);
-      if (t.kind === 'flare' && t.bright > 0 && e.d < 30) m.hab = Math.min(1, m.hab + dt * 0.006);
-      if (t.kind === 'flare' && t.bright > 0 && (t.by === 'you' || (this.know.target && t.by === this.know.target.id)) && !m.fire && Math.hypot(t.x - sim.x, t.z - sim.z) < 9) { m.fire = true; this.ap.onFire(Math.hypot(t.x - sim.x, t.z - sim.z)); }
+      if (brightObj && lit && e.d < 30) m.hab = Math.min(1, m.hab + dt * 0.006);
+      if (hot && isByTarget(t.by, this.know.target) && !m.fire && Math.hypot(t.x - sim.x, t.z - sim.z) < 9) { m.fire = true; this.ap.onFire(Math.hypot(t.x - sim.x, t.z - sim.z)); }
       // what it saw of it, for knowing what made a sound there (a thing seen flying or lying there is what landed: not you)
       if (see > 0.15) { m.lastSeenT = this.t; if (!t.rest) m.flySeenT = this.t; }
-      m.x = t.x; m.z = t.z; m.bright = t.bright > 0; m.smelly = (t.scent || 0) > 0.2;
+      m.x = t.x; m.z = t.z; m.bright = lit; m.smelly = (t.scent || 0) > 0.2;
       this._orientObj(dt, t, m, see);
-      const food = t.kind === 'meat' || t.kind === 'carcass', want = food ? 0.35 + 1.2 * this.hunger : t.bright > 0 ? 0.9 : 0.2;
-      const sal = Math.max(see, smell * 2.2, m.seen * 0.6) * want * (1 - m.hab) * (t.kind === 'flare' && t.bright <= 0 ? 0.25 : 1);
+      const want = edible ? 0.35 + 1.2 * this.hunger : lit ? 0.9 : 0.2;
+      const sal = Math.max(see, smell * 2.2, m.seen * 0.6) * want * (1 - m.hab) * (brightObj && !lit ? 0.25 : 1);
       t.d = e.d; t.see = see; t.smell = m.smelt; t.mem = m;
       if (sal > bs) { bs = sal; best = t; }
     }
@@ -889,7 +891,7 @@ export class Mind {
     } else if (this.focus && !(world.things || []).some((t) => t.id === this.focus.id)) this.focus = null;
     else if (this.focus) this.focus.sal *= 1 - dt * 0.5;
     if (this.focus && this.focus.sal < 0.05) this.focus = null;
-    if (this.focus && ((this.focus.kind === 'flare' && !OV.notice.flares) || ((this.focus.kind === 'meat' || this.focus.kind === 'carcass') && !OV.notice.food))) this.focus = null;
+    if (this.focus && ((isBright(this.focus) && !OV.notice.flares) || (isEdible(this.focus) && !OV.notice.food))) this.focus = null;
     // prey
     let pb = null, pbs = 0;
     for (const q of OV.notice.prey && OV.senses.sight ? world.prey || [] : []) {
@@ -904,7 +906,7 @@ export class Mind {
     for (const hit of world.hits || []) {
       const k = clamp(hit.speed / 14, 0.3, 1.2);
       this.hitAt = this.t; this.lastHit = { ...hit, k };
-      if (hit.by === 'you' && (hit.kind === 'stone' || hit.missile)) {      // anything you send at it that hits (a stone, or any missile a world reports)
+      if (isByTarget(hit.by, this.know.target) && isMissile(hit)) {      // anything you send at it that hits (a stone, or any missile a world reports)
          this.grudge = Math.min(1, this.grudge + 0.2 * k * (0.6 + this.temper.irritable)); this.wrongs.stones++; if (hit.kind !== 'stone') this.wrongs.missiles = (this.wrongs.missiles || 0) + 1; this.lastWrong = { kind: 'stones', t: this.t }; this._wrong('stones', 0.12 * k); }
       this.ap.onHit(hit, k);
       M.irritation = Math.min(1, M.irritation + 0.3 * k * (0.5 + this.temper.irritable)); M.arousal = Math.min(1, M.arousal + 0.45 * k);
@@ -913,7 +915,7 @@ export class Mind {
       const ex = hit.x + Math.sin(back) * dist, ez = hit.z + Math.cos(back) * dist;
       if (!this.know.seen) this._seed(ex, ez, 4 + dist * 0.15, 0.7);
       this.startle = { x: ex, z: ez, y: this.T.height(ex, ez) + 1.5, sal: 0.9, kind: 'hit' };
-      if (hit.by === 'you') this.steel = (this.steel || 0) + (this.ap.verdict === 'threat' ? 1 : 0.6);      // it has learned what a stone is: it flinches less each time
+      if (isByTarget(hit.by, this.know.target)) this.steel = (this.steel || 0) + (this.ap.verdict === 'threat' ? 1 : 0.6);      // it has learned what a missile is: it flinches less each time
       if (this.t - (this.lastFlinch ?? -99) > 1.5 + 2.5 * (this.steel || 0)) { this.lastFlinch = this.t; sim.gesture('startle', { x: hit.x - hit.vx * 0.3, y: hit.y, z: hit.z - hit.vz * 0.3 }); }
       this.hitNow = true;
     }
@@ -921,7 +923,7 @@ export class Mind {
     // per eye: the beam on that eye (aimed at it, the eye turned towards it, nothing between): dazzled fast, recovering over a
     // couple of seconds after (an afterimage); a dazzled eye sees little (_eyeChance), and the lids show it (rex squint)
     const DZ = this.dazzle || (this.dazzle = { 1: 0, [-1]: 0 }), lit = { 1: 0, [-1]: 0 };
-    for (const a of world.agents) if (a.torch) for (const sd of [1, -1]) {
+    for (const a of world.agents) if (hasLight(a)) for (const sd of [1, -1]) {
       const E = this._eyePos(sd), dx = E.x - a.x, dy = E.y - a.y, dz = E.z - a.z, d = Math.hypot(dx, dy, dz) || 1;
       const aim = (dx * a.lx + dy * a.ly + dz * a.lz) / d, o = this._eyeAxis(sd), face = -(dx * o.x + dy * o.y + dz * o.z) / d, faceH = -(dx * h.f.x + dy * h.f.y + dz * h.f.z) / d;
       if (d < 55 && aim > 0.985 && faceH > 0.4 && face > Math.cos(1.25) && this.los(E.x, E.y, E.z, a.x, a.y, a.z)) { lit[sd] = 1; this.glareD = d; this.beamFrom = { x: a.x, z: a.z, t: this.t }; }
@@ -991,7 +993,7 @@ export class Mind {
    *  one it knows is still about, someone else is taken for it; a second player needs a picture per individual.) */
   _meet(a) {
     const w = whoOf(a);
-    if (a.id === 'observer' || a.ghost || this.who === w || (this.who && w !== this.who && this.deadWho !== this.who)) return;
+    if (isObserver(a) || this.who === w || (this.who && w !== this.who && this.deadWho !== this.who)) return;
     if (this.who) this._forget('other');
     this.who = w; this.kind.met++; this.know.firstSight = true; this.metT = this.t;
   }
@@ -1034,7 +1036,7 @@ export class Mind {
   /** Where you tend to be: places it has seen you more than once (what an ambush is built on). */
   _haunts(dt, c) {
     const a = this.know.target; this.hauntT = (this.hauntT || 0) + dt;
-    if (this.hauntT < 2 || !c.seen || !a || a.id === 'observer' || a.ghost || (a.state && a.state !== 'free') || c.enclosed) return;
+    if (this.hauntT < 2 || !c.seen || !a || isObserver(a) || (a.state && a.state !== 'free') || c.enclosed) return;
     this.hauntT = 0;
     const H = this.mem.haunts, h = H.find((q) => Math.hypot(q.x - a.x, q.z - a.z) < 10);
     if (h) { if (this.t - h.t > 8) h.n++; h.x += (a.x - h.x) * 0.15; h.z += (a.z - h.z) * 0.15; h.t = this.t; }
@@ -1043,7 +1045,7 @@ export class Mind {
   /** Where you go in and come out: a structure you went into is a refuge; the opening you came out of, where to wait. */
   _habits(c) {
     const K = this.know, a = K.target, M = this.mem;
-    if (!a || a.id === 'observer' || a.ghost) return;
+    if (!a || isObserver(a)) return;
     if (c.seen && c.enclosed) {
       if (!M.inside || M.inside.S.id !== c.enclosed.id || this.t - M.inside.t > 20) { (M.refuges || (M.refuges = {}))[c.enclosed.id] = ((M.refuges || {})[c.enclosed.id] || 0) + 1; }
       M.inside = { S: c.enclosed, t: this.t };
@@ -1135,12 +1137,12 @@ export class Mind {
     const F = this.focus, hungry = this.hunger, anger = clamp(1 - (this.t - this.hitAt) / 45, 0, 1);
     const threat = c.seen && c.d < 16 ? 1 : 0;
     if (F) {
-      const food = F.kind === 'meat' || F.kind === 'carcass';
+      const food = isEdible(F);
       if (food) {
         const near = (F.see > 0.2 || F.d < 20);
         if (near) U.feed = (0.25 + 1.5 * hungry) * F.sal * (1 - 0.5 * threat * (1 - bold)) + 0.3;
         else if (F.smell > 0.04) U.trail = (0.3 + 1.2 * hungry) * Math.min(1, F.sal * 1.6) + 0.15;
-      } else if (F.kind === 'flare' && F.bright > 0) {
+      } else if (isLit(F)) {
         // new things are interesting for a while; a kind of thing it knows well (_orientObj: the novelty it had when it first
         // showed) gets the look, and much less of a pull off what it is doing
         const nov = F.mem && F.mem.nov !== undefined ? F.mem.nov : 1;
@@ -1184,7 +1186,7 @@ export class Mind {
     if (BOND_ON && rest > 0.05 && M.arousal < 0.7) U.rest = rest;
     if (BOND_ON && inj && inj.sev > 0.1 && pain > 0.3 && !(c.seen && c.d < 12 && tame < 0.3)) U.tend = 0.2 + 0.45 * pain;
     // laying hold of you: only for a reason (a grudge, real hunger, a long bold curiosity), and an angry one warns first
-    if (c.seen && !c.walled && this.know.target && this.know.target.id !== 'observer' && !this.know.target.ghost && !this.know.target.dead) {
+    if (c.seen && !c.walled && this.know.target && !isObserver(this.know.target) && !this.know.target.dead) {
       const Mo = this._motives(c), mk = Mo.anger >= Mo.prey && Mo.anger >= Mo.play ? 'anger' : Mo.prey >= Mo.play ? 'prey' : 'play', ms = Mo[mk];
       const warned = this.t - this.warnedT < 45, again = this.grudge - this.grudgeAtAct > 0.18;
       const cool = again ? 1 : clamp((this.t - this.lastAttack - 15) / 35, 0, 1), near = c.d < 14 ? 1 : c.d < 24 ? 0.55 : 0;
@@ -1262,7 +1264,7 @@ export class Mind {
   /** What it can do about you where you are (afford.js): open ground needs no working out. */
   _afford(a, c) {
     const OPEN = { body: true, reach: true, see: true };
-    if (!a || a.ghost || a.id === 'observer') return OPEN;
+    if (!a || isObserver(a)) return OPEN;
     const T = this.T, sim = this.sim, g = T.height(a.x, a.z), feet = (a.y ?? g + 1.7) - (a.crouch ? 1.0 : 1.7), raised = feet - g > 1.5;
     if (!c.enclosed && !raised) return OPEN;
     const st = a.state || 'free', P = { x: a.x, y: st !== 'free' ? Math.max(g, feet) + 0.3 : feet + (a.crouch ? 0.5 : 0.9), z: a.z };
@@ -1296,7 +1298,7 @@ export class Mind {
 
   /** A mouthful of meat you gave it: remembered in your favour if it knew you were about (more when you stayed close). */
   _fedBy(o, amt) {
-    if (o.by !== 'you' || this.t - this.know.lastSeenT > 60) return;
+    if (!isByTarget(o.by, this.know.target) || this.t - this.know.lastSeenT > 60) return;
     const a = this.know.target, near = a && Math.hypot(a.x - this.sim.x, a.z - this.sim.z) < 14 ? 1.8 : 1;
     this._good('fed', amt * (o.hand ? 1 : near) * (0.5 + this.hunger));
     this.bond.fed += amt; if (o.hand) this.bond.handFed++;
@@ -1433,7 +1435,7 @@ export class Mind {
       case 'investigate': b.obj = this.focus.id; b.dur = lognormal(R, 28, 0.3); b.stand = R.range(3.6, 5.2); b.phase = 'go'; b.next = R.range(1, 2.5); b.stomp = R() < 0.25 + 0.45 * T.bold; break;
       case 'trail': b.obj = this.focus.id; b.dur = 120; b.leg = 0; b.zig = R() < 0.5 ? -1 : 1; b.lost = 0; b.sniffT = R.range(4, 8); break;
       case 'feed': if (!this.focus) { b.dur = 0; b.done = true; break; }      // (the meat went while it was trailing it: nothing to feed on)
-        if (this.focus.by === 'you' && (this.stance === 'predatory' || this.t - this.ap.predT < 8)) this.ap.onBoughtOff();
+        if (isByTarget(this.focus.by, this.know.target) && (this.stance === 'predatory' || this.t - this.ap.predT < 8)) this.ap.onBoughtOff();
         b.obj = this.focus.id; b.dur = 240; b.phase = 'go'; b.next = 0; b.sub = null; b.scanT = R.range(5, 10); break;
       case 'hunt': b.id = this.prey.id; b.dur = 90; b.phase = 'stalk'; b.best = 1e9; b.losing = 0; b.snapped = false; break;
       case 'answer': b.dur = R.range(4, 6); b.at = { ...this.thunder }; b.roared = false; break;
@@ -2184,7 +2186,7 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
       case 'guard': {
         // a threat: square to you, head up and eyes on you, at its working distance; it takes back ground, never gives it,
         // warns short and hard, and comes for you the moment you are inside its reach or hurt it again
-        const W = b.W, hurt = this.t - this.hitAt < 2.5 && this.lastHit && this.lastHit.by === 'you';
+        const W = b.W, hurt = this.t - this.hitAt < 2.5 && this.lastHit && isByTarget(this.lastHit.by, this.know.target);
         I.look = { ...eye, lock: true }; I.alert = 0.9; I.quickTurn = true; I.noIdle = true; I.display = 0.35; I.breathHold = 0.3;
         if (((c.d < 11 || (c.d < W - 2 && c.approach > 0.25)) || hurt) && c.d < 34 && !c.walled && !a.dead) {
           b.done = true; this.motiveNext = 'anger'; this.lethalNext = true; this._start(this._attackMove(c, 'anger'), c, hurt ? 'hurt again' : 'inside its reach'); return this._run(0, c, world);
@@ -2443,7 +2445,7 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
         // holding still with its head at the thing's level, reading the answer
         I.goal = c.d > C.inspectD + 3 ? { kind: 'approach', id: b.gen, x: a.x, z: a.z, stop: C.inspectD, hold: 30 } : null; I.pace = pace;
         I.probe = { ...head, k: 0.7, standoff: 1.3 }; I.breathHold = 0.6; I.low = 0.6; I.alert = 0.6;
-        const A = b.ans; if (c.approach > 0.35 && !lying) A.came = true; if (st !== 'free') A.down = true; if (a.torch && this.glare > 0.3) A.light = true; if ((ap.firedT ?? -99) > b.f0) A.fire = true; if ((ap.shoutT ?? -99) > b.s0) A.loud = true;
+        const A = b.ans; if (c.approach > 0.35 && !lying) A.came = true; if (st !== 'free') A.down = true; if (hasLight(a) && this.glare > 0.3) A.light = true; if ((ap.firedT ?? -99) > b.f0) A.fire = true; if ((ap.shoutT ?? -99) > b.s0) A.loud = true;
         if (b.t - b.at > b.len) this._answer(b, c, K);
         this.thought = 'Holding still, watching what you do now.';
         break;
@@ -2468,7 +2470,7 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
   }
   /** A small thing that is not reacting, which an animal that is not too hungry (hunger has its own way) and not afraid tests. */
   _provOK(a) {
-    const P = this.cfg.core.prov; if (!P || !P.on || !a || a.dead || a.id === 'observer' || a.ghost) return false;
+    const P = this.cfg.core.prov; if (!P || !P.on || !a || a.dead || isObserver(a)) return false;
     const st = a.state || 'free'; if (st === 'held' || st === 'air' || st === 'pinned') return false;
     return this.hunger < P.hungerMax && this.ap.fear < P.fearMax && (a.still || 0) >= P.stillT && !(this.ctx && this.ctx.running);
   }
@@ -3186,10 +3188,10 @@ b.pg = sim.nav ? sim.nav.senseGen(sim.selfModel(), P, { x: sim.x, z: sim.z }, { 
     if (!K.seen && this.sum.cert > 0.2) cands.push(['belief', 'WHERE YOU MAYBE.', { x: this.sum.x, y: this.T.height(this.sum.x, this.sum.z) + 1.2, z: this.sum.z }]);
     // (an orienting turn: to a sound, or to whatever attention glanced at (attend.js), named as what it turned to)
     const OT = this.orientTo, OK = OT && OT.key ? OT.key.split(':')[0] : null;
-    const OL = !OT ? null : OK === 'obj' ? (this.focus && this.focus.kind === 'flare' ? ['light', 'BRIGHT THING.'] : ['food', 'MEAT.']) : OK === 'prey' ? ['prey', 'MEAT ANIMALS.'] : OK === 'you' ? [K.seen ? 'you' : 'belief', K.seen ? 'YOU.' : 'WHERE YOU MAYBE.'] : ['sound', OT.kind === 'shout' ? 'LOUD NOISE.' : 'NOISE.'];
+    const OL = !OT ? null : OK === 'obj' ? (isBright(this.focus) ? ['light', 'BRIGHT THING.'] : ['food', 'MEAT.']) : OK === 'prey' ? ['prey', 'MEAT ANIMALS.'] : OK === 'you' ? [K.seen ? 'you' : 'belief', K.seen ? 'YOU.' : 'WHERE YOU MAYBE.'] : ['sound', OT.kind === 'shout' ? 'LOUD NOISE.' : 'NOISE.'];
     if (OT && t - OT.t < 4) cands.push([OL[0], OL[1], OT]);
     else if (this.mem.lastNoise && t - this.mem.lastNoise.t < 6) cands.push(['sound', 'NOISE PLACE.', { ...this.mem.lastNoise, y: this.T.height(this.mem.lastNoise.x, this.mem.lastNoise.z) + 1 }]);
-    if (this.focus) cands.push([this.focus.kind === 'flare' ? 'light' : 'food', this.focus.kind === 'flare' ? 'BRIGHT THING.' : 'MEAT.', this.focus]);
+    if (this.focus) cands.push([isBright(this.focus) ? 'light' : 'food', isBright(this.focus) ? 'BRIGHT THING.' : 'MEAT.', this.focus]);
     if (this.prey) cands.push(['prey', 'MEAT ANIMALS.', this.prey]);
     if (this.thunder && t - this.thunder.t < 8) cands.push(['sky', 'SKY.', { x: this.thunder.x, y: sim.groundY + 40, z: this.thunder.z }]);
     const IL = this.intent && this.intent.look;

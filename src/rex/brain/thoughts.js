@@ -20,6 +20,7 @@
 // raised on (test/thoughts.mjs checks that it held).
 import { makeRng, bearing, wrap } from '../math.js';
 import { bodyOf } from './afford.js';
+import { isEdible, isBright, hasLight, isByTarget } from './props.js';
 
 // Its own names for the things in its world, from what it perceives of them relative to its own body, never from what we call
 // them: a closed thing with a roof is a box (a big one, or a shiny or stone one), walls lower than its back are little walls,
@@ -153,7 +154,7 @@ export class Thinker {
       decoyT: m.decoyT ?? -99, foundAtMemo: m.foundAtMemo ?? -99, stoneId: m.mem.stoneSeen ? m.mem.stoneSeen.id : null,
       wrongT: m.lastWrong ? m.lastWrong.t : -99, wrongKind: m.lastWrong ? m.lastWrong.kind : null, enc: m.mem.encounters,
       lastSeenT: K.lastSeenT, fatigue: sim.exertion, flinchT: m.lastFlinch ?? -99, hunger: m.hunger, irritation: m.mood.irritation, x: a ? a.x : 0, z: a ? a.z : 0,
-      speed: a ? a.speed : 0, crouch: !!(a && a.crouch), torch: !!(a && a.torch), state: a && K.seen ? a.state || 'free' : null,
+      speed: a ? a.speed : 0, crouch: !!(a && a.crouch), torch: hasLight(a), state: a && K.seen ? a.state || 'free' : null,
       still: a ? a.still || 0 : 0, struggle: a ? a.struggle || 0 : 0,
       verdict: m.ap ? m.ap.verdict : 'curious', apT: m.ap && m.ap.last ? m.ap.last.t : -99, rival: !!(b && b.rival),
       via: K.seen ? K.via || 'sight' : null, gait: K.seen ? K.gait || null : null, stepT: m.mem.steps ? m.mem.steps.t : -99, stepFast: !!(m.mem.steps && m.mem.steps.fast),
@@ -239,7 +240,7 @@ export class Thinker {
     const e = this.names.get(key); if (e) return e.name;
     let name = 'that thing';
     if (key.startsWith('prey:')) { const q = (this.m.att && this.m.att.world && (this.m.att.world.prey || []).find((p) => 'prey:' + p.id === key)) || this.m.prey; const sz = q && q.size ? q.size : 1; name = sz > 1.05 ? 'big meat animal' : sz < 0.93 ? 'little meat animal' : 'meat animal'; }
-    else if (key.startsWith('obj:')) { const o = this.m.focus && 'obj:' + this.m.focus.id === key ? this.m.focus : null; name = !o ? 'that thing' : o.kind === 'flare' || o.bright ? 'bright thing' : o.kind === 'meat' || o.kind === 'carcass' ? 'meat' : 'that thing'; }
+    else if (key.startsWith('obj:')) { const o = this.m.focus && 'obj:' + this.m.focus.id === key ? this.m.focus : null; name = !o ? 'that thing' : isBright(o) ? 'bright thing' : isEdible(o) ? 'meat' : 'that thing'; }
     this.names.set(key, { name }); return name;
   }
   /** Noticed, and not worth leaving what it is doing: the weighing, in its words (no "it": the thing is named). */
@@ -454,24 +455,24 @@ export class Thinker {
     if (s.scent > 0.08 && p.scent <= 0.08 && !s.seen) q('scent', 'sense', 0.8, s.enc > 0 ? ['smell {N}', 'smell {N} on wind', 'smell it. near', 'smell it {W}'] : ['strange smell', 'smell something', 'new smell on wind'], 'scent', { W: this._where(m.sim.x + Math.sin(m.scentDir) * 20, m.sim.z + Math.cos(m.scentDir) * 20, { landmark: false }), ok: (z) => z.scent > 0.05, cool: 20 });
     // ---- things that are not you
     if (s.focusId && s.focusId !== p.focusId && m.focus) {
-      const F = m.focus, k = F.kind;
-      const gift = k === 'meat' && F.by === 'you' && F.see > 0.2 && (s.seen || t - s.lastSeenT < 6);
+      const F = m.focus, edible = isEdible(F), bright = isBright(F);
+      const gift = edible && !(F.amount >= 2 || F.kind === 'carcass') && isByTarget(F.by, K.target) && F.see > 0.2 && (s.seen || t - s.lastSeenT < 6);
       if (gift) { mo.gave++; q('focus', 'world', 0.8, mo.gave >= 2 ? ['it bring meat again', 'more meat from it', 'meat come with it'] : ['meat! from it?', 'it drop meat', 'it throw meat. why?', 'meat fall by it'], 'focus:food', { ok: (z) => !!z.focusId, cool: 15 }); }
-      else if (k === 'meat' || k === 'carcass') q('focus', 'world', 0.75, F.see > 0.2 || !(F.smell > 0.02) ? ['meat there', 'meat there!', 'food there'] : ['smell meat', 'meat smell. wind', 'smell meat somewhere'], 'focus:food', { ok: (z) => !!z.focusId, cool: 15 });
-      else if (k === 'flare' && !(F.mem && F.mem.nov !== undefined && F.mem.nov <= 0.75)) q('focus', 'world', 0.8, F.mem && F.mem.hab > 0.5 ? ['bright thing again', 'that bright thing'] : ['bright thing!', 'what bright thing?', 'light on ground'], 'focus:flare', { ok: (z) => !!z.focusId, cool: 15 });      // (a kind it knows: the orienting thought below says so)
+      else if (edible) q('focus', 'world', 0.75, F.see > 0.2 || !(F.smell > 0.02) ? ['meat there', 'meat there!', 'food there'] : ['smell meat', 'meat smell. wind', 'smell meat somewhere'], 'focus:food', { ok: (z) => !!z.focusId, cool: 15 });
+      else if (bright && !(F.mem && F.mem.nov !== undefined && F.mem.nov <= 0.75)) q('focus', 'world', 0.8, F.mem && F.mem.hab > 0.5 ? ['bright thing again', 'that bright thing'] : ['bright thing!', 'what bright thing?', 'light on ground'], 'focus:flare', { ok: (z) => !!z.focusId, cool: 15 });      // (a kind it knows: the orienting thought below says so)
     }
     if (s.preyId && s.preyId !== p.preyId) q('prey', 'world', 0.6, m.hunger > 0.6 ? ['meat animals!', 'food walk there', 'meat animals. hungry'] : ['meat animals', 'meat animals there'], 'prey', { ok: (z) => !!z.preyId, cool: 30 });
     if (s.stoneId && s.stoneId !== p.stoneId) q('stoneFly', 'sense', 0.8, ['rock fly', 'something fly', 'see rock fly'], 'stone', { cool: 6 });
     // ---- done to it
     if (s.hitAt > p.hitAt) {
-      const H = m.lastHit, rock = H && H.kind === 'stone';
-      const again = m.wrongs.stones >= 2 && H.by === 'you';
+      const H = m.lastHit, rock = H && H.kind === 'stone', fromTarget = !!(H && isByTarget(H.by, K.target));
+      const again = m.wrongs.stones >= 2 && fromTarget;
       const pw = H && { head: 'head', neck: 'neck', leg: 'leg', thigh: 'leg', tail: 'tail', flank: 'side' }[H.part];
       // where it hurts, when it is a rock and the place is known: the words for that spot first, the plain ones still in the mix
       const gen = again ? ['ow! again', 'more rock!', 'rock again!', 'again! hurt', 'stop rock!', 'ow! not again', 'ow! that rock', 'rock hurt. again', 'sting! rock'] : rock ? ['ow! rock', 'ow! hurt', 'rock hit me', 'ow! hit me'] : ['ow! hurt', 'something hit me'];
       const spot = pw && rock ? (again ? ['ow! ' + pw + ' again', 'rock again! my ' + pw, pw + ' hurt! again'] : ['ow! my ' + pw, 'rock hit ' + pw, pw + ' hurt! rock', 'ow! sting ' + pw]).filter((x) => t - (this.used.get(x) ?? -999) > 60) : [];
       q('hit', 'feel', 1, spot.length ? spot : gen, 'hit', { cool: 1.5, ok: (z) => z.t - z.hitAt < 2.5 });
-      if (s.seen && H && H.by === 'you') q('hitWho', 'belief', 0.9, again ? ['{N} throw again!', 'it not stop', '{N} throw rock!', 'it do that!'] : ['{N} throw rock!', '{N} hit me', 'it do that!'], 'hit+seen', { cool: again ? 14 : 8, ok: (z) => z.t - z.hitAt < 4 });
+      if (s.seen && fromTarget) q('hitWho', 'belief', 0.9, again ? ['{N} throw again!', 'it not stop', '{N} throw rock!', 'it do that!'] : ['{N} throw rock!', '{N} hit me', 'it do that!'], 'hit+seen', { cool: again ? 14 : 8, ok: (z) => z.t - z.hitAt < 4 });
       else if (!s.seen) q('hitWho', 'belief', 0.88, ['from where?', 'who throw?', 'rock from {D}', 'it hide. throw rock'], 'hit+unseen', { W: this._where(m.startle ? m.startle.x : s.sx, m.startle ? m.startle.z : s.sz, { landmark: false }), cool: 8, ok: (z) => z.t - z.hitAt < 4 && !z.seen });
     }
     if (s.glare > 0.5 && p.glare <= 0.5) q('glare', 'feel', 0.9, ['light in eye!', 'too bright!', 'eyes hurt', 'bright! hurt eyes'], 'glare', { cool: 10, ok: (z) => z.glare > 0.3 });
