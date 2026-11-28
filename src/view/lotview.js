@@ -53,16 +53,16 @@ export class LotView {
 
     // the cars
     this.carViews = lotMode.cars.map((car) => {
-      const v = buildCar({ kind: car.kind, color: car.color, openDoor: car.openDoor, livery: car.livery, flareBox: car.hasFlares }, lo);
+      const v = buildCar({ kind: car.kind, color: car.color, openDoor: car.openDoor, livery: car.livery, flareBox: car.hasFlares, beams: car.lightsOn || car.openDoor }, lo);
       G.add(v.root);
       return { car, ...v };
     });
-    this.carLights = [0, 1].map(() => { const pl = new THREE.PointLight(0xffcf80, 0, 26, 1.8); G.add(pl); return pl; });
+    this.carLights = (lo ? [0] : [0, 1]).map(() => { const pl = new THREE.PointLight(0xffcf80, 0, 26, 1.8); G.add(pl); return pl; });
 
     // the lamps: a head on each pole (the pole itself is the world's), three of them really lighting the ground
     this.lamps = [];
     const lit = new THREE.MeshStandardMaterial({ color: 0xffd28a, emissive: 0xffb850, emissiveIntensity: 3 }), out = new THREE.MeshStandardMaterial({ color: 0x2c2f33, roughness: 0.7 });
-    const near = [...lot.lights].filter((L) => L.state !== 'off').sort((a, b) => Math.hypot(a.x, a.z + 5) - Math.hypot(b.x, b.z + 5)).slice(0, lo ? 2 : 4);
+    const near = [...lot.lights].filter((L) => L.state !== 'off').sort((a, b) => Math.hypot(a.x, a.z + 5) - Math.hypot(b.x, b.z + 5)).slice(0, lo ? 2 : 3);
     for (const L of lot.lights) {
       const gy = terrain.height(L.x, L.z), mat = L.state === 'off' ? out : lit.clone();
       const head = add(new THREE.BoxGeometry(1.5, 0.16, 0.5), mat, L.x, gy + L.h, L.z);
@@ -79,7 +79,7 @@ export class LotView {
     this.exitMat = new THREE.MeshStandardMaterial({ map: st, emissive: 0xffffff, emissiveMap: st, emissiveIntensity: 1.6 });
     add(new THREE.BoxGeometry(4.2, 1.5, 0.2), this.exitMat, E.x, ey + 4.5, F - 0.1).rotation.y = Math.PI;
     this.exitLight = new THREE.PointLight(0x44ff88, 40, 30, 1.5); this.exitLight.position.set(E.x, ey + 3.6, F - 2.5); G.add(this.exitLight);
-    this.truck = buildCar({ kind: 'pickup', color: 0x2a4a35, livery: 'ranger' }, lo);
+    this.truck = buildCar({ kind: 'pickup', color: 0x2a4a35, livery: 'ranger', beams: true }, lo);
     this.truck.root.position.set(E.x + 0.4, terrain.height(E.x, F + 7), F + 7); this.truck.root.rotation.y = Math.PI + 0.06;
     this.truck.headMat.emissiveIntensity = 3.2; this.truck.tailMat.emissiveIntensity = 0.8; this.truck.beams.visible = true; G.add(this.truck.root);
 
@@ -136,7 +136,7 @@ export class LotView {
       v.headMat.emissiveIntensity = beams ? 4.5 : flash ? 3 : c.lightsOn ? 1.6 : 0.04;
       v.tailMat.emissiveIntensity = on || flash ? 1.3 : 0.04;
       v.hazMat.emissiveIntensity = (c.hazards && slow) || flash ? 3.2 : 0.03;
-      v.beams.visible = on || flash;
+      v.beams.visible = on;
       if (v.extras.flareBox) v.extras.flareBox.visible = (c.flaresLeft || 0) > 0;
       if ((beams || flash) && pool < this.carLights.length) {
         const pl = this.carLights[pool++], s = Math.sin(c.yaw), co = Math.cos(c.yaw);

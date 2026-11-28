@@ -49,7 +49,7 @@ export function makeLotPaddock(seed = LOT_SEED) {
   // ---- which stalls are taken: clumps of two to four with gaps, then the places the story needs
   for (const row of ROWS) for (const side of [1, -1]) {
     let k = Math.floor(R() * 3);
-    while (k < COLS) { const run = 2 + Math.floor(R() * 2.6); for (let i = 0; i < run && k < COLS; i++, k++) stall(row.id, side, k).car = 'any'; k += 2 + Math.floor(R() * 3); }
+    while (k < COLS) { const run = 2 + Math.floor(R() * 2.6); for (let i = 0; i < run && k < COLS; i++, k++) stall(row.id, side, k).car = 'any'; k += 2 + Math.floor(R() * 4); }
   }
   const laneB = 2 + Math.floor(R() * 3), laneC = 1 + Math.floor(R() * 4);      // the visitors' gaps: between columns lane and lane+1
   for (const r of ['B1', 'B2']) { stall(r, 1, laneB).car = 'any'; stall(r, 1, laneB + 1).car = 'any'; }

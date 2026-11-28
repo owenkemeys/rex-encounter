@@ -1,7 +1,7 @@
 // The parked cars of Lot B, built from numbers: each body is a skin lofted over cross-sections along its length
 // (side-view curves for the sills, the beltline and the roof; plan-view curves for the width), with the wheel arches
 // cut into the sills, the glasshouse leaning in, and the glass, pillars and trim told apart by where a face sits.
-// One paint mesh and one dark mesh (glass, trim) per car, wheels and lamps on top: about seven draws a car.
+// One paint mesh and one dark mesh (glass, trim) per car, wheels and lamps on top: seven draws a car.
 import * as THREE from 'three/webgpu';
 
 // piecewise curve through [t, value] knots, eased between them (s: 0 straight, 1 smooth)
@@ -186,7 +186,7 @@ function styleGeo(kind) {
     rim.push({ geo: hub, m: at(x + sx * 0.105, st.wheelR, zOf(a), 0, 0, Math.PI / 2) });
   }
   for (const a of st.axles) tyre.push({ geo: boxG(st.w * 0.7, 0.1, 0.1), m: at(0, st.wheelR, zOf(a)) });      // axles, so the arches are not see-through
-  const out = { st, paint: sk.paint, dark: merge(dark), head: merge(head), tail: merge(tail), haz: merge(haz), plate: merge(plate), tyre: merge(tyre), rim: merge(rim), noseY, lampX: nW - 0.2 };
+  const out = { st, paint: sk.paint, dark: merge(dark), head: merge(head), tail: merge(tail), haz: merge(haz), tyre: merge(tyre), rim: merge([...rim, ...plate]), noseY, lampX: nW - 0.2 };
   styleCache.set(kind, out);
   return out;
 }
@@ -197,14 +197,13 @@ function mats() {
     MATS.glass = new THREE.MeshStandardMaterial({ color: 0x0b1116, roughness: 0.08, metalness: 0.6 });
     MATS.tyre = new THREE.MeshStandardMaterial({ color: 0x0c0d0f, roughness: 0.95 });
     MATS.rim = new THREE.MeshStandardMaterial({ color: 0x8d949b, roughness: 0.35, metalness: 0.7 });
-    MATS.plate = new THREE.MeshStandardMaterial({ color: 0xc9cbc2, roughness: 0.6 });
     MATS.beam = new THREE.MeshBasicMaterial({ color: 0xfff0c4, transparent: true, opacity: 0.1, depthWrite: false, side: THREE.DoubleSide, fog: false });
   }
   return MATS;
 }
 
 /**
- * One car. spec: { kind, color, lightsOn, openDoor, livery? ('ranger') }.
+ * One car. spec: { kind, color, openDoor, livery? ('ranger'), flareBox, beams (give it headlamp cones) }.
  * Returns { root, body, headMat, tailMat, hazMat, beams, extras } — root sits on the ground at the car's centre, +z its nose;
  * body is the sprung part (pitch about x, roll about z).
  */
@@ -216,7 +215,7 @@ export function buildCar(spec, lo = false) {
   const tailMat = new THREE.MeshStandardMaterial({ color: 0x5a0d0d, emissive: 0xff1a12, emissiveIntensity: 0.04, roughness: 0.3 });
   const hazMat = new THREE.MeshStandardMaterial({ color: 0x8a4a10, emissive: 0xff8a00, emissiveIntensity: 0.03, roughness: 0.3 });
   const add = (geo, mat, parent = body, shadow = false) => { const m = new THREE.Mesh(geo, mat); m.castShadow = shadow && !lo; m.receiveShadow = true; parent.add(m); return m; };
-  add(G.paint, paint, body, true); add(G.dark, M.glass); add(G.head, headMat); add(G.tail, tailMat); add(G.haz, hazMat); add(G.plate, M.plate);
+  add(G.paint, paint, body, true); add(G.dark, M.glass); add(G.head, headMat); add(G.tail, tailMat); add(G.haz, hazMat);
   add(G.tyre, M.tyre, root); add(G.rim, M.rim, root);
   const extras = {};
   if (spec.livery === 'ranger') {      // park-service stripe and door roundel, a roof light bar
@@ -240,7 +239,9 @@ export function buildCar(spec, lo = false) {
     extras.dome.position.set(0, st.h - 0.2, zf - 0.6);
   }
   // headlamp beams: two faint cones, no real light
-  const beams = new THREE.Group(), cone = new THREE.ConeGeometry(1.5, 8, 10, 1, true); cone.translate(0, -4, 0); cone.rotateX(-Math.PI / 2);
+  const beams = new THREE.Group(); beams.visible = false;
+  if (!spec.beams) return { root, body, paint, headMat, tailMat, hazMat, beams, extras, style: st };
+  const cone = new THREE.ConeGeometry(1.5, 8, 10, 1, true); cone.translate(0, -4, 0); cone.rotateX(-Math.PI / 2);
   for (const sx of [-1, 1]) { const c = new THREE.Mesh(cone, M.beam); c.position.set(sx * G.lampX, G.noseY - 0.05, st.l / 2); c.rotation.x = 0.06; beams.add(c); }
   beams.visible = false; body.add(beams);
   return { root, body, paint, headMat, tailMat, hazMat, beams, extras, style: st };
