@@ -87,7 +87,7 @@ function makeCCTVOSD() {
     const text = (s, x, y, al = 'left', a = 1) => { g.textAlign = al; g.fillStyle = 'rgba(0,0,0,0.85)'; g.fillText(s, x + 1, y + 1); g.fillStyle = `rgba(236,244,236,${a})`; g.fillText(s, x, y); };
     text('CAM ' + p2(o.cam), L, T); if (o.label) text(o.label, L, T + lh, 'left', 0.85);
     text(o.live ? (blink ? '\u25CF' : ' ') + ' LIVE' : o.paused ? '|| PAUSED' : (blink ? '\u25B6' : ' ') + ' PLAYBACK', vw / 2, T, 'center');      // live: the gatehouse feed at the opening
-    if (o.alert && blink) { g.textAlign = 'right'; g.fillStyle = 'rgba(0,0,0,0.85)'; g.fillText(o.alert, R + 1, T + 1); g.fillStyle = 'rgba(255,195,90,0.95)'; g.fillText(o.alert, R, T); }
+    if (o.alert && blink) { g.textAlign = 'left'; g.fillStyle = 'rgba(0,0,0,0.85)'; g.fillText(o.alert, L + 1, T + lh * 2 + 1); g.fillStyle = 'rgba(255,195,90,0.95)'; g.fillText(o.alert, L, T + lh * 2); }      // under the camera's label, clear of LIVE and the buttons
     const ds = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`, ts = `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
     text(ds + '  ' + ts, L, B - fs, 'left');
     tex.needsUpdate = true;
