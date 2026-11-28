@@ -8,15 +8,19 @@ import * as THREE from 'three/webgpu';
 import { texture, uv, uniform, vec3, float, mix, dot, sin, clamp } from 'three/tsl';
 
 export function makeGatehouseDesk(scene, terrain, G) {
-  const floor = terrain.height(G.guard.x, G.guard.z), fx = Math.sign(G.window.x - G.guard.x) || 1;      // the guard faces the window along x
+  const floor = terrain.height(G.guard.x, G.guard.z);
+  const wx = G.window.x - G.guard.x, wz = G.window.z - G.guard.z, wl = Math.hypot(wx, wz) || 1;
+  const fx = wx / wl, fz = wz / wl;
   const grp = new THREE.Group(); grp.name = 'gatehouseDesk';
+  grp.position.set(G.guard.x, floor, G.guard.z);
+  grp.rotation.y = Math.atan2(-fz, fx);      // local +x points toward the window
   const wood = new THREE.MeshStandardMaterial({ color: 0x4a4038, roughness: 0.85 }), case_ = new THREE.MeshStandardMaterial({ color: 0x2b2c2a, roughness: 0.6 });
   const box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); grp.add(b); return b; };
-  const dx = G.guard.x + fx * 0.72, z = G.guard.z;
-  box(0.6, 0.05, 1.5, wood, dx, floor + 1.0, z);                                  // the counter top
-  box(0.05, 0.98, 1.4, wood, dx + fx * 0.27, floor + 0.49, z);                    // its front panel
+  const dx = 0.72, z = 0;
+  box(0.6, 0.05, 1.5, wood, dx, 1.0, z);                                  // the counter top
+  box(0.05, 0.98, 1.4, wood, dx + 0.27, 0.49, z);                    // its front panel
   // the monitor: a deep old CRT box, turned a little up toward the eye
-  const mon = new THREE.Group(); mon.position.set(dx + fx * 0.05, floor + 1.25, z); mon.rotation.y = fx > 0 ? -Math.PI / 2 : Math.PI / 2; grp.add(mon);
+  const mon = new THREE.Group(); mon.position.set(dx + 0.05, 1.25, z); mon.rotation.y = -Math.PI / 2; grp.add(mon);
   const shell = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.42), case_); shell.position.z = -0.21; mon.add(shell);
   const W = 320, H = 180, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const g = cv.getContext('2d'); g.fillStyle = '#0b120c'; g.fillRect(0, 0, W, H);

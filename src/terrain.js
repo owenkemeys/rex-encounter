@@ -21,11 +21,11 @@ function vnoise(x, z, seed) {
   return (a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz) * 2 - 1;
 }
 
-export function makeTerrain(seed = 7) {
+export function makeTerrain(seed = 7, paddockOverride = null) {
   const T = {};
   const bumps = [];     // edits made at run time (mounds and pits); part of the shared world state
   // the paddock as a designed place (src/paddock.js): ridge, gully, pond, wood, crags, meadow; static ground baked per seed
-  const PD = makePaddock(seed);
+  const PD = paddockOverride || makePaddock(seed);
   const base = PD.ground;
   const logs = PD.logs.map((L) => ({ ...L }));       // fallen trunks: part of the ground, so feet step onto and over them (one wedged across the slot is a bridge)
   const LG = 8, lgrid = new Map();
@@ -160,6 +160,8 @@ export function makeTerrain(seed = 7) {
   const CG = 6, cgrid = new Map();
   for (const c of colliders) { const i0 = Math.floor((c.x - c.r) / CG), i1 = Math.floor((c.x + c.r) / CG), j0 = Math.floor((c.z - c.r) / CG), j1 = Math.floor((c.z + c.r) / CG); for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const k = i * 8192 + j; (cgrid.get(k) || cgrid.set(k, []).get(k)).push(c); } }
   const gridAdd = (c) => { const i0 = Math.floor((c.x - c.r) / CG), i1 = Math.floor((c.x + c.r) / CG), j0 = Math.floor((c.z - c.r) / CG), j1 = Math.floor((c.z + c.r) / CG); for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const k = i * 8192 + j; (cgrid.get(k) || cgrid.set(k, []).get(k)).push(c); } };
+  const addDynamicColliders = (cols) => { for (const c of cols) { colliders.push(c); gridAdd(c); } T.ver++; };
+  const refreshDynamicColliders = (cols) => { for (const c of cols) gridAdd(c); T.ver++; };
   // ---- doors and shutters: leaves that swing about a hinge (states open / closed), all opening outward. The person swings them
   // (useDoor); the animal's head or chest pressing on a closed leaf from inside bursts it open (it cannot pull one open from
   // outside: it thuds and holds); each emits events for the audio.
@@ -287,7 +289,7 @@ export function makeTerrain(seed = 7) {
   // the place's own data and queries (see paddock.js): water, wetness, cover height, wind, ground kind, place names
   const slopeAt = (x, z) => { const e = 0.5; return Math.hypot(height(x + e, z) - height(x - e, z), height(x, z + e) - height(x, z - e)) / (2 * e); };
   const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
-  Object.assign(T, { ver: 0, addStructure, height, base, normal, addBump, bumps, obstacles, logs, cover, coverAt, structures, insideStructure, roofBlocks, colliders, near, pushOut, segClear, size: 420, arena: 96, bound: PD.LAYOUT.fence - 0.5, doors, navBlocks, doorNear, useDoor, stepDoors, resetDoors, solids, things: PD.things,
+  Object.assign(T, { ver: 0, addStructure, addDynamicColliders, refreshDynamicColliders, height, base, normal, addBump, bumps, obstacles, logs, cover, coverAt, structures, insideStructure, roofBlocks, colliders, near, pushOut, segClear, size: 420, arena: PD.LAYOUT.fence - 3.5, bound: PD.LAYOUT.fence - 0.5, doors, navBlocks, doorNear, useDoor, stepDoors, resetDoors, solids, things: PD.things,
     grass: PD.grass, landmarks: PD.landmarks, grazing: PD.grazing, paddock: PD, slopeAt, obstaclesNear,
     waterY: PD.waterY, depthAt: PD.depthAt, wetAt: PD.wetAt, wetness: PD.wetAt, coverHeight: PD.coverHeight, windAt: PD.windAt, surfaceAt: PD.surfaceAt, placeName: PD.placeName, speedFactor: PD.speedFactor });
   return T;

@@ -54,7 +54,7 @@ export function buildFeatures(scene, terrain, Q, groundGeo, U) {
   const R = makeRng(PD.seed * 31 + 5), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), t = new THREE.Vector3(), e = new THREE.Euler();
 
   // ---- water: the pond's level, and the stream as a ribbon that follows its bed down the gully
-  {
+  if (PD.pond && PD.river) {
     const P = [], I = [], A = [];
     const pond = PD.pond, segs = lo ? 40 : 72, wl = PD.river.wl - 0.02;
     { const c = P.length / 3; P.push(pond.x, wl, pond.z); A.push(1);
@@ -201,6 +201,15 @@ export function interiorRects(PD) {
  * the grass keeps off all but mud). Concrete: the pads and aprons of the buildings, the ruins' floor; gravel: the service yard;
  * jungle floor: under the jungle and the bamboo (and the game trail); mud: the wet banks of the river and the pond. */
 function groundZones(PD) {
+  if (PD.lot) {
+    const f = PD.lot.fence;
+    return (x, z) => {
+      const e = Math.max(Math.abs(x), Math.abs(z)) - f;
+      const conc = e < 0 ? 1 : e < 2 ? (2 - e) / 2 : 0;
+      const dep = PD.depthAt ? PD.depthAt(x, z) : 0;
+      return [0, conc, 0, dep > 0.02 ? 0.55 : 0];
+    };
+  }
   const pads = []; let barn = null;      // [cx, cz, hw, hd]; the barn's floor is trodden earth and straw (mud), its aprons concrete
   for (const S of PD.structures) {
     if (S.id === 'barn') barn = S, pads.push([S.cx + 5, S.cz + S.hd + 2.2, 3.2, 2.2], [S.cx - 6, S.cz - S.hd - 2.2, 3.2, 2.2]);
