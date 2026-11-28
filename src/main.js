@@ -99,7 +99,8 @@ async function boot() {
     }
     if (!shouldReload) { showGpuLossOverlay(); return; }
     const keep = ((location.hash + (location.search || '')).match(/tape=[\w-]+(?:,seed\d+)?/) || (location.hash + (location.search || '')).match(/seed\d+/));
-    location.hash = (TEST ? '#test-webgl' : '#webgl') + (keep ? ',' + keep[0] : '');
+    const mode = /(^|[#&,-])lot($|[&,-])/.test(location.hash) ? '&lot' : /(^|[#&,-])gate($|[&,-])/.test(location.hash) ? '&gate' : '';
+    location.hash = (TEST ? '#test-webgl' : '#webgl') + mode + (keep ? ',' + keep[0] : '');
     location.reload();
   }
   await makeRenderer(location.hash.includes('webgl') || (!location.hash.includes('webgpu') && !TEST && backendPreference(Q.hints.gpu) === 'webgl'));
@@ -108,7 +109,7 @@ async function boot() {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 1200);
   camera.rotation.order = 'YXZ';
-  const LOT_ON = /(^|[#&-])lot($|[&-])/.test(location.hash) && !/crash/.test(location.hash);
+  const LOT_ON = /(^|[#&,-])lot($|[&,-])/.test(location.hash) && !/crash/.test(location.hash);
   const terrain = makeTerrain(7, LOT_ON ? makeLotPaddock(LOT_SEED) : null); await bootAt(0.62);
   const world = buildWorld(scene, terrain, Q); await bootAt(0.72);
   const post = makePost(renderer, scene, camera, Q), draw = () => (post ? post.render() : renderer.render(scene, camera));
