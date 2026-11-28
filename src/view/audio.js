@@ -933,6 +933,38 @@ export class Audio {
   }
   smack(dist) { this._fx('smack', dist, 0.9 * this._db(2), this._jit(0.08)); }
   alarm(dist) { this._fx('alarm', dist, 0.5 * this._db(2), this._jit(0.06), this.ambPool); }
+  carAlarm(dist = 15) {
+    if (!this._ok()) return;
+    const c = this.ctx, t0 = c.currentTime + 0.005, g = clamp(14 / (6 + dist), 0.06, 0.55);
+    const dest = this.self.in || this.self;
+    for (const f of [440, 554]) {
+      const o = c.createOscillator(), gn = c.createGain(), flt = c.createBiquadFilter();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t0);
+      flt.type = 'bandpass'; flt.frequency.setValueAtTime(1100, t0); flt.Q.value = 1.4;
+      gn.gain.setValueAtTime(0.0001, t0); gn.gain.linearRampToValueAtTime(g * 0.35, t0 + 0.015);
+      gn.gain.setValueAtTime(g * 0.35, t0 + 0.24); gn.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32);
+      o.connect(flt); flt.connect(gn); gn.connect(dest); o.start(t0); o.stop(t0 + 0.34);
+    }
+  }
+  carHorn(dist = 15) {
+    if (!this._ok()) return;
+    const c = this.ctx, t0 = c.currentTime + 0.005, g = clamp(16 / (5 + dist), 0.08, 0.65);
+    const dest = this.self.in || this.self;
+    for (const f of [392, 494]) {
+      const o = c.createOscillator(), gn = c.createGain(), flt = c.createBiquadFilter();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t0);
+      flt.type = 'lowpass'; flt.frequency.setValueAtTime(1400, t0);
+      gn.gain.setValueAtTime(0.0001, t0); gn.gain.linearRampToValueAtTime(g * 0.38, t0 + 0.025);
+      gn.gain.setValueAtTime(g * 0.34, t0 + 0.95); gn.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.15);
+      o.connect(flt); flt.connect(gn); gn.connect(dest); o.start(t0); o.stop(t0 + 1.18);
+    }
+  }
+  carCrunch(dist = 15) {
+    if (!this._ok()) return;
+    const g = clamp(18 / (5 + dist), 0.1, 0.85), t0 = this.ctx.currentTime + 0.004, dest = this.self.in || this.self;
+    this._burst(dest, t0, 0.22, 'bandpass', 620, 1.1, g * 0.7, 0.004);
+    this._burst(dest, t0 + 0.04, 0.14, 'highpass', 1800, 0.9, g * 0.35, 0.003);
+  }
   flurry(dist) { this._fx('flurry', dist, 0.6 * this._db(2), this._jit(0.08), this.ambPool); this.st && (this.st.hush = Math.max(this.st.hush, this.ctx.currentTime + 15)); }
   /** Your footstep; `surface` is terrain.surfaceAt under you (water and mud splash, gravel and rock are brighter, forest floor duller). */
   // (NOTES4: was the `step_wet` bank take, a resonant band and four bubbles normalised loud, on EVERY step whenever it rained, at

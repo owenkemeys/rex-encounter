@@ -54,9 +54,9 @@ export class Director {
       if (r < 0.5) this.noises.push({ x: sim.x + Math.sin(a) * dd, y: 0, z: sim.z + Math.cos(a) * dd, loud: R.range(0.25, 0.45), kind: 'stone' });
       else this.drop = { kind: r < 0.78 ? 'meat' : 'flare', a, d: r < 0.78 ? R.range(50, 85) : R.range(20, 32) };
     }
-    // framing: a long lens that keeps the animal's head and body in shot
-    const h = sim.head.pos, k = c.cut ? 1 : expK(dt, 0.35);
-    const gx = sim.x * 0.4 + h.x * 0.6, gy = sim.py.x * 0.45 + h.y * 0.55, gz = sim.z * 0.4 + h.z * 0.6;
+    // framing: a long lens that keeps the animal's head and body in shot (or a mount's fixed look point, e.g. Lot B kids cam)
+    const h = sim.head.pos, k = c.cut ? 1 : expK(dt, 0.35), lk = c.mount && c.mount.look;
+    const gx = lk ? lk.x : sim.x * 0.4 + h.x * 0.6, gy = lk ? lk.y : sim.py.x * 0.45 + h.y * 0.55, gz = lk ? lk.z : sim.z * 0.4 + h.z * 0.6;
     c.lx += (gx - c.lx) * k; c.ly += (gy - c.ly) * k; c.lz += (gz - c.lz) * k;
     camera.position.set(c.x, c.y, c.z);
     camera.lookAt(c.lx, c.ly, c.lz);

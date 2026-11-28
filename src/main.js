@@ -31,6 +31,9 @@ import { recordGpuLoss, formatBootError, formatRepeatedLossMessage } from './gpu
 import { countRun, incidentNo } from './runs.js';
 import { makeGatehouseDesk } from './view/gatehouse.js';      // the gatehouse start: the guard's counter and monitor
 import { gateFidget } from './gatesplash.js';      // the gatehouse start: the guard's small sounds that keep the animal round the hut
+import { makeLotPaddock, LOT_SEED } from './lot.js';      // '#lot': breached overflow parking lot mode
+import { LotMode } from './sim/lotmode.js';
+import { LotView } from './view/lotview.js';
 
 const DT = 1 / 120;
 const PERSON_SLOPE = 1.0, PERSON_DROP = 2.2;      // steepest ground (rise over run) a person on foot can scramble up: the Bluff, the Overlook's faces and the Crags are not
@@ -105,7 +108,8 @@ async function boot() {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 1200);
   camera.rotation.order = 'YXZ';
-  const terrain = makeTerrain(7); await bootAt(0.62);
+  const LOT_ON = /(^|[#&-])lot($|[&-])/.test(location.hash) && !/crash/.test(location.hash);
+  const terrain = makeTerrain(7, LOT_ON ? makeLotPaddock(LOT_SEED) : null); await bootAt(0.62);
   const world = buildWorld(scene, terrain, Q); await bootAt(0.72);
   const post = makePost(renderer, scene, camera, Q), draw = () => (post ? post.render() : renderer.render(scene, camera));
   // the quality loops; the backend trial: WebGPU that cannot hold the frame rate even at the bottom of the low level is
@@ -137,7 +141,7 @@ async function boot() {
   // security camera, live: the animal comes in from the paddock east of the hut and sniffs round it. "click to begin" only takes the card
   // away (the feed carries on, with sound); the first move or look (takeOver) cuts to you, the guard, looking down at that monitor, and you
   // look up from it, out of the east window it is coming to. Respawns use the usual spots, never the hut.
-  const GATE = OPEN && SPOTS && SPOTS.gate && /(^|[#&-])gate($|[&-])/.test(location.hash) && !/crash/.test(location.hash) ? SPOTS.gate : null;
+  const GATE = OPEN && SPOTS && SPOTS.gate && (LOT_ON || /(^|[#&-])gate($|[&-])/.test(location.hash)) && !/crash/.test(location.hash) ? SPOTS.gate : null;
   const body = new RexBody(Q, { fog: WEATHER.fog, flash: WEATHER.flash }); scene.add(body.group);
   const fx = new Effects(scene, terrain), audio = new Audio(), ov = new Overlays(scene, terrain);
   const props = new Props(scene, terrain, Q); await bootAt(0.78);
@@ -145,9 +149,12 @@ async function boot() {
   // their sight (the owner: never cut away to the paddock while it is at the hut); a pole camera out where the director would stand only
   // when it has gone off. The splash uses `director` (observe mode later, 'o' or watching after a death, frames as before); the monitor on
   // the guard's counter keeps showing the same feed after the cut (`feedDir`, src/view/gatehouse.js live()).
-  const HUTCAMS = GATE ? [{ ...GATE.cam, cam: 1, label: 'GATEHOUSE EXT' }, ...(GATE.cam2 ? [{ ...GATE.cam2, cam: 2, label: 'GATEHOUSE W' }] : [])] : [];
+  const HUTCAMS = GATE ? [{ ...GATE.cam, cam: 1, label: LOT_ON ? 'LOT B · KIOSK' : 'GATEHOUSE EXT' }, ...(GATE.cam2 ? [{ ...GATE.cam2, cam: 2, label: LOT_ON ? 'LOT B · WEST' : 'GATEHOUSE W' }] : [])] : [];
   const gateMount = (D) => (sm, md) => {
     const at = (M) => ({ x: M.x, y: terrain.height(M.x, M.z) + M.y, z: M.z, cam: M.cam, label: M.label });
+    if (LOT_ON && !S.gate && GATE.camKids && (S.clock < 4.2 || Math.floor(S.clock / 4.5) % 2 === 0)) {
+      const K = GATE.camKids; return { x: K.x, y: terrain.height(K.x, K.z) + K.y, z: K.z, cam: 4, label: 'LOT B · STRANDED VISITORS', look: K.look };
+    }
     const sees = (M) => { const p = at(M); return Math.hypot(sm.x - M.x, sm.z - M.z) < 45 && md.los(p.x, p.y, p.z, sm.head.pos.x, sm.head.pos.y, sm.head.pos.z); };
     const cur = D.cam.mount && HUTCAMS.find((M) => M.cam === D.cam.mount.cam), far = (M) => Math.hypot(sm.x - M.x, sm.z - M.z) > D.tooClose;
     if (cur && sees(cur) && far(cur)) return at(cur);
@@ -175,10 +182,13 @@ async function boot() {
       c.fov = clamp(2 * Math.atan(6.5 / Math.hypot(dx, dz, hy - c.y)) * 57.3, 18, 70); c.cut = false;
     }
     const A = new Arena(terrain, sim, mind, SEED); arena = arena ? renew(arena, A) : A; things = arena.things; herd = arena.herd;
+    if (LOT_ON) herd.disabled = true;
     fidget = GATE ? gateFidget(GATE, terrain, SEED) : null; wr = makeRng(SEED + 5);
     rpx = Object.create(sim); rpx.head = Object.create(sim.head); rpx.head.pos = new THREE.Vector3(); rpx.act = null; rpx.headTouch = null;      // what the audio sees of the animal while it plays: the recorded head
   }
   newScenario();
+  const lotMode = LOT_ON ? new LotMode(terrain, terrain.paddock.lot) : null;
+  const lotView = lotMode ? new LotView(scene, terrain, lotMode, Q, () => startOver()) : null;
   const desk = GATE ? makeGatehouseDesk(scene, terrain, GATE) : null;
   let gateWarm = 0;      // the feed's look goes on after a few frames in the camcorder look, so that look is built before the cut (else the first frames after it came out blank)
 
@@ -499,12 +509,13 @@ async function boot() {
     interactable() {
       const Y = S.you; if (S.mode !== 'foot' || S.dead || !arena.victim('you').free) return null;
       if (Y.up) return 'climb down';
+      if (lotMode) { const lc = lotMode.interactable(Y); if (lc) return lc.label; }
       for (const t of things.list) if (t.kind === 'meat' && t.amount > 0 && Math.hypot(t.x - Y.x, t.z - Y.z) < 2.4) return 'take the meat';
       if (ladderNear(Y)) return 'climb';
       const D = terrain.doorNear && terrain.doorNear(Y.x, Y.z); if (D) return (D[0].state === 'open' ? 'shut the door' : 'open the door');
       return null;
     },
-    interact() { const w = act.interactable(); if (!w) return; if (w === 'take the meat') act.take(); else if (w.endsWith('door')) act.door(); else act.climb(); ui.taught('interact'); },
+    interact() { const w = act.interactable(); if (!w) return; if (lotMode && lotMode.interact(S.you, KIT, S.noises)) { ui.held(); kitTick(0); ui.taught('interact'); return; } if (w === 'take the meat') act.take(); else if (w.endsWith('door')) act.door(); else act.climb(); ui.taught('interact'); },
     /** Swing the nearest door or shutter shut or open (terrain.useDoor); its sounds go out as events. */
     door() { const Y = S.you, D = terrain.doorNear && terrain.doorNear(Y.x, Y.z); if (!D) return; terrain.useDoor(D, arena.events); const [x, z] = D[0].hinge; S.noises.push({ x, y: D[0].y0 + 1, z, loud: 0.22, kind: 'door', you: true }); },
     // call: a tap whistles (carries across the paddock), holding it shouts (loud, close)
@@ -699,7 +710,8 @@ async function boot() {
   function startOver() {
     gaitEnd(); if (crashRun) { crashRun = null; setMind(true); }
     releasePointer(); releaseTouch(); drag = null; touches.clear(); pinch = null; setCrouch(false); setMode('observe');
-    SEED = pickSeed(); newScenario(); mind.ov = OV; if ($('temper').value) mind.setTemper($('temper').value); herd.disabled = !$('herdOn').checked;
+    SEED = pickSeed(); newScenario(); mind.ov = OV; if ($('temper').value) mind.setTemper($('temper').value); herd.disabled = LOT_ON || !$('herdOn').checked;
+    if (lotMode) lotMode.reset(); if (lotView) lotView.reset();
     prev.v.set(sim.pose.v); prev.s.set(sim.pose.s);
     for (const k of Object.keys(S)) if (!KEEP.has(k)) delete S[k];
     Object.assign(S, freshS()); S.keys.clear(); Object.assign(S.zoom, { toggle: false, hold: false, padHold: false, cur: 1 }); $('tZoom').setAttribute('aria-pressed', 'false');
@@ -1243,12 +1255,13 @@ async function boot() {
   // them. Until then no agent is offered, and the noises you make are kept from it.
   const aware = () => S.awareAt !== undefined && S.clock >= S.awareAt;
   function agents() {
-    if (!aware()) return [];
-    if (S.mode === 'observe') { if (!director.pinned) return [director.agent()]; if (!arena.victim('you').free) takeOver(); }      // watching in the open start: the agent is you, standing still; handled, you get the body
-    if (S.mode === 'fly') return [];
+    const kids = lotMode ? lotMode.extraAgents() : [];
+    if (!aware()) return kids;
+    if (S.mode === 'observe') { if (!director.pinned) return [director.agent(), ...kids]; if (!arena.victim('you').free) takeOver(); }      // watching in the open start: the agent is you, standing still; handled, you get the body
+    if (S.mode === 'fly') return kids;
     const Y = S.you, sp = Math.hypot(Y.vx, Y.vz);
     const f = ray.set(0, 0, -1).applyQuaternion(camera.quaternion);
-    return [{ id: 'you', x: Y.x, y: (Y.up ? Y.up.base + Y.up.h : terrain.height(Y.x, Y.z)) + Y.eye + Y.J.h, z: Y.z, vx: Y.vx, vz: Y.vz, speed: sp, crouch: Y.crouch, fx: -Math.sin(Y.yaw), fz: -Math.cos(Y.yaw), torch: props.torchOn, lx: f.x, ly: f.y, lz: f.z }];
+    return [{ id: 'you', x: Y.x, y: (Y.up ? Y.up.base + Y.up.h : terrain.height(Y.x, Y.z)) + Y.eye + Y.J.h, z: Y.z, vx: Y.vx, vz: Y.vz, speed: sp, crouch: Y.crouch, fx: -Math.sin(Y.yaw), fz: -Math.cos(Y.yaw), torch: props.torchOn, lx: f.x, ly: f.y, lz: f.z }, ...kids];
   }
 
   function birds(x, z, loud) { const n = props.flush(x, z, loud); if (n) { S.noises.push(n); audio.flurry(Math.hypot(n.x - camera.position.x, n.z - camera.position.z)); } }
@@ -1292,7 +1305,18 @@ async function boot() {
       for (const q of S.noises) if (q.you && clip) clip.note(q.kind);      // closeout: whistles and shouts, for the closing card
       for (const q of S.noises) if (q.you && (q.kind === 'shout' || q.kind === 'whistle')) rec.event({ src: 'you', type: q.kind, x: q.x, y: q.y, z: q.z });      // and on the tape, so the camera hears them too
       for (const q of S.noises) if (q.you && ui.achv) ui.achv.noise(q, { x: q.x, y: q.y, z: q.z });      // dares: a shout right in its face
+      if (lotMode) { things.extra = lotMode.extraLights(); }
       arena.step(DT, { agents: ag, noises: S.noises, light: world.light, flash: world.flash, wind }, S.mindOn ? null : directedIntent());
+      if (lotMode) {
+        lotMode.step(DT, sim, mind, arena, things, S.noises, S.dead);
+        for (const le of lotMode.events) {
+          const at = le.x !== undefined ? Math.hypot(le.x - camera.position.x, (le.y ?? camera.position.y) - camera.position.y, le.z - camera.position.z) : 15;
+          if (le.type === 'carAlarm' && audio.carAlarm) audio.carAlarm(at);
+          else if (le.type === 'carHorn' && audio.carHorn) audio.carHorn(at);
+          else if (le.type === 'carCrunch') { if (audio.carCrunch) audio.carCrunch(at); if (at < 28) fx.kick(Math.min(0.45, 0.15 * (le.strength || 1))); }
+        }
+        lotMode.events.length = 0;
+      }
       if (gaitRun) gmeter.tick(sim, sim.t - gaitRun.t0);
       S.noises.length = 0;
       S.legT = (S.legT || 0) - DT;
@@ -1366,10 +1390,12 @@ async function boot() {
     body.glareEye = mind.dazzle || null; body.update(shown); fx.breath(body.nostril, body.snout, shown.s[1], dtv); if (audio.breathCue) { fx.snort(body.nostril, body.snout, audio.breathCue); audio.breathCue = 0; }
 
     if (S.mode === 'observe' && !S.replay) {      // (a shared tape can play before the visitor steps in: the tape's camera wins)
+      if (LOT_ON && !S.gate && director.cam.since > 4.2) director.cam.cut = true;
       director.update(dtReal * run, sim, mind, camera); solidify(director.cam, 0.5); S.lens = director.cam.fov;
       if (GATE && post && post.cctv) {      // the live gatehouse feed's lettering, and a burst of static when it switches camera
         const I = post.cctvInfo, m = director.cam.mount; if (m && m.cam !== I.cam) post.cctvU.burst.value = 1;
         if (m) { I.cam = m.cam; I.label = m.label; } I.stamp = Date.now(); I.clock = performance.now() / 1000; I.paused = false; I.live = true;
+        I.alert = LOT_ON && !S.gate ? 'ALERT: BREACH IN LOT B · 2 VISITORS STRANDED' : '';
         post.cctvU.burst.value = Math.max(0, post.cctvU.burst.value - dtReal * 2.5);
       }
       if (GATE && !S.gate) { director.noises.length = 0; director.drop = null; }      // the feed: no stones, meat or flares to draw it off the hut
@@ -1384,6 +1410,7 @@ async function boot() {
     }
     else if (!S.paused && !S.frozen && !S.replay) moveCamera(dtReal);
     if (!S.replay) lens(dtReal); if (!S.paused && !S.frozen) kitTick(dts);
+    if (lotView) lotView.update(dtv, S.started, arena, sim);
     fx.update(dtv, S.paused || S.frozen ? null : camera);      // paused, nothing puts the camera back each frame: the shake would add up and sink it
     world.followLight(sim.x, sim.groundY, sim.z);
     if (world.update(dtv, camera, renderer)) {

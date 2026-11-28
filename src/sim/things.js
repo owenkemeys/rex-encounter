@@ -129,7 +129,7 @@ export class Things {
 
   /** What the mind gets: positions and the properties it can sense. */
   snapshot() {
-    return this.list.map((o) => {
+    const out = this.list.map((o) => {
       const lit = o.kind === 'flare' && o.burn > 0;
       const edible = o.kind === 'meat' || o.kind === 'carcass';
       return {
@@ -139,5 +139,7 @@ export class Things {
         by: o.by, hand: o.hand || null, vx: o.vx, vz: o.vz,
       };
     });
+    if (this.extra && this.extra.length) out.push(...this.extra);
+    return out;
   }
 }
