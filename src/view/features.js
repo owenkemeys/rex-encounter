@@ -83,7 +83,7 @@ export function buildFeatures(scene, terrain, Q, groundGeo, U) {
   }
 
   // ---- tall grass and reeds: crossed cards of long blades, swaying with the gusts that cross the grass
-  {
+  if (PD.grass && PD.grass.length) {
     const tex = canvasTex(256, (g, S) => {
       const rr = makeRng(37); g.clearRect(0, 0, S, S);
       for (let i = 0; i < 120; i++) {
@@ -140,8 +140,8 @@ export function buildFeatures(scene, terrain, Q, groundGeo, U) {
       pipe: 0x8c8a84, hay: 0xb59a55, bamboo: 0x86a05a, jungle: 0x4f4636 };
     const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, metalness: 0 });
     const col = new THREE.Color(), up = new THREE.Vector3(0, 1, 0);
-    const boxes = PD.things.filter((t) => ['wall', 'slab', 'deck', 'mast', 'catwalk', 'ladder', 'roof'].includes(t.kind) && t.of !== 'fence');
-    const cyls = PD.things.filter((t) => t.kind === 'post' || t.kind === 'trunk');
+    const boxes = PD.things.filter((t) => ['wall', 'slab', 'deck', 'mast', 'catwalk', 'ladder', 'roof'].includes(t.kind) && (PD.lot || t.of !== 'fence'));
+    const cyls = PD.things.filter((t) => t.kind === 'post' || t.kind === 'trunk' || (PD.lot && t.kind === 'pole'));
     const bx = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), mat, Math.max(1, boxes.length));
     boxes.forEach((th, i) => {
       // a wall or slab is a pillar chain of radius w/2 along its run, so it reaches w/2 past each end
@@ -159,6 +159,7 @@ export function buildFeatures(scene, terrain, Q, groundGeo, U) {
     doors.forEach((d, i) => dm.setColorAt(i, col.setHex(d.type === 'shutter' ? 0x6b5038 : d.type === 'big' ? 0x7a5634 : 0x5c4a3a)));
     const setDoors = () => doors.forEach((d, i) => { q.setFromAxisAngle(up, d.ang); m4.compose(t.set(d.hinge[0], d.y0, d.hinge[1]), q, s.set(d.type === 'big' ? 0.16 : 0.08, d.h, d.len)); dm.setMatrixAt(i, m4); });
     setDoors(); dm.instanceMatrix.needsUpdate = true;
+    bx.visible = boxes.length > 0; cy.visible = cyls.length > 0; dm.visible = doors.length > 0;
     for (const m of [bx, cy, dm]) { m.castShadow = true; m.frustumCulled = false; add(m, true); }
     out.blockMeshes = { bx, cy, dm };
     out.blockout = { boxes: boxes.length, cylinders: cyls.length, doors: doors.length };
@@ -168,7 +169,7 @@ export function buildFeatures(scene, terrain, Q, groundGeo, U) {
 
   out.groundZones = groundZones(PD);
   out.interiorShade = interiorShade(interiorRects(PD), U);
-  dressArena(scene, terrain, Q, U, out);
+  if (!PD.lot) dressArena(scene, terrain, Q, U, out);
   return out;
 }
 
