@@ -23,8 +23,8 @@ for (let r = 0; r < runs; r++) {
     if (mode === 'decoy' && !you.dead && t > 8) {      // walk to a locked car well away from the visitors' next run, thump it, shout, repeat
       const k = lot.kids.find((q) => q.state !== 'escaped' && q.state !== 'dead');
       if (k && (!goal || goal.car.alarmLeft <= 0 || t > goal.until)) {
-        const nx = lot.stops[Math.min(k.stop + 1, 3)], nz = nx.z ?? nx.z0;
-        const c = lot.cars.filter((c) => c.locked && c.alarmLeft > 0 && Math.hypot(c.x - k.x, c.z - k.z) > 30 && Math.hypot(c.x - nx.x, c.z - nz) > 30).sort((a, b) => Math.hypot(a.x - you.x, a.z - you.z) - Math.hypot(b.x - you.x, b.z - you.z))[0];
+        const nx = lot.stops[Math.min(k.stop + 1, lot.stops.length - 1)], nz = nx.z ?? nx.z0;
+        const c = lot.cars.filter((c) => c.locked && c.alarmLeft > 0 && Math.hypot(c.x - k.x, c.z - k.z) > 22 && Math.hypot(c.x - nx.x, c.z - nz) > 22).sort((a, b) => Math.hypot(a.x - you.x, a.z - you.z) - Math.hypot(b.x - you.x, b.z - you.z))[0];
         goal = c ? { car: c, until: t + 40 } : null;
       }
       if (goal) {

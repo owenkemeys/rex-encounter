@@ -33,6 +33,8 @@ export function makeTerrain(seed = 7, paddockOverride = null) {
     const ex = Math.abs(L.cx) * (L.half + L.r) + L.r, ez = Math.abs(L.cz) * (L.half + L.r) + L.r;
     for (let i = Math.floor((L.x - ex) / LG); i <= Math.floor((L.x + ex) / LG); i++) for (let j = Math.floor((L.z - ez) / LG); j <= Math.floor((L.z + ez) / LG); j++) { const k = i * 4096 + j; (lgrid.get(k) || lgrid.set(k, []).get(k)).push(L); }
   }
+  const heightMods = [];
+  const addHeightMod = (fn) => { heightMods.push(fn); };
   const height = (x, z) => {
     let h = base(x, z);
     const Ls = lgrid.get(Math.floor(x / LG) * 4096 + Math.floor(z / LG));
@@ -44,6 +46,7 @@ export function makeTerrain(seed = 7, paddockOverride = null) {
       if (d2 < L.r * L.r) h += L.r * 0.92 * Math.sqrt(1 - d2 / (L.r * L.r)) + L.lift;
     }
     for (const b of bumps) { const d2 = (x - b.x) * (x - b.x) + (z - b.z) * (z - b.z); if (d2 < b.r * b.r * 6) h += b.h * Math.exp(-d2 / (b.r * b.r)); }
+    for (const fn of heightMods) { const mh = fn(x, z, h); if (mh > h) h = mh; }
     return h;
   };
   const addBump = (x, z, h, r) => { bumps.push({ x, z, h, r }); if (bumps.length > 60) bumps.shift(); };
@@ -171,7 +174,7 @@ export function makeTerrain(seed = 7, paddockOverride = null) {
     c._cells = null;
   };
   const addDynamicColliders = (cols) => { for (const c of cols) { colliders.push(c); gridAdd(c); } T.ver++; };
-  const refreshDynamicColliders = (cols) => { for (const c of cols) { gridRemove(c); gridAdd(c); } T.ver++; };
+  const refreshDynamicColliders = (cols, bumpVer = false) => { for (const c of cols) { gridRemove(c); gridAdd(c); } if (bumpVer) T.ver++; };
   // ---- doors and shutters: leaves that swing about a hinge (states open / closed), all opening outward. The person swings them
   // (useDoor); the animal's head or chest pressing on a closed leaf from inside bursts it open (it cannot pull one open from
   // outside: it thuds and holds); each emits events for the audio.
@@ -262,6 +265,7 @@ export function makeTerrain(seed = 7, paddockOverride = null) {
     for (let it = 0; it < iters; it++) {
       let moved = false;
       for (const c of near(p.x, p.z, r + 0.5)) {
+        if (wallsFull && c.trample) continue;
         if (c.bot !== undefined ? (y1 < c.bot || y0 > c.top) : (y0 > c.top && !(wallsFull && c.kind === 'wall'))) continue;
         const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz), m = c.r + r; if (d >= m) continue;
         const nx = d > 1e-4 ? dx / d : 1, nz = d > 1e-4 ? dz / d : 0, k = m - d; p.x += nx * k; p.z += nz * k; tx += nx * k; tz += nz * k; moved = true;
@@ -299,7 +303,7 @@ export function makeTerrain(seed = 7, paddockOverride = null) {
   // the place's own data and queries (see paddock.js): water, wetness, cover height, wind, ground kind, place names
   const slopeAt = (x, z) => { const e = 0.5; return Math.hypot(height(x + e, z) - height(x - e, z), height(x, z + e) - height(x, z - e)) / (2 * e); };
   const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
-  Object.assign(T, { ver: 0, addStructure, addDynamicColliders, refreshDynamicColliders, height, base, normal, addBump, bumps, obstacles, logs, cover, coverAt, structures, insideStructure, roofBlocks, colliders, near, pushOut, segClear, size: 420, arena: PD.LAYOUT.fence - 3.5, bound: PD.LAYOUT.fence - 0.5, doors, navBlocks, doorNear, useDoor, stepDoors, resetDoors, solids, things: PD.things,
+  Object.assign(T, { ver: 0, addStructure, addDynamicColliders, refreshDynamicColliders, addHeightMod, height, base, normal, addBump, bumps, obstacles, logs, cover, coverAt, structures, insideStructure, roofBlocks, colliders, near, pushOut, segClear, size: 420, arena: PD.LAYOUT.fence - 3.5, bound: PD.LAYOUT.fence - 0.5, doors, navBlocks, doorNear, useDoor, stepDoors, resetDoors, solids, things: PD.things,
     grass: PD.grass, landmarks: PD.landmarks, grazing: PD.grazing, paddock: PD, slopeAt, obstaclesNear,
     waterY: PD.waterY, depthAt: PD.depthAt, wetAt: PD.wetAt, wetness: PD.wetAt, coverHeight: PD.coverHeight, windAt: PD.windAt, surfaceAt: PD.surfaceAt, placeName: PD.placeName, speedFactor: PD.speedFactor });
   return T;

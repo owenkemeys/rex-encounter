@@ -152,8 +152,8 @@ async function boot() {
   // the guard's counter keeps showing the same feed after the cut (`feedDir`, src/view/gatehouse.js live()).
   const HUTCAMS = GATE ? [{ ...GATE.cam, cam: 1, label: LOT_ON ? 'LOT B · KIOSK EXT' : 'GATEHOUSE EXT' }, ...(GATE.cam2 ? [{ ...GATE.cam2, cam: 2, label: LOT_ON ? 'LOT B · WEST' : 'GATEHOUSE W' }] : [])] : [];
   const gateMount = (D) => (sm, md) => {
-    const at = (M) => ({ x: M.x, y: terrain.height(M.x, M.z) + M.y, z: M.z, cam: M.cam, label: M.label, ...(M.look ? { look: M.look } : {}) });
-    if (LOT_ON && !S.gate) return at(HUTCAMS[0]);      // Option A: single composed kiosk shot showing rex in foreground + stalled minivan & lit EXIT in midground
+    const at = (M) => ({ x: M.x, y: terrain.height(M.x, M.z) + M.y, z: M.z, cam: M.cam, label: M.label, ...(M.look ? { look: M.look } : {}), ...(M.fov ? { fov: M.fov } : {}) });
+    if (LOT_ON && !S.gate) return at(HUTCAMS[0]);      // Option A: single wide kiosk shot showing rex + stalled van & visitors + lit EXIT
     const sees = (M) => { const p = at(M); return Math.hypot(sm.x - M.x, sm.z - M.z) < 45 && md.los(p.x, p.y, p.z, sm.head.pos.x, sm.head.pos.y, sm.head.pos.z); };
     const cur = D.cam.mount && HUTCAMS.find((M) => M.cam === D.cam.mount.cam), far = (M) => Math.hypot(sm.x - M.x, sm.z - M.z) > D.tooClose;
     if (cur && sees(cur) && far(cur)) return at(cur);
@@ -1315,7 +1315,16 @@ async function boot() {
           const at = le.x !== undefined ? Math.hypot(le.x - camera.position.x, (le.y ?? camera.position.y) - camera.position.y, le.z - camera.position.z) : 15;
           if (le.type === 'carAlarm' && audio.carAlarm) audio.carAlarm(at);
           else if (le.type === 'carHorn' && audio.carHorn) audio.carHorn(at);
-          else if (le.type === 'carCrunch') { if (audio.carCrunch) audio.carCrunch(at); if (at < 28) fx.kick(Math.min(0.45, 0.15 * (le.strength || 1))); }
+          else if (le.type === 'carCrunch' || le.type === 'carFlip') {
+            if (audio.carCrunch) audio.carCrunch(at);
+            if (at < 32) fx.kick(Math.min(0.65, (le.type === 'carFlip' ? 0.35 : 0.18) * (le.strength || 1)));
+            if (fx.puff && le.x !== undefined) fx.puff(le.x, le.y ?? 0.9, le.z);
+          } else if (le.type === 'kidEscaped' && audio.carHorn) {
+            // waiting ranger truck flashes + double-honks from the exit so the player hears a visitor got out with zero HUD
+            const ex = terrain.paddock.lot.evac, ed = Math.hypot(ex.x - camera.position.x, ex.z - camera.position.z);
+            audio.carHorn(ed * 0.7);
+            if (lotView) lotView.rangerFlash = 2.2;
+          }
         }
         lotMode.events.length = 0;
       }
@@ -1396,7 +1405,7 @@ async function boot() {
       if (GATE && post && post.cctv) {      // the live gatehouse feed's lettering, and a burst of static when it switches camera
         const I = post.cctvInfo, m = director.cam.mount; if (m && m.cam !== I.cam) post.cctvU.burst.value = 1;
         if (m) { I.cam = m.cam; I.label = m.label; } I.stamp = Date.now(); I.clock = performance.now() / 1000; I.paused = false; I.live = true;
-        I.alert = LOT_ON && !S.gate ? '2 VISITORS STILL IN LOT B' : '';
+        I.alert = LOT_ON && !S.gate ? 'BREACH · 2 VISITORS BY VAN · CLEAR TO EXIT' : '';
         post.cctvU.burst.value = Math.max(0, post.cctvU.burst.value - dtReal * 2.5);
       }
       if (GATE && !S.gate) { director.noises.length = 0; director.drop = null; }      // the feed: no stones, meat or flares to draw it off the hut
@@ -1469,7 +1478,7 @@ async function boot() {
   let unboot = () => { $('boot').remove(); unboot = () => {}; };
   if (TEST) {
     window.__dino = {
-      ui, start, setPaused, takeOver, renderer, scene, get sim() { return sim; }, get mind() { return mind; }, S, get director() { return director; }, camera, setMode, setMind, reachTo, fx, ov, body, act, world, applyMood, arena, props, qc, post, Q, get backendNow() { return backend; },
+      ui, start, setPaused, takeOver, renderer, scene, get sim() { return sim; }, get mind() { return mind; }, S, get director() { return director; }, camera, setMode, setMind, reachTo, fx, ov, body, act, world, applyMood, arena, props, qc, post, Q, lotMode, lotView, get backendNow() { return backend; },
       advance(sec, fdt = 1 / 30) { S.noRender = true; for (let t = 0; t < sec - fdt - 1e-9; t += fdt) frame(fdt); S.noRender = false; frame(fdt); },
       look(px, py, pz, tx, ty, tz) { camera.position.set(px, py, pz); camera.lookAt(tx, ty, tz); body.update(sim.pose); world.followLight(sim.x, sim.groundY, sim.z); world.update(0, camera, renderer); draw(); },
     };
@@ -1477,7 +1486,7 @@ async function boot() {
     if (!/start/.test(location.hash)) start(false);      // tests begin past the start card unless they ask to see it
     frame(1 / 30); unboot();
   } else {
-    window.__rex = { clip, audio /* jaw-from-voice */, get seed() { return SEED; }, get sim() { return sim; }, rec, setMode, desk, get director() { return director; }, get feedDir() { return feedDir; }, get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
+    window.__rex = { clip, audio /* jaw-from-voice */, get seed() { return SEED; }, get sim() { return sim; }, rec, setMode, desk, get director() { return director; }, get feedDir() { return feedDir; }, get kit() { return S.kit; }, get items() { return S.items; }, S, arena, props, ui, ov, renderer, scene, camera, body, Q, qc, post, world, lotMode, lotView, get backend() { return backend; }, recheck: () => watchBody(renderer, body, { frames: 10, secs: 0.5 }) };      // console/diagnostics handle (the body self-check reads it)
     // the downloads in, then pictures with nothing culled or hidden and in both looks before the loading screen goes, so every
     // shader, texture and buffer is ready (else the first fast turn built them a few at a time: lag until you had looked everywhere)
     let got = 0; await Promise.all(world.loading.map((p) => p.then(() => bootAt(0.9 + 0.06 * ++got / world.loading.length))));
