@@ -61,7 +61,7 @@ export class Director {
     camera.position.set(c.x, c.y, c.z);
     camera.lookAt(c.lx, c.ly, c.lz);
     const dist = Math.hypot(c.lx - c.x, c.ly - c.y, c.lz - c.z);
-    const fov = clamp(2 * Math.atan(6.5 / dist) * 57.3, 18, 70);
+    const fov = (c.mount && c.mount.fov) || clamp(2 * Math.atan(6.5 / dist) * 57.3, 18, 70);
     c.fov += (fov - c.fov) * (c.cut ? 1 : expK(dt, 0.8)); camera.fov = c.fov; camera.updateProjectionMatrix();
     c.yaw = bearing(c.lx - c.x, c.lz - c.z);
     c.cut = false;
