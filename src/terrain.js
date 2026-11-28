@@ -159,9 +159,19 @@ export function makeTerrain(seed = 7, paddockOverride = null) {
   // a coarse grid so a query only looks at what is nearby
   const CG = 6, cgrid = new Map();
   for (const c of colliders) { const i0 = Math.floor((c.x - c.r) / CG), i1 = Math.floor((c.x + c.r) / CG), j0 = Math.floor((c.z - c.r) / CG), j1 = Math.floor((c.z + c.r) / CG); for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const k = i * 8192 + j; (cgrid.get(k) || cgrid.set(k, []).get(k)).push(c); } }
-  const gridAdd = (c) => { const i0 = Math.floor((c.x - c.r) / CG), i1 = Math.floor((c.x + c.r) / CG), j0 = Math.floor((c.z - c.r) / CG), j1 = Math.floor((c.z + c.r) / CG); for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const k = i * 8192 + j; (cgrid.get(k) || cgrid.set(k, []).get(k)).push(c); } };
+  const gridAdd = (c) => {
+    const cells = [];
+    const i0 = Math.floor((c.x - c.r) / CG), i1 = Math.floor((c.x + c.r) / CG), j0 = Math.floor((c.z - c.r) / CG), j1 = Math.floor((c.z + c.r) / CG);
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const k = i * 8192 + j; (cgrid.get(k) || cgrid.set(k, []).get(k)).push(c); cells.push(k); }
+    c._cells = cells;
+  };
+  const gridRemove = (c) => {
+    if (!c._cells) return;
+    for (const k of c._cells) { const L = cgrid.get(k); if (!L) continue; const idx = L.indexOf(c); if (idx >= 0) L.splice(idx, 1); }
+    c._cells = null;
+  };
   const addDynamicColliders = (cols) => { for (const c of cols) { colliders.push(c); gridAdd(c); } T.ver++; };
-  const refreshDynamicColliders = (cols) => { for (const c of cols) gridAdd(c); T.ver++; };
+  const refreshDynamicColliders = (cols) => { for (const c of cols) { gridRemove(c); gridAdd(c); } T.ver++; };
   // ---- doors and shutters: leaves that swing about a hinge (states open / closed), all opening outward. The person swings them
   // (useDoor); the animal's head or chest pressing on a closed leaf from inside bursts it open (it cannot pull one open from
   // outside: it thuds and holds); each emits events for the audio.

@@ -1,37 +1,73 @@
-// Breached Overflow Parking Lot (LOT B) — seeded layout for the cover-to-cover escape mode (#lot).
-// Produces the same Paddock contract as src/paddock.js so Terrain, Arena, RexSim, Mind and World
-// run on it unchanged. All layout variation is derived from `seed` (fixed to LOT_SEED during playtesting).
+// Lot B, the overflow car park outside the breached park (#lot): a seeded layout with the same contract as src/paddock.js,
+// so Terrain, Arena, the animal and World run on it unchanged.
+//
+// The plan (before the seeded east/west flip): the park gate and the Ticket Kiosk are at the south end, the road exit at
+// the north end, and one avenue runs straight between them. Either side of the avenue are parking islands: two double rows
+// (A, B) and a single row along the north kerb (C), with open aisles about 19 m wide between them for the animal to stride
+// and turn in. Every parked car stands in a marked stall, in clumps of two to four with gaps between; one or two were
+// left crooked in an aisle. The stranded family's van stalled in the middle aisle on its way out: the two visitors go
+// from it to a gap between cars in row B, across the north aisle to a gap in row C, and then to the exit.
+//
+// What the seed decides: the flip, which stalls are taken and by what, which gaps the visitors use, where the ranger's
+// pickup (spare flares) and the abandoned cars are, which lamp is dead and which flickers, and where the puddles lie.
 import { makeRng, clamp } from './math.js';
 
 export const LOT_SEED = 42;
-const FENCE = 52;
+const FENCE = 50;
 
-const CAR_SPECS = {
-  sedan:   { w: 1.85, l: 4.4, h: 1.42, colors: [0x2c3e55, 0x6b2828, 0x3b4840, 0x5c5852, 0x262930, 0x7a6a4c] },
-  suv:     { w: 2.0,  l: 4.8, h: 1.78, colors: [0x2a3338, 0x4f3a2e, 0x36443a, 0x484b52] },
-  minivan: { w: 2.0,  l: 5.0, h: 1.82, colors: [0x7e858c] },
-  ranger:  { w: 2.05, l: 4.9, h: 1.85, colors: [0x2e4a36] },
+// footprints for collision; the drawn shapes are src/view/lotcars.js CAR_STYLES (keep w, l, h in step)
+export const CAR_SPECS = {
+  sedan:   { w: 1.84, l: 4.6,  h: 1.43, colors: [0x263a52, 0x6e2424, 0x32463c, 0x6a6d70, 0x1c1e22, 0x766446, 0x9a9c98] },
+  hatch:   { w: 1.78, l: 4.05, h: 1.5,  colors: [0x7a2a22, 0x2c4f6e, 0xa8a9a4, 0x3a3d42, 0x8a7a3c, 0x41604a] },
+  suv:     { w: 1.98, l: 4.8,  h: 1.76, colors: [0x263138, 0x4d382b, 0x2f4136, 0x77797c, 0x5c2b29, 0x15171a] },
+  minivan: { w: 2.0,  l: 5.05, h: 1.78, colors: [0x88919a, 0x5a2a2a, 0x2f4660, 0xb4b2a8] },
+  pickup:  { w: 2.04, l: 5.35, h: 1.84, colors: [0x2a4a35] },
 };
+const STALL_W = 3.0, STALL_L = 5.4, SPINE = 4.5, COLS = 10;
+// sub-rows: z of the stall centres, the way a car driven in forwards faces, and which aisle it opens on
+const ROWS = [
+  { id: 'A1', z: -18.7, yaw: 0 }, { id: 'A2', z: -13.3, yaw: Math.PI },
+  { id: 'B1', z: 11.3, yaw: 0 }, { id: 'B2', z: 16.7, yaw: Math.PI },
+  { id: 'C', z: 42.3, yaw: 0 },
+];
+const colX = (k) => SPINE + STALL_W / 2 + k * STALL_W;      // 6, 9, ... 33
 
 const cache = new Map();
 
 export function makeLotPaddock(seed = LOT_SEED) {
   if (cache.has(seed)) return cache.get(seed);
   const R = makeRng(seed * 9173 + 29);
-  const flip = R() < 0.5 ? 1 : -1;      // seeded: flips breach/kids east <-> west so sightlines and escape vector invert
+  const flip = R() < 0.5 ? 1 : -1;      // the visitors' side of the avenue is +x before the flip
   const fx = (x) => x * flip;
+  const pick = (a) => a[Math.floor(R() * a.length)];
 
-  // ---- seeded drainage puddle (loud splash aisle)
+  // ---- the stall grid (LotView paints exactly these)
+  const stalls = [];
+  for (const row of ROWS) for (const side of [1, -1]) for (let k = 0; k < COLS; k++) stalls.push({ x: side * colX(k), z: row.z, yaw: row.yaw, row: row.id, side, k, car: null });
+  const stall = (row, side, k) => stalls.find((s) => s.row === row && s.side === side * flip && s.k === k);
+
+  // ---- which stalls are taken: clumps of two to four with gaps, then the places the story needs
+  for (const row of ROWS) for (const side of [1, -1]) {
+    let k = Math.floor(R() * 3);
+    while (k < COLS) { const run = 2 + Math.floor(R() * 2.6); for (let i = 0; i < run && k < COLS; i++, k++) stall(row.id, side, k).car = 'any'; k += 2 + Math.floor(R() * 4); }
+  }
+  const laneB = 2 + Math.floor(R() * 3), laneC = 1 + Math.floor(R() * 4);      // the visitors' gaps: between columns lane and lane+1
+  for (const r of ['B1', 'B2']) { stall(r, 1, laneB).car = 'any'; stall(r, 1, laneB + 1).car = 'any'; }
+  for (let k = 0; k < COLS; k++) stall('C', 1, k).car = k === laneC || k === laneC + 1 ? 'any' : k < laneC ? null : stall('C', 1, k).car;      // open ground between their last gap and the exit
+  const laneBx = fx(colX(laneB) + STALL_W / 2), laneCx = fx(colX(laneC) + STALL_W / 2);
+
+  // ---- puddles in the aisles (loud to run through)
   const puddles = [
-    { x: fx(2 + (R() - 0.5) * 8), z: 2 + (R() - 0.5) * 10, rx: 9.5, rz: 6.5, depth: 0.22 },
-    { x: fx(-14 + (R() - 0.5) * 6), z: -12 + (R() - 0.5) * 8, rx: 7.0, rz: 5.5, depth: 0.16 },
+    { x: fx(-14 + (R() - 0.5) * 16), z: -1 + (R() - 0.5) * 8, rx: 7.5, rz: 4.5, depth: 0.18 },
+    { x: fx(-10 + R() * 34), z: 30 + (R() - 0.5) * 7, rx: 6.5, rz: 4.0, depth: 0.16 },
+    { x: fx(8 + (R() - 0.5) * 30), z: -30 + (R() - 0.5) * 6, rx: 5.5, rz: 3.5, depth: 0.14 },
   ];
 
-  // ---- flat drained asphalt inside the lot, gentle earthen berm outside the fence
+  // ---- Flat drained asphalt inside Lot B, gentle earthen berm outside the fence
   const ground = (x, z) => {
     const edge = Math.max(Math.abs(x), Math.abs(z)) - FENCE;
     let h = 0;
-    if (edge > 0) h += Math.min(3.2, edge * 0.08 + 0.35 * Math.sin(x * 0.09 + seed) * Math.cos(z * 0.09));
+    if (edge > 0) h += Math.min(3.2, edge * 0.08 + 0.32 * Math.sin(x * 0.09 + seed) * Math.cos(z * 0.09));
     for (const p of puddles) {
       const d = Math.hypot((x - p.x) / p.rx, (z - p.z) / p.rz);
       if (d < 1.2) { const u = clamp(1 - d / 1.2, 0, 1); h -= p.depth * u * u; }
@@ -46,32 +82,32 @@ export function makeLotPaddock(seed = LOT_SEED) {
     }
     return dep;
   };
-  const wetAt = (x, z) => (depthAt(x, z) > 0.01 ? 0.9 : Math.max(Math.abs(x), Math.abs(z)) < FENCE ? 0.55 : 0.35);
+  const wetAt = (x, z) => (depthAt(x, z) > 0.01 ? 0.92 : Math.max(Math.abs(x), Math.abs(z)) < FENCE ? 0.58 : 0.35);
 
   const things = [], structures = [], refuges = [];
   const T0 = (id, o) => { things.push({ id, ...o }); return o; };
 
-  // ---- Ticket / Guard Kiosk (gatehouse) on South-West / South-East edge, facing North into the lot
-  const kX = fx(-22), kZ = -38;
-  const kBase = ground(kX, kZ), hw = 2.6, hd = 2.4, kh = 3.2;
+  // ---- the Ticket Kiosk by the park gate at the south end, its wide window facing north up the lot
+  const kX = fx(-7), kZ = -41;
+  const kBase = ground(kX, kZ), hw = 2.4, hd = 2.2, kh = 3.1;
   const addWall = (of, id, ax, az, bx, bz, w, h, mat, y0 = 0) => {
     const mx = (ax + bx) / 2, mz = (az + bz) / 2, l = Math.hypot(bx - ax, bz - az);
     const yaw = Math.atan2(bx - ax, bz - az);
     T0(id, { of, kind: 'wall', mat, x: mx, y: kBase + y0, z: mz, yaw, w, h, l, ax, az, bx, bz, prefab: null });
   };
-  // North wall (wide viewing window facing the lot: low sill 0..1.05, lintel 2.3..3.2, corners)
-  addWall('gatehouse', 'gh.n.sill', kX - hw, kZ + hd, kX + hw, kZ + hd, 0.28, 1.05, 'concrete', 0);
-  T0('gh.n.lintel', { of: 'gatehouse', kind: 'slab', mat: 'concrete', x: kX, y: kBase + 2.35, z: kZ + hd, yaw: Math.PI / 2, w: 0.28, h: 0.85, l: hw * 2, ax: kX - hw, az: kZ + hd, bx: kX + hw, bz: kZ + hd, prefab: null });
+  // North wall (wide viewing window facing the whole lot)
+  addWall('gatehouse', 'gh.n.sill', kX - hw, kZ + hd, kX + hw, kZ + hd, 0.26, 1.05, 'concrete', 0);
+  T0('gh.n.lintel', { of: 'gatehouse', kind: 'slab', mat: 'concrete', x: kX, y: kBase + 2.35, z: kZ + hd, yaw: Math.PI / 2, w: 0.26, h: 0.75, l: hw * 2, ax: kX - hw, az: kZ + hd, bx: kX + hw, bz: kZ + hd, prefab: null });
   // South wall (solid)
-  addWall('gatehouse', 'gh.s', kX - hw, kZ - hd, kX + hw, kZ - hd, 0.28, kh, 'concrete', 0);
+  addWall('gatehouse', 'gh.s', kX - hw, kZ - hd, kX + hw, kZ - hd, 0.26, kh, 'concrete', 0);
   // Outer side wall (solid)
   const solidSide = kX - flip * hw, doorSide = kX + flip * hw;
-  addWall('gatehouse', 'gh.side.solid', solidSide, kZ - hd, solidSide, kZ + hd, 0.28, kh, 'concrete', 0);
-  // Inner side wall (doorway gap 1.3 m wide in the middle, openable or plain open so you can dash straight out)
-  addWall('gatehouse', 'gh.side.a', doorSide, kZ - hd, doorSide, kZ - 0.75, 0.28, kh, 'concrete', 0);
-  addWall('gatehouse', 'gh.side.b', doorSide, kZ + 0.75, doorSide, kZ + hd, 0.28, kh, 'concrete', 0);
-  T0('gh.side.lintel', { of: 'gatehouse', kind: 'slab', mat: 'concrete', x: doorSide, y: kBase + 2.25, z: kZ, yaw: 0, w: 0.28, h: 0.95, l: 1.5, ax: doorSide, az: kZ - 0.75, bx: doorSide, bz: kZ + 0.75, prefab: null });
-  T0('gh.roof', { of: 'gatehouse', kind: 'roof', mat: 'concrete', x: kX, y: kBase + kh, z: kZ, yaw: 0, w: hw * 2 + 0.5, h: 0.22, l: hd * 2 + 0.5, prefab: null, visualOnly: true });
+  addWall('gatehouse', 'gh.side.solid', solidSide, kZ - hd, solidSide, kZ + hd, 0.26, kh, 'concrete', 0);
+  // Inner side wall (open doorway 1.4 m wide so you can step straight out into the lot)
+  addWall('gatehouse', 'gh.side.a', doorSide, kZ - hd, doorSide, kZ - 0.7, 0.26, kh, 'concrete', 0);
+  addWall('gatehouse', 'gh.side.b', doorSide, kZ + 0.7, doorSide, kZ + hd, 0.26, kh, 'concrete', 0);
+  T0('gh.side.lintel', { of: 'gatehouse', kind: 'slab', mat: 'concrete', x: doorSide, y: kBase + 2.25, z: kZ, yaw: 0, w: 0.26, h: 0.85, l: 1.4, ax: doorSide, az: kZ - 0.7, bx: doorSide, bz: kZ + 0.7, prefab: null });
+  T0('gh.roof', { of: 'gatehouse', kind: 'roof', mat: 'concrete', x: kX, y: kBase + kh, z: kZ, yaw: 0, w: hw * 2 + 0.6, h: 0.22, l: hd * 2 + 0.6, prefab: null, visualOnly: true });
 
   structures.push({
     id: 'gatehouse', kind: 'gatehouse', name: 'the Ticket Kiosk',
@@ -82,148 +118,116 @@ export function makeLotPaddock(seed = LOT_SEED) {
     ],
   });
 
-  // ---- Perimeter Fence with a smashed breach on the North-East (or NW when flipped) and Evac Exit Gate on the far side
-  const breachX = fx(24), breachZ = FENCE;
-  const exitX = fx(-34), exitZ = 22;
+  // ---- the fence: the smashed park gate beside the kiosk (south), the road exit at the far end of the avenue (north)
+  const breachX = fx(11), breachZ = -FENCE, exitX = 0, exitZ = FENCE - 1;
   const fenceWall = (id, ax, az, bx, bz) => {
     const mx = (ax + bx) / 2, mz = (az + bz) / 2, l = Math.hypot(bx - ax, bz - az), yaw = Math.atan2(bx - ax, bz - az);
-    T0(id, { of: 'fence', kind: 'wall', mat: 'fence', x: mx, y: ground(mx, mz), z: mz, yaw, w: 0.3, h: 4.5, l, ax, az, bx, bz, prefab: null });
+    T0(id, { of: 'fence', kind: 'wall', mat: 'fence', x: mx, y: ground(mx, mz), z: mz, yaw, w: 0.28, h: 4.5, l, ax, az, bx, bz, prefab: null });
   };
-  // North fence (split around breach gap of 9 m — visual gap, rex stays inside via bound)
-  const bLo = Math.min(breachX - 4.5, breachX + 4.5), bHi = Math.max(breachX - 4.5, breachX + 4.5);
-  fenceWall('fence.n1', -FENCE, FENCE, bLo, FENCE);
-  fenceWall('fence.n2', bHi, FENCE, FENCE, FENCE);
-  fenceWall('fence.s', -FENCE, -FENCE, FENCE, -FENCE);
+  fenceWall('fence.s1', -FENCE, -FENCE, breachX - 5, -FENCE);
+  fenceWall('fence.s2', breachX + 5, -FENCE, FENCE, -FENCE);
+  fenceWall('fence.n1', -FENCE, FENCE, -SPINE, FENCE);
+  fenceWall('fence.n2', SPINE, FENCE, FENCE, FENCE);
   fenceWall('fence.e', FENCE, -FENCE, FENCE, FENCE);
   fenceWall('fence.w', -FENCE, -FENCE, -FENCE, FENCE);
+  // bollards across the exit: a person slips between them, the animal does not
+  const evac = { x: exitX, z: exitZ, r: 2.2 };
+  for (let i = -3; i <= 3; i++) if (i !== 0) T0(`evac.post.${i + 3}`, { of: 'fence', kind: 'pole', mat: 'concrete', x: exitX + i * 1.5, y: ground(exitX + i * 1.5, FENCE), z: FENCE, r: 0.2, h: 1.1, prefab: null });
 
-  // ---- Evacuation Exit Bollards (choke point kids slip through, rex can't)
-  const evac = { x: exitX, z: exitZ, r: 3.2 };
-  for (const dz of [-1.6, 1.6]) {
-    T0(`evac.post.${dz > 0 ? 'a' : 'b'}`, { of: 'fence', kind: 'pole', mat: 'concrete', x: exitX + flip * 1.4, y: ground(exitX + flip * 1.4, exitZ + dz), z: exitZ + dz, r: 0.28, h: 1.35, prefab: null });
+  // ---- sodium lamps on the islands and the north kerb; by seed one is dead and one flickers
+  const lights = [];
+  for (const sd of [1, -1]) { lights.push({ id: `lamp.A${sd}`, x: sd * 19.5, z: -16, h: 9.5, state: 'on' }, { id: `lamp.B${sd}`, x: sd * 19.5, z: 14, h: 9.5, state: 'on' }, { id: `lamp.C${sd}`, x: sd * 21, z: 46.4, h: 9.5, state: 'on' }); }
+  const dead = Math.floor(R() * lights.length); lights[dead].state = 'off';
+  lights[(dead + 1 + Math.floor(R() * (lights.length - 1))) % lights.length].state = 'flicker';
+  for (const L of lights) T0(L.id, { of: 'fence', kind: 'pole', mat: 'steel', x: L.x, y: ground(L.x, L.z), z: L.z, r: 0.2, h: L.h, prefab: null });
+
+  // ---- the cars
+  const KINDS = ['sedan', 'sedan', 'sedan', 'hatch', 'hatch', 'suv', 'suv', 'suv', 'minivan'];
+  const cars = [];
+  const car = (id, kind, role, x, z, yaw, extra = {}) => {
+    const sp = CAR_SPECS[kind];
+    const c = { id, kind, role, x, z, yaw, w: sp.w, l: sp.l, h: sp.h, color: pick(sp.colors), locked: true, openDoor: false, hazards: false, lightsOn: false, alarmLeft: 2, ...extra };
+    cars.push(c); return c;
+  };
+  // the ranger's pickup, tailgate down with a case of flares: parked on the far side of the avenue from the visitors
+  const rangerStall = stall(R() < 0.5 ? 'A2' : 'B1', -1, 1 + Math.floor(R() * 5)); rangerStall.car = 'ranger';
+  for (const s of stalls) {
+    if (!s.car) continue;
+    const back = R() < 0.14, nose = s.yaw + (back ? Math.PI : 0);
+    const x = s.x + (R() - 0.5) * 0.24, z = s.z + (R() - 0.5) * 0.3, yaw = nose + (R() - 0.5) * 0.06, id = `car.${s.row}${s.side > 0 ? 'e' : 'w'}${s.k}`;
+    if (s.car === 'ranger') car('car.ranger', 'pickup', 'ranger', s.x, s.z, s.yaw + (s.row === 'A2' ? 0 : Math.PI) + Math.PI, { locked: false, hasFlares: true, flaresLeft: 2, alarmLeft: 0, livery: 'ranger' });
+    else car(id, pick(KINDS), 'visitor', x, z, yaw);
   }
+  // the family's van, stalled in the middle aisle, nose toward the avenue and the way out
+  const van = car('car.minivan', 'minivan', 'start', fx(colX(laneB) - 1 + R() * 2), -3.2 + R() * 1.6, (flip > 0 ? -1 : 1) * (Math.PI / 2 - 0.22), { hazards: true, lightsOn: true, alarmLeft: 2, color: 0x8d949b });
+  // two cars left where their drivers ran: doors open, keys in (the horn and the high beams work)
+  car('car.left1', pick(['sedan', 'hatch', 'suv']), 'abandoned', fx(-10 - R() * 14), 28 + R() * 5, (R() - 0.5) * 2.4, { locked: false, openDoor: true, hazards: true, alarmLeft: 0 });
+  car('car.left2', pick(['sedan', 'hatch']), 'abandoned', fx((R() < 0.5 ? -1 : 1) * (14 + R() * 14)), -29 + R() * 4, Math.PI / 2 + (R() - 0.5) * 1.2, { locked: false, openDoor: true, hazards: false, alarmLeft: 0 });
 
-  // ---- Seeded Concrete Planter Islands (low concrete curbs + light poles)
-  const lights = [
-    { id: 'lamp.1', x: fx(-28), z: -14, h: 9.5, state: 'on' },
-    { id: 'lamp.2', x: fx(0),   z: -14, h: 9.5, state: 'on' },
-    { id: 'lamp.3', x: fx(26),  z: -14, h: 9.5, state: 'on' },
-    { id: 'lamp.4', x: fx(-28), z: 18,  h: 9.5, state: 'on' },
-    { id: 'lamp.5', x: fx(0),   z: 18,  h: 9.5, state: 'on' },
-    { id: 'lamp.6', x: fx(26),  z: 18,  h: 9.5, state: 'on' },
-  ];
-  // Seeded floodlight outages: 1 dead, 1 flickering (never kill lamp.4 over the exit or lamp.3 over the kids' start)
-  const candOut = [0, 1, 4, 5];
-  const deadIdx = candOut[Math.floor(R() * candOut.length)];
-  const flickCand = candOut.filter((i) => i !== deadIdx);
-  const flickIdx = flickCand[Math.floor(R() * flickCand.length)];
-  lights[deadIdx].state = 'off';
-  lights[flickIdx].state = 'flicker';
-  for (const L of lights) {
-    T0(L.id, { of: 'fence', kind: 'pole', mat: 'steel', x: L.x, y: ground(L.x, L.z), z: L.z, r: 0.22, h: L.h, prefab: null });
-  }
-
-  // ---- Parked Cars (10 vehicles: 1 stalled minivan for kids start, 2 cover-lane cars, 1 ranger SUV, 6 visitor cars)
-  const pickCol = (kind) => { const cs = CAR_SPECS[kind].colors; return cs[Math.floor(R() * cs.length)]; };
-  const jit = (s) => (R() - 0.5) * s;
-
-  // Escape lane stops: Start Minivan (E/W) -> Cover 1 (mid-east) -> Cover 2 (mid-west) -> Exit Gate
-  const startCar = { id: 'car.minivan', kind: 'minivan', role: 'start', x: fx(32 + jit(2)), z: -8 + jit(2), yaw: (flip > 0 ? -Math.PI * 0.45 : Math.PI * 0.45) + jit(0.15), locked: true, hazards: true, lightsOn: true, alarmLeft: 1 };
-  const cover1   = { id: 'car.cover1',  kind: 'sedan',   role: 'cover1', x: fx(14 + jit(2)), z: 2 + jit(2), yaw: jit(0.22), locked: true, hazards: false, lightsOn: false, alarmLeft: 2 };
-  const cover2   = { id: 'car.cover2',  kind: 'suv',     role: 'cover2', x: fx(-12 + jit(2)), z: 12 + jit(2), yaw: Math.PI * 0.5 + jit(0.2), locked: true, hazards: false, lightsOn: false, alarmLeft: 2 };
-
-  // Ranger SUV (spare flares in open rear hatch) placed in one of 2 seeded mid-south / mid-north bays
-  const rangerSpot = R() < 0.5 ? { x: fx(-6 + jit(3)), z: -22 + jit(2), yaw: Math.PI * 0.5 + jit(0.2) } : { x: fx(8 + jit(3)), z: -24 + jit(2), yaw: -Math.PI * 0.5 + jit(0.2) };
-  const rangerCar = { id: 'car.ranger', kind: 'ranger', role: 'ranger', ...rangerSpot, locked: false, openDoor: false, hasFlares: true, flaresLeft: 2, hazards: true, lightsOn: true, alarmLeft: 0 };
-
-  // Additional visitor cars arranged in realistic parking bays (leaving wide central driving aisles for the rex)
-  const extraSpecs = [
-    { id: 'car.v1', kind: 'sedan', x: fx(-28 + jit(2)), z: -6 + jit(2),  yaw: Math.PI * 0.5 + jit(0.12) },
-    { id: 'car.v2', kind: 'suv',   x: fx(-14 + jit(2)), z: -10 + jit(2), yaw: jit(0.18) },
-    { id: 'car.v3', kind: 'sedan', x: fx(16 + jit(2)),  z: -22 + jit(2), yaw: jit(0.16) },
-    { id: 'car.v4', kind: 'sedan', x: fx(28 + jit(2)),  z: 14 + jit(2),  yaw: Math.PI * 0.5 + jit(0.15) },
-    { id: 'car.v5', kind: 'suv',   x: fx(4 + jit(2)),   z: 28 + jit(2),  yaw: Math.PI + jit(0.18) },
-    { id: 'car.v6', kind: 'sedan', x: fx(-22 + jit(2)), z: 30 + jit(2),  yaw: jit(0.15) },
-  ];
-  // Seeded: 2 of the visitor/cover cars were abandoned mid-evacuation (driver door ajar, horn + high beams ready!)
-  const openPickA = Math.floor(R() * 3);          // from v1..v3 (closer to kiosk/mid)
-  const openPickB = 3 + Math.floor(R() * 3);      // from v4..v6 (north half)
-
-  const cars = [startCar, cover1, cover2, rangerCar, ...extraSpecs.map((c, idx) => ({
-    ...c, role: 'visitor',
-    locked: !(idx === openPickA || idx === openPickB),
-    openDoor: idx === openPickA || idx === openPickB,
-    hazards: idx === openPickA,
-    lightsOn: idx === openPickA || idx === openPickB,
-    alarmLeft: idx === openPickA || idx === openPickB ? 0 : 2,
-  }))].map((c) => {
-    const sp = CAR_SPECS[c.kind];
-    return { ...c, w: sp.w, l: sp.l, h: sp.h, color: pickCol(c.kind) };
-  });
-
-  // Escape route stops (4 stops: minivan -> cover1 -> cover2 -> exit gate)
+  // ---- the visitors' way out: from the van, to a gap between cars in row B, to a gap in row C, to the exit.
+  // A gap is a lane between two parked cars: they keep to whichever end of it is further from the animal.
+  const vs = Math.sin(van.yaw), vc = Math.cos(van.yaw);
   const stops = [
-    { kind: 'car', carId: startCar.id, x: startCar.x, z: startCar.z, r: 2.8, label: 'stalled minivan' },
-    { kind: 'car', carId: cover1.id,   x: cover1.x,   z: cover1.z,   r: 2.6, label: 'sedan' },
-    { kind: 'car', carId: cover2.id,   x: cover2.x,   z: cover2.z,   r: 2.8, label: 'SUV' },
-    { kind: 'exit', carId: null,       x: evac.x,     z: evac.z,     r: 2.4, label: 'exit gate' },
+    { kind: 'car', carId: van.id, x: van.x - vs * 3.4, z: van.z - vc * 3.4 + 0.6, label: 'the stalled van' },      // off its tail, in view of the kiosk camera
+    { kind: 'lane', x: laneBx, z0: 9.2, z1: 18.8, label: 'row B' },
+    { kind: 'lane', x: laneCx, z0: 40.2, z1: 46.6, label: 'row C' },
+    { kind: 'exit', x: evac.x, z: evac.z + 2.2, label: 'the exit' },
   ];
 
-  // Spawns & CCTV cameras for Lot B
-  const guard = { x: kX, z: kZ + 0.5 };
+  // ---- the opening: you in the kiosk at the window, the animal just outside it, the van and the exit beyond in one frame
+  const guard = { x: kX, z: kZ + 0.3 };
   const windowAt = { x: kX, z: kZ + hd };
-  const rexStart = { x: breachX - flip * 4, z: breachZ - 14, yaw: Math.atan2(startCar.x - (breachX - flip * 4), startCar.z - (breachZ - 14)) };
-  const camKiosk = { x: kX + flip * (hw + 0.4), y: 3.8, z: kZ + hd + 0.5 };
-  const camKids = { x: startCar.x - flip * 10, y: 5.5, z: startCar.z + 11, look: { x: startCar.x, y: 1.1, z: startCar.z } };
-  const camExit = { x: evac.x + flip * 12, y: 5.5, z: evac.z - 10, look: { x: evac.x, y: 1.2, z: evac.z } };
+  const rexStart = { x: kX + flip * 1.5, z: kZ + 12, yaw: Math.atan2(-flip * 1.5, -12) };
+  const camKiosk = { x: kX - flip * (hw + 0.4), y: 4.3, z: kZ + hd + 0.4, look: { x: fx(8), y: 1.2, z: -8 } };
+  const camKiosk2 = { x: kX + flip * (hw + 0.4), y: 4.3, z: kZ + hd + 0.4 };
 
   const LAYOUT = {
     fence: FENCE,
-    spawn: { you: { x: guard.x + flip * 4.5, z: guard.z + 2 }, rex: rexStart },
+    spawn: { you: { x: kX + flip * 4, z: kZ + 3 }, rex: rexStart },
     spawns: {
-      first: { you: { x: guard.x + flip * 4.5, z: guard.z + 2 }, rex: rexStart, hunger: [0.55, 0.65] },
-      gate: {
-        guard, window: windowAt, rex: rexStart,
-        cam: camKiosk,
-        cam2: { x: kX - flip * (hw + 0.4), y: 3.8, z: kZ + hd + 0.5 },
-        camKids, camExit,
-      },
+      first: { you: { x: kX + flip * 4, z: kZ + 3 }, rex: rexStart, hunger: [0.55, 0.65] },
+      gate: { guard, window: windowAt, rex: rexStart, cam: camKiosk, cam2: camKiosk2 },
       respawn: [
-        { name: 'the Ticket Kiosk', x: kX + flip * 4, z: kZ + 4 },
-        { name: 'the South Lot', x: fx(0), z: -34 },
+        { name: 'the Ticket Kiosk', x: kX + flip * 4.5, z: kZ + 3 },
+        { name: 'the Avenue', x: 0, z: -26 },
       ],
     },
   };
 
-  // Sparse perimeter trees outside the fence only (dark treeline frame, never inside the asphalt lot)
+  // Dark perimeter treeline strictly outside the fence
   const trees = [];
-  for (let i = 0; i < 42; i++) {
-    const a = (i / 42) * Math.PI * 2 + (R() - 0.5) * 0.08;
-    const rad = FENCE + 10 + R() * 24;
-    const tx = Math.sin(a) * rad, tz = Math.cos(a) * rad;
-    trees.push({ x: tx, z: tz, r: 0.45 + R() * 0.35, h: 12 + R() * 8, kind: 'tree', seed: i * 17 + seed });
+  for (let i = 0; i < 40; i++) {
+    const a = (i / 40) * Math.PI * 2 + (R() - 0.5) * 0.08;
+    const rad = FENCE + 9 + R() * 22;
+    trees.push({ x: Math.sin(a) * rad, z: Math.cos(a) * rad, r: 0.45 + R() * 0.35, h: 12 + R() * 8, kind: 'tree', seed: i * 17 + seed });
   }
 
   const placeName = (x, z) => {
     if (Math.abs(x - kX) < hw + 1 && Math.abs(z - kZ) < hd + 1) return 'the Ticket Kiosk';
-    if (Math.hypot(x - evac.x, z - evac.z) < 8) return 'the Evacuation Gate';
-    if (Math.hypot(x - breachX, z - breachZ) < 10) return 'the Breached Fence';
+    if (Math.hypot(x - evac.x, z - evac.z) < 8) return 'the Exit';
+    if (Math.hypot(x - breachX, z - breachZ) < 10) return 'the Park Gate';
+    if (Math.abs(x) < SPINE) return 'the Avenue';
     return 'Lot B';
   };
 
-  const lot = { seed, flip, fence: FENCE, cars, stops, lights, puddles, evac, breach: { x: breachX, z: breachZ }, kiosk: { x: kX, z: kZ, hw, hd, h: kh }, camKids, camExit };
+  const lot = {
+    seed, flip, fence: FENCE, stalls, stallW: STALL_W, stallL: STALL_L, spine: SPINE,
+    cars, stops, lights, puddles, evac,
+    breach: { x: breachX, z: breachZ },
+    kiosk: { x: kX, z: kZ, hw, hd, h: kh },
+  };
 
   const out = {
     seed, LAYOUT, ground, things, structures, refuges,
     rocks: [], trees, cover: [], logs: [], grass: [],
     pond: null, river: null, riverZ: () => -999,
-    landmarks: [{ name: 'Ticket Kiosk', x: kX, z: kZ }, { name: 'Evacuation Gate', x: evac.x, z: evac.z }],
+    landmarks: [{ name: 'Ticket Kiosk', x: kX, z: kZ }, { name: 'Exit', x: evac.x, z: evac.z }],
     grazing: [],
     coverAt: () => 0,
     waterY: () => -99,
     depthAt, wetAt,
     coverHeight: () => 0,
-    windAt: () => 1,
+    windAt: (x, z, w, out = { x: 0, z: 0 }) => { out.x = w.x; out.z = w.z; return out; },
     surfaceAt: (x, z) => (depthAt(x, z) > 0.04 ? 'water' : Math.max(Math.abs(x), Math.abs(z)) < FENCE ? 'gravel' : 'forest'),
     placeName,
     speedFactor: (x, z) => (depthAt(x, z) > 0.08 ? 0.82 : 1),

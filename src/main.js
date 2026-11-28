@@ -150,12 +150,10 @@ async function boot() {
   // their sight (the owner: never cut away to the paddock while it is at the hut); a pole camera out where the director would stand only
   // when it has gone off. The splash uses `director` (observe mode later, 'o' or watching after a death, frames as before); the monitor on
   // the guard's counter keeps showing the same feed after the cut (`feedDir`, src/view/gatehouse.js live()).
-  const HUTCAMS = GATE ? [{ ...GATE.cam, cam: 1, label: LOT_ON ? 'LOT B · KIOSK' : 'GATEHOUSE EXT' }, ...(GATE.cam2 ? [{ ...GATE.cam2, cam: 2, label: LOT_ON ? 'LOT B · WEST' : 'GATEHOUSE W' }] : [])] : [];
+  const HUTCAMS = GATE ? [{ ...GATE.cam, cam: 1, label: LOT_ON ? 'LOT B · KIOSK EXT' : 'GATEHOUSE EXT' }, ...(GATE.cam2 ? [{ ...GATE.cam2, cam: 2, label: LOT_ON ? 'LOT B · WEST' : 'GATEHOUSE W' }] : [])] : [];
   const gateMount = (D) => (sm, md) => {
-    const at = (M) => ({ x: M.x, y: terrain.height(M.x, M.z) + M.y, z: M.z, cam: M.cam, label: M.label });
-    if (LOT_ON && !S.gate && GATE.camKids && (S.clock < 4.2 || Math.floor(S.clock / 4.5) % 2 === 0)) {
-      const K = GATE.camKids; return { x: K.x, y: terrain.height(K.x, K.z) + K.y, z: K.z, cam: 4, label: 'LOT B · STRANDED VISITORS', look: K.look };
-    }
+    const at = (M) => ({ x: M.x, y: terrain.height(M.x, M.z) + M.y, z: M.z, cam: M.cam, label: M.label, ...(M.look ? { look: M.look } : {}) });
+    if (LOT_ON && !S.gate) return at(HUTCAMS[0]);      // Option A: single composed kiosk shot showing rex in foreground + stalled minivan & lit EXIT in midground
     const sees = (M) => { const p = at(M); return Math.hypot(sm.x - M.x, sm.z - M.z) < 45 && md.los(p.x, p.y, p.z, sm.head.pos.x, sm.head.pos.y, sm.head.pos.z); };
     const cur = D.cam.mount && HUTCAMS.find((M) => M.cam === D.cam.mount.cam), far = (M) => Math.hypot(sm.x - M.x, sm.z - M.z) > D.tooClose;
     if (cur && sees(cur) && far(cur)) return at(cur);
@@ -659,7 +657,7 @@ async function boot() {
     // the animal stays exactly where the feed last showed it (the guard's noises kept it round the hut: src/gatesplash.js); the monitor
     // carries on with the same camera
     if (feedDir) { Object.assign(feedDir.cam, director.cam); S.mon = null; }
-    S.awareAt = S.clock + GATE_LOOK.hold + GATE_LOOK.tilt;      // it can sense you once you have looked up (setMode keeps this)
+    S.awareAt = LOT_ON ? Infinity : S.clock + GATE_LOOK.hold + GATE_LOOK.tilt;      // it can sense you once you have looked up (setMode keeps this); in Lot B, not until you show yourself (lotReveal)
     setMode('foot');
     Y.x = Y.px = G.guard.x; Y.z = Y.pz = G.guard.z; Y.vx = Y.vz = 0; Y.eye = 1.7; Y.crouch = false; Y.up = null;
     Y.yaw = Math.atan2(-(G.window.x - G.guard.x), -(G.window.z - G.guard.z)); Y.pitch = 0.04; S.lens = 62;
@@ -670,7 +668,7 @@ async function boot() {
   function gateTilt() {
     const g = S.gate; if (!g || g.done) return 0;
     const t = S.clock - g.t0, k = clamp((t - GATE_LOOK.hold) / GATE_LOOK.tilt, 0, 1), e = k * k * (3 - 2 * k);
-    if (k >= 1) { g.done = true; arena.opening({ x: S.you.x, z: S.you.z }); }      // the chair scrapes and a step: it is curious, and comes to see
+    if (k >= 1) { g.done = true; if (lotMode) { lotMode.activate(); mind.hunger = Math.max(mind.hunger, 0.6); } else arena.opening({ x: S.you.x, z: S.you.z }); }      // the chair scrapes and a step: it is curious, and comes to see
     return g.down * (1 - e);
   }
   // the pause card: one rollout open at a time (the dares included), so the card never needs to scroll
@@ -1255,6 +1253,8 @@ async function boot() {
   // It cannot sense you (or the camera) until a moment after you first take over: every player sees it become aware of
   // them. Until then no agent is offered, and the noises you make are kept from it.
   const aware = () => S.awareAt !== undefined && S.clock >= S.awareAt;
+  // Lot B: sitting still in the dark kiosk you are not noticed. You are once you step outside it, make a noise, or show a light.
+  const lotReveal = () => { const K = terrain.paddock.lot.kiosk, Y = S.you; return Math.abs(Y.x - K.x) > K.hw + 0.2 || Math.abs(Y.z - K.z) > K.hd + 0.2 || S.noises.some((q) => q.you) || props.torchOn; };
   function agents() {
     const kids = lotMode ? lotMode.extraAgents() : [];
     if (!aware()) return kids;
@@ -1302,6 +1302,7 @@ async function boot() {
       S.acc -= DT; n++;
       prev.v.set(sim.pose.v); prev.s.set(sim.pose.s);
       if (S.mode === 'observe') { S.noises.push(...director.noises); director.noises.length = 0; }
+      if (lotMode && S.gate && S.gate.done && !aware() && lotReveal()) S.awareAt = S.clock;
       if (!aware() && S.noises.length) S.noises = S.noises.filter((q) => !q.you);
       for (const q of S.noises) if (q.you && clip) clip.note(q.kind);      // closeout: whistles and shouts, for the closing card
       for (const q of S.noises) if (q.you && (q.kind === 'shout' || q.kind === 'whistle')) rec.event({ src: 'you', type: q.kind, x: q.x, y: q.y, z: q.z });      // and on the tape, so the camera hears them too
@@ -1391,12 +1392,11 @@ async function boot() {
     body.glareEye = mind.dazzle || null; body.update(shown); fx.breath(body.nostril, body.snout, shown.s[1], dtv); if (audio.breathCue) { fx.snort(body.nostril, body.snout, audio.breathCue); audio.breathCue = 0; }
 
     if (S.mode === 'observe' && !S.replay) {      // (a shared tape can play before the visitor steps in: the tape's camera wins)
-      if (LOT_ON && !S.gate && director.cam.since > 4.2) director.cam.cut = true;
       director.update(dtReal * run, sim, mind, camera); solidify(director.cam, 0.5); S.lens = director.cam.fov;
       if (GATE && post && post.cctv) {      // the live gatehouse feed's lettering, and a burst of static when it switches camera
         const I = post.cctvInfo, m = director.cam.mount; if (m && m.cam !== I.cam) post.cctvU.burst.value = 1;
         if (m) { I.cam = m.cam; I.label = m.label; } I.stamp = Date.now(); I.clock = performance.now() / 1000; I.paused = false; I.live = true;
-        I.alert = LOT_ON && !S.gate ? 'ALERT: BREACH IN LOT B · 2 VISITORS STRANDED' : '';
+        I.alert = LOT_ON && !S.gate ? '2 VISITORS STILL IN LOT B' : '';
         post.cctvU.burst.value = Math.max(0, post.cctvU.burst.value - dtReal * 2.5);
       }
       if (GATE && !S.gate) { director.noises.length = 0; director.drop = null; }      // the feed: no stones, meat or flares to draw it off the hut
@@ -1411,7 +1411,7 @@ async function boot() {
     }
     else if (!S.paused && !S.frozen && !S.replay) moveCamera(dtReal);
     if (!S.replay) lens(dtReal); if (!S.paused && !S.frozen) kitTick(dts);
-    if (lotView) lotView.update(dtv, S.started, arena, sim);
+    if (lotView) lotView.update(dtv, S.started, arena, sim, S.dead);
     fx.update(dtv, S.paused || S.frozen ? null : camera);      // paused, nothing puts the camera back each frame: the shake would add up and sink it
     world.followLight(sim.x, sim.groundY, sim.z);
     if (world.update(dtv, camera, renderer)) {
